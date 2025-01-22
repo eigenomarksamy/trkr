@@ -1,0 +1,21 @@
+platforms:
+  - name: "Interactive Brokers"
+    transactional_fee:
+      amount: 1.00
+      type: "flat"
+      currency: "USD"
+  - name: "Coinbase"
+    transactional_fee:
+      amount: 0.05
+      type: "percent"
+      currency: "EUR"
+  - name: "Degiro"
+    transactional_fee:
+      amount: 1.00
+      type: "flat"
+      currency: "EUR"
+  - name: "Coinbase Wallet"
+    transactional_fee:
+      amount: 0.05
+      type: "percent"
+      currency: "EUR"

@@ -1,0 +1,7 @@
+.venv/
+.vscode/
+config/platforms.yml
+config/settings.yml
+config/sheets.yml
+data/
+__pycache__/

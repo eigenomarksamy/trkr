@@ -1,0 +1,23 @@
+live-market-data: <some_sheet>
+history-full:
+    btceur: <some_sheet>
+    veur: <some_sheet>
+    vusa: <some_sheet>
+    iwda: <some_sheet>
+    vwce: <some_sheet>
+    pfe: <some_sheet>
+    nvda: <some_sheet>
+    meta: <some_sheet>
+    usd: <some_sheet>
+    full: <some_sheet>
+history-lite:
+    btceur: <some_sheet>
+    meta: <some_sheet>
+    nvda: <some_sheet>
+    pfe: <some_sheet>
+    iwda: <some_sheet>
+    vwce: <some_sheet>
+    veur: <some_sheet>
+    vusa: <some_sheet>
+    usd: <some_sheet>
+transactions: <some_sheet>
