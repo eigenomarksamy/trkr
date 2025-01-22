@@ -133,5 +133,7 @@ There are some google sheets required to be used as source of data.
 The settings are fairly simple.
 
 `default-currency:` That's either 'EUR' or 'USD' without the quotes.
+
 `history-variant:` That's either 'full' or 'lite' without the quotes.
+
 `generation-dir:` That's the directory that will have the output of the program, for example: 'data/user/' without the quotes.
