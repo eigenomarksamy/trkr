@@ -51,9 +51,13 @@ def main(args: argparse.Namespace) -> None:
     directories = Directories(base_dir=gen_dir)
     if not is_quiet:
         print(f'Generation at: {gen_dir}')
-    sheets_address = get_yaml_parameter('config/sheets.yml')
-    sheets_obj = Sheets(sheets_address)
+    if get_yaml_parameter('config/settings.yml', 'use-sheet-of-sheets'):
+        sheets_address = get_yaml_parameter('config/king-of-kings.yml')
+    else:
+        sheets_address = get_yaml_parameter('config/sheets.yml')
+    sheets_obj = Sheets(sheets_address, get_yaml_parameter('config/settings.yml', 'use-sheet-of-sheets'))
     sheets_urls = sheets_obj.get_sheets_links()
+    sheets_address = sheets_obj.get_sheets_ids()
     transactions_file = get_google_sheet(sheets_address['transactions'],
                                          f'{directories.sheets_dir}',
                                          'transactions.csv')

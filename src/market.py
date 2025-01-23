@@ -62,8 +62,16 @@ class MarketReader:
     def align_data(self, def_currency: str, is_quiet: bool = False) -> dict:
         data_aligned = {}
         for entry in self.market_data:
-            data_aligned[entry['symbol']] = {'price' : float(entry['price']),
-                                             'currency' : entry['currency']}
+            try:
+                data_aligned[entry['symbol']] = {'price' : float(entry['price']),
+                                                'currency' : entry['currency']}
+            except ValueError as verr:
+                if not is_quiet:
+                    raise ValueError(f"Exception raised!\n\t--> {verr}.\n" +
+                                     f"In other words,\n\t" +
+                                     f'GOOGLEFINANCE is down for {entry["symbol"]}.' +
+                                     '\n\tPossibly more')
+                raise verr
         for entry in data_aligned.keys():
             if def_currency == 'EUR':
                 if data_aligned[entry]['currency'] == 'USD':

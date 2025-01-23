@@ -3,5 +3,6 @@
 config/platforms.yml
 config/settings.yml
 config/sheets.yml
+config/king-of-kings.yml
 data/
 __pycache__/

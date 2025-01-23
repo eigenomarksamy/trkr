@@ -1,4 +1,4 @@
 default-currency: EUR
 history-variant: lite
 generation-dir: data/
-use-local-transactions: false
+use-sheet-of-sheets: false
