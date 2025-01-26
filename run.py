@@ -4,7 +4,9 @@ from src.csv_mngr import CsvMngr
 from src.portfolio import Portfolio
 from src.transactions import Transactions
 from src.cfg_mngr import CfgManager, Directories
-from src.market_mngr import MarketDataYahoo, Interval, MarketSymbol, YFinanceSymbMap, convertSymbListToDicts
+from src.market_mngr import (MarketDataYahoo, Interval, MarketSymbol, YFinanceSymbMap,
+                            convertSymbListToDicts, MarketDataGoogleLite, fetch_histories,
+                            MarketDataGoogleFull, MarketReader)
 from src.sheets_mngr import get_google_sheet
 from src.utils import parse_arguments, check_internet, get_yaml_parameter
 from src.csv_mngr import write_markdown_table, write_markdown_urls, write_csv_lazy
@@ -48,14 +50,31 @@ def main(args: Namespace) -> None:
     symbols_of_interest += [f'{cfg_obj.defCurrency.upper()}']
     if not is_quiet:
         print("Symbols of Interest: ", symbols_of_interest)
+    history_variant = get_yaml_parameter('config/settings.yml', 'history-variant').lower()
     if get_yaml_parameter('config/settings.yml', 'market-data-origin').lower() == 'yahoo':
         start_date = transactions_obj.get_first_transaction_date()
         if not is_quiet:
             print("Start Date:", start_date)
-        if get_yaml_parameter('config/settings.yml', 'history-variant').lower() == 'lite':
+        if history_variant == 'lite':
             market = MarketDataYahoo(tickers=symbols_of_interest, start_date=start_date, interval=Interval.WEEKLY, req_currency=cfg_obj.defCurrency)
         else:
             market = MarketDataYahoo(tickers=symbols_of_interest, start_date=start_date)
+    elif get_yaml_parameter('config/settings.yml', 'market-data-origin').lower() == 'google':
+        market_google_file = get_google_sheet(sheets_address['live-market-data'], f'{directories.market_data_dir}', 'market-google.csv')
+        if not is_quiet:
+            print('CSV file saved to: {}'.format(market_google_file))
+        market_csv = MarketReader(market_google_file, symbols_of_interest)
+        history_ret_status, history_ret = fetch_histories(sheets_address,
+                                                          history_variant,
+                                                          directories.history_dir,
+                                                          symbols_of_interest, is_quiet)
+        if history_variant == 'lite':
+            market_history_obj = MarketDataGoogleLite(history_ret, cfg_obj.defCurrency)
+        else:
+            market_history_obj = MarketDataGoogleFull(history_ret, cfg_obj.defCurrency,
+                                                      market_csv.get_usd_conversion_rate() \
+                                                      if cfg_obj.defCurrency == 'USD' \
+                                                      else market_csv.get_usd_conversion_rate()**-1)
     symbols_obj_list = []
     for symbol in symbols_of_interest:
         symbol_key = YFinanceSymbMap.tickerMap.get(symbol.lower())

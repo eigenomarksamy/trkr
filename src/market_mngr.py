@@ -3,6 +3,7 @@ import csv
 import yfinance as yf
 from typing import Union, Optional, Tuple
 from datetime import date, datetime
+from src.sheets_mngr import get_google_sheet
 
 class Interval:
     DAILY = '1d'
@@ -291,6 +292,27 @@ class MarketReader:
                 print(f'{entry}: {data_aligned[entry]["price"]}, ' +
                       f'currency: {data_aligned[entry]["currency"]}')
         return data_aligned
+
+def fetch_histories(addresses: dict, suffix: str, destination: str,
+                    symbols_of_interest: list[str],
+                    is_quiet: bool) -> Tuple[bool, Union[dict, list[str]]]:
+    history_files = {}
+    history_symbols = []
+    missing_history_symbols = []
+    for elm in addresses[f'history-{suffix}']:
+        history_files[elm] = get_google_sheet(addresses[f'history-{suffix}'][elm], f'{destination + suffix + "/"}', f'{elm}.csv')
+        if not is_quiet:
+            print(f'CSV history of {elm} saved to file {history_files[elm]}')
+        if elm.upper() not in history_symbols:
+            history_symbols.append(elm.upper())
+    for symbol in symbols_of_interest:
+        if symbol not in history_symbols:
+            if symbol not in missing_history_symbols:
+                missing_history_symbols.append(symbol)
+    if len(missing_history_symbols) > 0:
+        return False, missing_history_symbols
+    else:
+        return True, history_files
 
 def convertSymbListToDicts(symbols: list[MarketSymbol]) -> Tuple[dict, dict]:
     price_dict = {}
