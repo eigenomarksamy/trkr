@@ -68,14 +68,13 @@ def main(args: Namespace) -> None:
     portfolio_dict, total_dict = portfolio.calculate()
     historical_valuation = portfolio.compute_historical_valuation(history_dict)
     entry_points = portfolio.get_entry_points_months()
-    print("Portfolio Dict:")
-    print(portfolio_dict)
-    print("\nTotal Dict:")
-    print(total_dict)
-    print("\nHistorical Dict:")
-    print(historical_valuation)
-    print("\nEntries Dict:")
-    print(entry_points)
+    if not is_quiet:
+        print("Historical Evaluation Dict:")
+        for hv in historical_valuation.keys():
+            print('\t', hv, historical_valuation[hv])
+        print("Entries Dict:")
+        for ep in entry_points.keys():
+            print('\t', ep, entry_points[ep])
     if not is_quiet:
         print("Generating files..")
     write_csv_lazy(pathlib.Path(f'{directories.gen_portfolio_file}'),
