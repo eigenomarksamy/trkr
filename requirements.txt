@@ -2,3 +2,4 @@ pyyaml
 requests
 matplotlib
 numpy
+yfinance

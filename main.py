@@ -1,47 +1,14 @@
-import yaml
-import socket
 import pathlib
 import argparse
-from typing import Union, Optional
-from src.cfg_mngr import CfgManager, Directories, Sheets
+from src.csv_mngr import CsvMngr
 from src.portfolio import Portfolio
 from src.transactions import Transactions
-from src.market import (MarketReader, MarketHistoryFull,
-                        MarketHistoryLite, fetch_histories)
-from src.csv_mngr import (CsvMngr, write_markdown_table,
-                          write_markdown_urls, write_csv_lazy)
-from src.market import get_google_sheet
+from src.cfg_mngr import CfgManager, Directories, Sheets
+from src.market import MarketReader, MarketHistoryFull, MarketHistoryLite
+from src.market import get_google_sheet, fetch_histories
+from src.csv_mngr import write_markdown_table, write_markdown_urls, write_csv_lazy
 from src.plot import plot_combined, plot_monthly_stocks
-
-def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description='Tracker info')
-    parser.add_argument('--quiet', '-q', action='store_true', dest='is_quiet',
-                        help='Hide detailed output')
-    return parser.parse_args()
-
-def check_internet(host="8.8.8.8", port=53, timeout=3) -> bool:
-    try:
-        socket.setdefaulttimeout(timeout)
-        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
-        return True
-    except socket.error as ex:
-        print(ex)
-        return False
-
-def get_yaml_parameter(yaml_path: pathlib.Path,
-                       parameter: Optional[str]=None) -> Union[str, dict]:
-    param_val = None
-    param_dict = {}
-    with open(yaml_path, 'r') as stream:
-        try:
-            param_dict = yaml.safe_load(stream)
-            if parameter:
-                param_val = param_dict[parameter]
-        except yaml.YAMLError as exc:
-            print(exc)
-    if not parameter:
-        return param_dict
-    return param_val
+from src.utils import parse_arguments, check_internet, get_yaml_parameter
 
 def main(args: argparse.Namespace) -> None:
     is_quiet = args.is_quiet

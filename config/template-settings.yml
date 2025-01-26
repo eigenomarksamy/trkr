@@ -1,4 +1,5 @@
 default-currency: EUR
 history-variant: lite
 generation-dir: data/
+market-data-origin: yahoo # or google
 use-sheet-of-sheets: false

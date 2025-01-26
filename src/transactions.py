@@ -96,6 +96,10 @@ class Transactions:
                 symbols_of_interest.append(transaction.symbol)
         return symbols_of_interest
 
+    def get_first_transaction_date(self, date_format: str='%Y-%m-%d') -> str:
+        first_transaction = min(self.transactions, key=lambda t: datetime.strptime(t.date, "%Y-%m-%d"))
+        return datetime.strptime(first_transaction.date, "%Y-%m-%d").strftime(date_format)
+
     def print(self) -> None:
         print("Transactions:")
         for transaction in self.transactions:
