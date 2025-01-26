@@ -10,7 +10,6 @@ from src.sheets_mngr import get_google_sheet
 from src.utils import parse_arguments, check_internet, get_yaml_parameter
 from src.csv_mngr import write_markdown_table, write_csv_lazy
 from src.plot import plot_combined, plot_monthly_stocks
-from markdown2 import markdown
 from jinja2 import Environment, FileSystemLoader
 
 def main(args: Namespace) -> None:
