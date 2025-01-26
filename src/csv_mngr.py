@@ -22,6 +22,14 @@ class CsvMngr:
             writer.writerow(self.headers)
             writer.writerows(data)
 
+    @staticmethod
+    def convert_read_list_to_dict(read_list: list) -> dict:
+        ret = {}
+        for it in read_list:
+            dumbo = list(it.values())
+            ret[dumbo[0]]= dumbo[1]
+        return ret
+
 def write_markdown_table(path: pathlib.Path, title: str,
                          col1_title: str, col2_title: str,
                          writable_dict: dict) -> None:

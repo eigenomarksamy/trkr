@@ -24,8 +24,9 @@ def plot_bar(nums: list[float], fig_path: PathLike, labels: list[str] = None) ->
     plt.show()
 
 def plot_monthly_stocks(fig_path: PathLike, data_dict: dict,
-                        entry_points: dict, **kwargs) -> None:
+                        entry_points: dict, **kwargs) -> list[PathLike]:
     Path(fig_path).parent.mkdir(parents=True, exist_ok=True)
+    figs_paths = []
     for elm in data_dict:
         x = np.arange(len(data_dict[elm].keys()))
         names = list(data_dict[elm].keys())
@@ -38,6 +39,7 @@ def plot_monthly_stocks(fig_path: PathLike, data_dict: dict,
         ax.set_xticks(x)
         ax.set_xticklabels(names)
         ax.set_title(elm.upper())
+        figs_paths.append(fig_path.replace('.png', f'_{elm.lower()}.png'))
         fig.savefig(fig_path.replace('.png', f'_{elm.lower()}.png'))
     fig, ax = plt.subplots(1, 1, figsize=(12, 6))
     colors = plt.cm.get_cmap('tab10', len(data_dict))
@@ -62,16 +64,19 @@ def plot_monthly_stocks(fig_path: PathLike, data_dict: dict,
     ax.set_xticklabels(names)
     ax.set_title('Combined Monthly Stocks')
     ax.legend()
+    figs_paths.append(fig_path)
     fig.savefig(fig_path)
     if kwargs.get('show', False):
         plt.show()
+    return figs_paths
 
 def plot_combined(fig_path: PathLike, nums_pie: list[float], nums_bar: list[float],
                   nums_points: list[float], nums_points_1: list[float],
                   labels_pie: list[str] = None, labels_bar: list[str] = None,
                   labels_points: list[str] = None, labels_points_1: list[str] = None,
-                  **kwargs) -> None:
+                  **kwargs) -> list[PathLike]:
     Path(fig_path).parent.mkdir(parents=True, exist_ok=True)
+    figs_paths = []
     y1 = np.array(nums_pie)
     y2 = np.array(nums_bar)
     y3 = np.array(nums_points)
@@ -107,5 +112,10 @@ def plot_combined(fig_path: PathLike, nums_pie: list[float], nums_bar: list[floa
     fig2.savefig(fig2_name)
     fig3.savefig(fig3_name)
     fig4.savefig(fig4_name)
+    figs_paths.append(fig1_name)
+    figs_paths.append(fig2_name)
+    figs_paths.append(fig3_name)
+    figs_paths.append(fig4_name)
     if kwargs.get('show', False):
         plt.show()
+    return figs_paths

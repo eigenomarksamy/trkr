@@ -11,18 +11,9 @@ class Interval:
     WEEKLY = '1wk'
 
 class YFinanceSymbMap:
-    tickerMap = {
-                    'btceur': "BTC-EUR",
-                    'meta': "META",
-                    'nvda': "NVDA",
-                    'pfe': "PFE",
-                    'usd': "EURUSD=X",
-                    'eur': "USDEUR=X",
-                    'iwda': "IWDA.AS",
-                    'vwce': "VWCE.AS",
-                    'veur': "VEUR.AS",
-                    'vusa': "VUSA.AS"
-                }
+
+    def __init__(self, tickers_map: dict) -> None:
+        self.tickerMap = tickers_map
 
 class MarketData:
 
@@ -143,6 +134,7 @@ class MarketDataGoogleFull(MarketDataGoogle):
 class MarketDataYahoo(MarketData):
 
     def __init__(self, tickers: list[str],
+                 ticker_map: YFinanceSymbMap,
                  start_date: Union[str, date],
                  end_date: Optional[Union[str, date]]=None,
                  date_format: str='%Y-%m-%d',
@@ -150,7 +142,7 @@ class MarketDataYahoo(MarketData):
                  auto_convert_currency: bool=True,
                  **kwargs) -> None:
         super().__init__()
-        self.tickers = [YFinanceSymbMap.tickerMap.get(ticker.lower(), ticker.lower()) for ticker in tickers]
+        self.tickers = [ticker_map.tickerMap.get(ticker.lower(), ticker.lower()) for ticker in tickers]
         self.interval = interval
         self.date_format = date_format
         self.start_date = self.assign_date(start_date, self.date_format)
@@ -164,7 +156,7 @@ class MarketDataYahoo(MarketData):
         self.formulate_history()
         if auto_convert_currency:
             req_currency = kwargs.get('req_currency', 'NA')
-            self.currency_key = YFinanceSymbMap.tickerMap.get(req_currency.lower(), None)
+            self.currency_key = ticker_map.tickerMap.get(req_currency.lower(), None)
             if not self.currency_key:
                 raise Exception("Currency conversion required, no currency provided.")
             else:
@@ -200,13 +192,14 @@ class MarketDataYahoo(MarketData):
         for ticker in self.tickers:
             if ticker == self.currency_key:
                 continue
-            for d in self.history[ticker]:
-                if self.currency[ticker] != req_currency.upper():
-                    try:
-                        self.history[ticker][d] *= self.history[self.currency_key][d]
-                    except KeyError:
-                        self.history[ticker][d] *= self.current_price[self.currency_key]
-                    self.currency[ticker] = req_currency.upper()
+            if self.currency[ticker] != req_currency.upper():
+                self.current_price[ticker] *= self.current_price[self.currency_key]
+                self.currency[ticker] = req_currency.upper()
+                for d in self.history[ticker]:
+                        try:
+                            self.history[ticker][d] *= self.history[self.currency_key][d]
+                        except KeyError:
+                            self.history[ticker][d] *= self.current_price[self.currency_key]
 
     def fetch_history(self) -> dict:
         return self.history
