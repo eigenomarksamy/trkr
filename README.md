@@ -55,78 +55,41 @@ There are some google sheets required to be used as source of data.
 
     ***Please note that this is just an example and not an actual sheet.***
 
-#### Market Data
+#### Symbol Map
 
-1. Same as step 1 in 'Transactions'
+Since we migrated from `GOOGLEFINANCE` to `YFinance` we need to add symbols' map for the symbols of interest.
+
+1. Create a sheet similar to the  `transactions` sheet created in the previous step
+with a map between the symbols of interest and how they're represented on yahoo-finance.
 
     With the following headers:
 
     - symbol
-    - price
-    - currency
+    - ticker
 
-    Fill the sheet with the data of the symbols you're interested in, for example:
+    **Example:**
 
-    | symbol | price | currency |
-    | ------ | ----- | ---------|
-    | BTCEUR | `=GOOGLEFINANCE("BTCEUR")` | EUR |
-    | NVDA | `=GOOGLEFINANCE("NASDAQ:NVDA")` | USD |
-    | PFE | `=GOOGLEFINANCE("NYSE:PFE")` | USD |
-    | VEUR | `=GOOGLEFINANCE("AMS:VEUR")` | EUR |
+    | symbol | ticker |
+    |--------|-------|
+    | btceur | BTC-EUR |
+    | meta | META |
+    | usd | EURUSD=X |
+    | vwce | VWCE.AS |
 
-2. Same as step '2' that you did with 'Transactions'
+2. Share the sheet and copy the link, don't forget to change the sharing settings to 'Anyone with link'.
 
-3. Same as step '3' that you did with 'Transactions'
+3. Paste the link in *config/sheets.yml*, then strip everything in the sheet to just the ID.
 
-    Use the `live-market-data` instead of 'transactions' this time.
+    Example:
+    <https://docs.google.com/spreadsheets/d/1S04AVxZ7vKS3_7G5hJzeclkg2M8p69UghOMMfqPh-AE/edit?usp=drive_link> --> `1S04AVxZ7vKS3_7G5hJzeclkg2M8p69UghOMMfqPh-AE`
 
-4. While still with the google sheet open, do the following procedure:
-   1. Go to 'File'
-   2. Go to 'Settings'
-   3. Go to 'Calculation'
-   4. Under 'Recalculation', change the selection to 'On change and every minute'.
-   5. Make sure the sheet is synced to the drive.
-   6. Voila!
-
-#### Market History
-
-1. Same as step '1' in 'Market Data'
-
-    With no headers of your own.
-
-    Just paste the following formula in the `A1` cell:
-    `=GOOGLEFINANCE("<symbolOfInterest>","price",DATE(<YYYY-MM-DD>),TODAY(),"<interval>")`
-
-    - Replace the `<YYYY-MM-DD>` with the actual date of interest (first date), e.g., 2023-12-03.
-    - Replace the `<symbolOfInterest>` with the actual symbol you're interested in, e.g., `AMS:VUSA`
-    - Replace the `<interval>` with the interval of interest, either `daily` or `weekly`, weekly is used for the lite version and daily used for the full version, check the Settings section, to configure that variation.
-
-    After doing that a table will be generated, you need to create a column with the same size of the current table, the column title's is 'Currency' then you enter the currency or use the '`GOOGLEFINANCE`' API to do so.
-
-2. Same as step '2' from 'Market Data'.
-3. Same as step '3' from 'Market Data'.
+    sheets.yml:
 
     ``
-    history-full:
-    ``
-
-    ``
-    btceur: 1V7BHFocUnTAMENoY8FkYtyug7597z5sPpRUQsGb_Y6Y
-    ``
-
-    Or
-
-    ``
-    history-full:
-    ``
-
-    ``
-        btceur: 1V7BHFocUnTAMENoY8FkYtyug7597z5sPpRUQsGb_Y6Y
+    `yfinance-map: 1S04AVxZ7vKS3_7G5hJzeclkg2M8p69UghOMMfqPh-AE`
     ``
 
     ***Please note that this is just an example and not an actual sheet.***
-
-**Repeat the previous steps for all the symbols you're interested in.**
 
 ### Settings
 
