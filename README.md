@@ -103,7 +103,7 @@ The settings are fairly simple.
 
 `generation-dir:` That's the directory that will have the output of the program, for example: 'data/user/' without the quotes.
 
-### Demo
+## Demo
 
 **To run the demo execute the following command in the home directory terminal for the project:**
 
