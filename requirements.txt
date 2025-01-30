@@ -4,3 +4,4 @@ matplotlib
 numpy
 yfinance
 markdown2
+jinja2

@@ -109,6 +109,10 @@ The settings are fairly simple.
 
 ``$ python -m venv .venv``
 
+``$ .venv/Scripts/activate``
+
+``$ python -m pip install --upgrade pip``
+
 ``$ pip install -r requirements.txt``
 
 ``$ python run.py --sheets-config-file config/demo-sheets.yml --settings-config-file config/demo-settings.yml``
