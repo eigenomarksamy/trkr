@@ -48,12 +48,14 @@ There are some google sheets required to be used as source of data.
 3. Paste the link in *config/sheets.yml*, then strip everything in the sheet to just the ID.
 
     Example:
-    <https://docs.google.com/spreadsheets/d/1S04AVxZ7vKS3_7G5hJzeclkg2M8p69UghOMMfqPh-AE/edit?usp=drive_link> --> `1S04AVxZ7vKS3_7G5hJzeclkg2M8p69UghOMMfqPh-AE`
+    <https://docs.google.com/spreadsheets/d/1Hgk5htL_6VlO8byEGJjLkD2a0XZoVXjWdoWRbWJyxVI/edit?usp=drive_link> --> `1Hgk5htL_6VlO8byEGJjLkD2a0XZoVXjWdoWRbWJyxVI`
 
     sheets.yml:
-    `transactions: 1S04AVxZ7vKS3_7G5hJzeclkg2M8p69UghOMMfqPh-AE`
+    `transactions: 1Hgk5htL_6VlO8byEGJjLkD2a0XZoVXjWdoWRbWJyxVI`
 
     ***Please note that this is just an example and not an actual sheet.***
+
+***Pro-tip: you can import your transactions as a CSV file from any platform you use (IBKR, CoinBase, Degiro, etc.).***
 
 #### Symbol Map
 
@@ -81,12 +83,12 @@ with a map between the symbols of interest and how they're represented on yahoo-
 3. Paste the link in *config/sheets.yml*, then strip everything in the sheet to just the ID.
 
     Example:
-    <https://docs.google.com/spreadsheets/d/1S04AVxZ7vKS3_7G5hJzeclkg2M8p69UghOMMfqPh-AE/edit?usp=drive_link> --> `1S04AVxZ7vKS3_7G5hJzeclkg2M8p69UghOMMfqPh-AE`
+    <https://docs.google.com/spreadsheets/d/1RZ_NBdxaFfT-ElmmaaQdouxoeVKLuT2r0inuvxFX8n4/edit?usp=drive_link> --> `1RZ_NBdxaFfT-ElmmaaQdouxoeVKLuT2r0inuvxFX8n4`
 
     sheets.yml:
 
     ``
-    `yfinance-map: 1S04AVxZ7vKS3_7G5hJzeclkg2M8p69UghOMMfqPh-AE`
+    `yfinance-map: 1RZ_NBdxaFfT-ElmmaaQdouxoeVKLuT2r0inuvxFX8n4`
     ``
 
     ***Please note that this is just an example and not an actual sheet.***
