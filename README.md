@@ -100,3 +100,15 @@ The settings are fairly simple.
 `history-variant:` That's either 'full' or 'lite' without the quotes.
 
 `generation-dir:` That's the directory that will have the output of the program, for example: 'data/user/' without the quotes.
+
+### Demo
+
+**To run the demo execute the following command in the home directory terminal for the project:**
+
+``$ python -m venv .venv``
+
+``$ pip install -r requirements.txt``
+
+``$ python run.py --sheets-config-file config/demo-sheets.yml --settings-config-file config/demo-settings.yml``
+
+Then check the directory `data/demo/`
