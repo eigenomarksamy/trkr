@@ -23,10 +23,12 @@ def main(args: Namespace) -> None:
     if not is_quiet:
         print("Connection exists.")
     cfg_obj = CfgManager()
-    gen_dir = get_yaml_parameter('config/settings.yml', 'generation-dir')
+    settings_config_file_path = args.settings_config_file
+    sheets_config_file_path = args.sheets_config_file
+    gen_dir = get_yaml_parameter(settings_config_file_path, 'generation-dir')
     directories = Directories(base_dir=gen_dir)
-    sheets_address = get_yaml_parameter('config/sheets.yml')
-    cfg_obj.update_cfg(defCurrency=get_yaml_parameter("config/settings.yml",
+    sheets_address = get_yaml_parameter(sheets_config_file_path)
+    cfg_obj.update_cfg(defCurrency=get_yaml_parameter(settings_config_file_path,
                                                       "default-currency"))
     if not is_quiet:
         print(cfg_obj.get_cfg())
@@ -56,11 +58,11 @@ def main(args: Namespace) -> None:
     symbols_of_interest += [f'{cfg_obj.defCurrency.upper()}']
     if not is_quiet:
         print("Symbols of Interest: ", symbols_of_interest)
-    history_variant = get_yaml_parameter('config/settings.yml', 'history-variant').lower()
+    history_variant = get_yaml_parameter(settings_config_file_path, 'history-variant').lower()
     if history_variant == 'full':
         if not is_quiet:
             print("WARNING! Full history variant is not recommended.")
-    if get_yaml_parameter('config/settings.yml', 'market-data-origin').lower() == 'yahoo':
+    if get_yaml_parameter(settings_config_file_path, 'market-data-origin').lower() == 'yahoo':
         start_date = transactions_obj.get_first_transaction_date()
         if not is_quiet:
             print("Start Date:", start_date)
@@ -72,7 +74,7 @@ def main(args: Namespace) -> None:
                                     else Interval.DAILY,
                                  req_currency=cfg_obj.defCurrency)
     else:
-        if get_yaml_parameter('config/settings.yml', 'market-data-origin').lower() == 'google':
+        if get_yaml_parameter(settings_config_file_path, 'market-data-origin').lower() == 'google':
             raise Exception("Google origin is deprecated.")
         else:
             raise Exception("Not supported market origin.")

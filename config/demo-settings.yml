@@ -1,0 +1,5 @@
+default-currency: EUR
+history-variant: lite
+generation-dir: data/demo/
+market-data-origin: yahoo
+use-sheet-of-sheets: false
