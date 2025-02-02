@@ -1,22 +1,96 @@
-from pathlib import Path
+from os import PathLike
+from typing import Optional, Any
+from src.utils import get_yaml_parameter
+
+class CfgParam:
+
+    def __init__(self, name: str, default: Any) -> None:
+        self.name = name
+        self.value = default
+
+    def update(self, value: Any) -> None:
+        self.value = value
+
+class CfgParams:
+
+    def __init__(self, cfg: list[CfgParam]) -> None:
+        self.params = {}
+        for name in cfg:
+            self.params[name.name] = name.value
+
+    def update(self, **kwargs) -> None:
+        for key, value in kwargs.items():
+            if key in self.params:
+                self.params[key] = value
+
+    def to_str(self, **kwargs) -> str:
+        pass
 
 class CfgManager:
-    def __init__(self, platform_cfg: dict = None, market_cfg: dict = None,
-                 ex_rate_cfg: dict = None, def_currency: str = 'EUR') -> None:
+
+    def __init__(self, cfg_params: CfgParams) -> None:
+        self.params = cfg_params
+
+class ConfigManager:
+    def __init__(self, platform_cfg: dict = None,
+                 market_cfg: dict = None,
+                 ex_rate_cfg: dict = None,
+                 def_currency: str = 'EUR',
+                 symbols_standard: str = 'custom',
+                 history_variant: str = 'lite',
+                 use_sheet_of_sheets: bool = False,
+                 use_local_transactions: bool = False,
+                 market_data_origin: str = 'yahoo',
+                 generation_dir: PathLike = 'data/gen') -> None:
         self.defCurrency = def_currency
         self.marketCfg = market_cfg
         self.exRateCfg = ex_rate_cfg
         self.platformCfg = platform_cfg
+        self.symbols_standard = symbols_standard
+        self.history_variant = history_variant
+        self.use_sheet_of_sheets = use_sheet_of_sheets
+        self.use_local_transactions = use_local_transactions
+        self.market_data_origin = market_data_origin
+        self.generation_dir = generation_dir
 
     def get_cfg(self) -> str:
         return f'Default Currency: {self.defCurrency},\n' + \
                f'Market Cfg: {self.marketCfg},\n' + \
                f'Ex Rate Cfg: {self.exRateCfg},\n' + \
-               f'Platform Cfg: {self.platformCfg}'
+               f'Platform Cfg: {self.platformCfg}\n' + \
+               f'Symbols Standard: {self.symbols_standard}\n' + \
+               f'History Variant: {self.history_variant}\n' + \
+               f'Use Sheet of Sheets: {self.use_sheet_of_sheets}\n' + \
+               f'Use Local Transactions: {self.use_local_transactions}\n' + \
+               f'Market Data Origin: {self.market_data_origin}\n' + \
+               f'Generation Dir: {self.generation_dir}'
 
     def update_cfg(self, **kwargs) -> None:
         self.defCurrency = kwargs.get('defCurrency', self.defCurrency)
+        self.defCurrency = kwargs.get('def_currency', self.defCurrency)
         self.platformCfg = kwargs.get('platformCfg', self.platformCfg)
+        self.platformCfg = kwargs.get('platform_cfg', self.platformCfg)
+        self.marketCfg = kwargs.get('marketCfg', self.marketCfg)
+        self.marketCfg = kwargs.get('market_cfg', self.marketCfg)
+        self.exRateCfg = kwargs.get('exRateCfg', self.exRateCfg)
+        self.exRateCfg = kwargs.get('ex_rate_cfg', self.exRateCfg)
+        self.symbols_standard = kwargs.get('symbols_standard'), self.symbols_standard
+        self.history_variant = kwargs.get('history_variant'), self.history_variant
+        self.use_sheet_of_sheets = kwargs.get('use_sheet_of_sheets'), self.use_sheet_of_sheets
+        self.use_local_transactions = kwargs.get('use_local_transactions'), self.use_local_transactions
+        self.market_data_origin = kwargs.get('market_data_origin'), self.market_data_origin
+        self.generation_dir = kwargs.get('generation_dir'), self.generation_dir
+
+    def get_param(self, param_name: str) -> Any:
+        return getattr(self, param_name, None)
+
+def build_config_manager(settings_conf_yml: PathLike) -> ConfigManager:
+    return ConfigManager(def_currency=get_yaml_parameter(settings_conf_yml, "default-currency").upper(),
+                         generation_dir=get_yaml_parameter(settings_conf_yml, 'generation-dir'),
+                         history_variant=get_yaml_parameter(settings_conf_yml, 'history-variant').lower(),
+                         market_data_origin=get_yaml_parameter(settings_conf_yml, 'market-data-origin').lower(),
+                         use_local_transactions=get_yaml_parameter(settings_conf_yml, 'use-local-transactions'),
+                         symbols_standard=get_yaml_parameter(settings_conf_yml, 'symbols-standard').lower())
 
 class Directories:
 

@@ -3,7 +3,7 @@ from argparse import Namespace
 from src.csv_mngr import CsvMngr
 from src.portfolio import Portfolio
 from src.transactions import Transactions
-from src.cfg_mngr import CfgManager, Directories
+from src.cfg_mngr import Directories, build_config_manager
 from src.market_mngr import (MarketDataYahoo, Interval, MarketSymbol,
                              YFinanceSymbMap, convertSymbListToDicts)
 from src.sheets_mngr import get_google_sheet
@@ -22,14 +22,12 @@ def main(args: Namespace) -> None:
         return
     if not is_quiet:
         print("Connection exists.")
-    cfg_obj = CfgManager()
     settings_config_file_path = args.settings_config_file
     sheets_config_file_path = args.sheets_config_file
-    gen_dir = get_yaml_parameter(settings_config_file_path, 'generation-dir')
-    directories = Directories(base_dir=gen_dir)
-    sheets_address = get_yaml_parameter(sheets_config_file_path)
-    cfg_obj.update_cfg(defCurrency=get_yaml_parameter(settings_config_file_path,
-                                                      "default-currency"))
+    cfg_obj = build_config_manager(settings_config_file_path)
+    directories = Directories(base_dir=cfg_obj.get_param('generation_dir'))
+    if not cfg_obj.get_param('use_local_transactions'):
+        sheets_address = get_yaml_parameter(sheets_config_file_path)
     if not is_quiet:
         print(cfg_obj.get_cfg())
     yfinance_map_file = get_google_sheet(sheets_address['yfinance-map'],
@@ -55,14 +53,14 @@ def main(args: Namespace) -> None:
     if not is_quiet:
         transactions_obj.print()
     symbols_of_interest = transactions_obj.get_symbols_of_interest()
-    symbols_of_interest += [f'{cfg_obj.defCurrency.upper()}']
+    symbols_of_interest += [f'{cfg_obj.get_param("defCurrency")}']
     if not is_quiet:
         print("Symbols of Interest: ", symbols_of_interest)
-    history_variant = get_yaml_parameter(settings_config_file_path, 'history-variant').lower()
+    history_variant = cfg_obj.get_param('history_variant')
     if history_variant == 'full':
         if not is_quiet:
             print("WARNING! Full history variant is not recommended.")
-    if get_yaml_parameter(settings_config_file_path, 'market-data-origin').lower() == 'yahoo':
+    if cfg_obj.get_param('market_data_origin') == 'yahoo':
         start_date = transactions_obj.get_first_transaction_date()
         if not is_quiet:
             print("Start Date:", start_date)
@@ -72,9 +70,9 @@ def main(args: Namespace) -> None:
                                  interval=Interval.WEEKLY \
                                     if history_variant == 'lite' \
                                     else Interval.DAILY,
-                                 req_currency=cfg_obj.defCurrency)
+                                 req_currency=cfg_obj.get_param('defCurrency'))
     else:
-        if get_yaml_parameter(settings_config_file_path, 'market-data-origin').lower() == 'google':
+        if cfg_obj.get_param('market_data_origin')  == 'google':
             raise Exception("Google origin is deprecated.")
         else:
             raise Exception("Not supported market origin.")
@@ -220,7 +218,7 @@ def main(args: Namespace) -> None:
     template = env.get_template('report_template.html')
     html_report = template.render(
         total=total_html,
-        default_currency=cfg_obj.defCurrency,
+        default_currency=cfg_obj.get_param('defCurrency'),
         portfolio_dict=portfolio_dict,
         entries=entries_html,
         plots_history=figs_paths_stocks[::-1],
