@@ -1,5 +1,7 @@
-default-currency: EUR
-history-variant: lite
-generation-dir: data/demo/
-market-data-origin: yahoo
-use-sheet-of-sheets: false
+default-currency: EUR         # or USD
+history-variant: lite         # or full
+generation-dir: data/
+market-data-origin: yahoo     # or google
+use-sheet-of-sheets: false    # or true
+use-local-transactions: false # or true
+symbols-standard: custom      # or yahoo
