@@ -134,7 +134,7 @@ class MarketDataGoogleFull(MarketDataGoogle):
 class MarketDataYahoo(MarketData):
 
     def __init__(self, tickers: list[str],
-                 ticker_map: YFinanceSymbMap,
+                 ticker_map: Optional[YFinanceSymbMap],
                  start_date: Union[str, date],
                  end_date: Optional[Union[str, date]]=None,
                  date_format: str='%Y-%m-%d',
@@ -142,7 +142,10 @@ class MarketDataYahoo(MarketData):
                  auto_convert_currency: bool=True,
                  **kwargs) -> None:
         super().__init__()
-        self.tickers = [ticker_map.tickerMap.get(ticker.lower(), ticker.lower()) for ticker in tickers]
+        if ticker_map:
+            self.tickers = [ticker_map.tickerMap.get(ticker.lower(), ticker.lower()) for ticker in tickers]
+        else:
+            self.tickers = tickers
         self.interval = interval
         self.date_format = date_format
         self.start_date = self.assign_date(start_date, self.date_format)
