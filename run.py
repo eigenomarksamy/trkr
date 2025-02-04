@@ -3,10 +3,10 @@ from argparse import Namespace
 from jinja2 import Environment, FileSystemLoader
 from src.csv_mngr import CsvMngr
 from src.portfolio import Portfolio
-from src.transactions import Transactions
+from src.transactions import build_transactions_object
 from src.cfg_mngr import Directories, build_config_manager
 from src.market_mngr import (MarketDataYahoo, Interval, MarketSymbol,
-                             YFinanceSymbMap, convertSymbListToDicts)
+                             get_yfinance_map, convertSymbListToDicts)
 from src.sheets_mngr import get_google_sheet
 from src.utils import parse_arguments, check_internet, get_yaml_parameter
 from src.csv_mngr import write_markdown_table, write_csv_lazy
@@ -32,26 +32,15 @@ def main(args: Namespace) -> None:
         print(cfg_obj.get_cfg())
     yfinance_map_obj = None
     if cfg_obj.get_param('symbols_standard') != 'yahoo':
-        yfinance_map_file = get_google_sheet(sheets_address['yfinance-map'],
-                                            f'{directories.sheets_dir}',
-                                            'yfinance-map.csv')
-        yfinance_map_csv_obj = CsvMngr(pathlib.Path(f'{yfinance_map_file}'),
-                                    ["symbol", "ticker"])
-        yfinance_map_obj = YFinanceSymbMap(CsvMngr.convert_read_list_to_dict(yfinance_map_csv_obj.read()))
+        yfinance_map_obj = get_yfinance_map(sheets_address['yfinance-map'],
+                                            f'{directories.sheets_dir}')
         if not is_quiet:
             print("Yahoo Finance Ticker map:")
             print(yfinance_map_obj.tickerMap)
-    transactions_file = get_google_sheet(sheets_address['transactions'],
-                                         f'{directories.sheets_dir}',
-                                         'transactions.csv')
-    if not is_quiet:
-        print('CSV file saved to: {}'.format(transactions_file))
-    transactions_obj = Transactions()
-    trans_csv_obj = CsvMngr(pathlib.Path(f'{transactions_file}'),
-                      ["type", "date", "quantity", "fees", "price",
-                       "currency", "symbol", "exchange", "platform",
-                       "ex_rate", "ex_fees"])
-    transactions_obj.add_list(trans_csv_obj.read())
+    transactions_obj = build_transactions_object(cfg_obj.get_param('use_local_transactions'),
+                                                 sheets_address['transactions'],
+                                                 f'{directories.sheets_dir}',
+                                                 is_quiet)
     if not is_quiet:
         transactions_obj.print()
     symbols_of_interest = transactions_obj.get_symbols_of_interest()

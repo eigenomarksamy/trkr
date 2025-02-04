@@ -1,9 +1,11 @@
 import os
 import csv
+import pathlib
 import yfinance as yf
 from typing import Union, Optional, Tuple
 from datetime import date, datetime
 from src.sheets_mngr import get_google_sheet
+from src.csv_mngr import CsvMngr
 
 class Interval:
     DAILY = '1d'
@@ -319,6 +321,17 @@ def convertSymbListToDicts(symbols: list[MarketSymbol]) -> Tuple[dict, dict]:
         for dater in symbol.history:
             history_dict[symbol.symbol][dater] = {'price' : symbol.history[dater]}
     return price_dict, history_dict
+
+def get_yfinance_map(sheet_address: str, directory: os.PathLike,
+                     file_name: str='yfinance-map.csv') -> YFinanceSymbMap:
+    return YFinanceSymbMap(
+            CsvMngr.convert_read_list_to_dict(
+                CsvMngr(
+                    pathlib.Path(
+                        get_google_sheet(sheet_address,
+                                         directory,
+                                         file_name)),
+                    ["symbol", "ticker"]).read()))
 
 def use_market_google():
     market = MarketDataGoogleLite({}, 'SSSS')
