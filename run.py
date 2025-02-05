@@ -39,6 +39,7 @@ def main(args: Namespace) -> None:
         sheets_address = get_yaml_parameter(sheets_config_file_path)
     if not is_quiet:
         print(cfg_obj.get_cfg())
+    logger.info(cfg_obj.get_cfg())
     yfinance_map_obj = None
     if cfg_obj.get_param('symbols_standard') != 'yahoo':
         yfinance_map_obj = get_yfinance_map(sheets_address['yfinance-map'],

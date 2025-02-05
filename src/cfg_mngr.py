@@ -56,16 +56,16 @@ class ConfigManager:
         self.log_dir = log_dir
 
     def get_cfg(self) -> str:
-        return f'Default Currency: {self.defCurrency},\n' + \
-               f'Market Cfg: {self.marketCfg},\n' + \
-               f'Ex Rate Cfg: {self.exRateCfg},\n' + \
-               f'Platform Cfg: {self.platformCfg}\n' + \
-               f'Symbols Standard: {self.symbols_standard}\n' + \
-               f'History Variant: {self.history_variant}\n' + \
-               f'Use Sheet of Sheets: {self.use_sheet_of_sheets}\n' + \
-               f'Use Local Transactions: {self.use_local_transactions}\n' + \
-               f'Market Data Origin: {self.market_data_origin}\n' + \
-               f'Generation Dir: {self.generation_dir}\n' + \
+        return f'Default Currency: {self.defCurrency}, ' + \
+               f'Market Cfg: {self.marketCfg}, ' + \
+               f'Ex Rate Cfg: {self.exRateCfg}, ' + \
+               f'Platform Cfg: {self.platformCfg}, ' + \
+               f'Symbols Standard: {self.symbols_standard}, ' + \
+               f'History Variant: {self.history_variant}, ' + \
+               f'Use Sheet of Sheets: {self.use_sheet_of_sheets}, ' + \
+               f'Use Local Transactions: {self.use_local_transactions}, ' + \
+               f'Market Data Origin: {self.market_data_origin}, ' + \
+               f'Generation Dir: {self.generation_dir}, ' + \
                f'Log Dir: {self.log_dir}'
 
     def update_cfg(self, **kwargs) -> None:
