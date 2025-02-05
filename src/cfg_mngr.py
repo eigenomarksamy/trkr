@@ -41,7 +41,8 @@ class ConfigManager:
                  use_sheet_of_sheets: bool = False,
                  use_local_transactions: bool = False,
                  market_data_origin: str = 'yahoo',
-                 generation_dir: PathLike = 'data/gen') -> None:
+                 generation_dir: PathLike = 'data/gen',
+                 log_dir: PathLike = 'log/') -> None:
         self.defCurrency = def_currency
         self.marketCfg = market_cfg
         self.exRateCfg = ex_rate_cfg
@@ -52,6 +53,7 @@ class ConfigManager:
         self.use_local_transactions = use_local_transactions
         self.market_data_origin = market_data_origin
         self.generation_dir = generation_dir
+        self.log_dir = log_dir
 
     def get_cfg(self) -> str:
         return f'Default Currency: {self.defCurrency},\n' + \
@@ -63,7 +65,8 @@ class ConfigManager:
                f'Use Sheet of Sheets: {self.use_sheet_of_sheets}\n' + \
                f'Use Local Transactions: {self.use_local_transactions}\n' + \
                f'Market Data Origin: {self.market_data_origin}\n' + \
-               f'Generation Dir: {self.generation_dir}'
+               f'Generation Dir: {self.generation_dir}\n' + \
+               f'Log Dir: {self.log_dir}'
 
     def update_cfg(self, **kwargs) -> None:
         self.defCurrency = kwargs.get('defCurrency', self.defCurrency)
@@ -74,12 +77,13 @@ class ConfigManager:
         self.marketCfg = kwargs.get('market_cfg', self.marketCfg)
         self.exRateCfg = kwargs.get('exRateCfg', self.exRateCfg)
         self.exRateCfg = kwargs.get('ex_rate_cfg', self.exRateCfg)
-        self.symbols_standard = kwargs.get('symbols_standard'), self.symbols_standard
-        self.history_variant = kwargs.get('history_variant'), self.history_variant
-        self.use_sheet_of_sheets = kwargs.get('use_sheet_of_sheets'), self.use_sheet_of_sheets
-        self.use_local_transactions = kwargs.get('use_local_transactions'), self.use_local_transactions
-        self.market_data_origin = kwargs.get('market_data_origin'), self.market_data_origin
-        self.generation_dir = kwargs.get('generation_dir'), self.generation_dir
+        self.symbols_standard = kwargs.get('symbols_standard', self.symbols_standard)
+        self.history_variant = kwargs.get('history_variant', self.history_variant)
+        self.use_sheet_of_sheets = kwargs.get('use_sheet_of_sheets', self.use_sheet_of_sheets)
+        self.use_local_transactions = kwargs.get('use_local_transactions', self.use_local_transactions)
+        self.market_data_origin = kwargs.get('market_data_origin', self.market_data_origin)
+        self.generation_dir = kwargs.get('generation_dir', self.generation_dir)
+        self.log_dir = kwargs.get('log_dir', self.log_dir)
 
     def get_param(self, param_name: str) -> Any:
         return getattr(self, param_name, None)
@@ -90,11 +94,13 @@ def build_config_manager(settings_conf_yml: PathLike) -> ConfigManager:
                          history_variant=get_yaml_parameter(settings_conf_yml, 'history-variant').lower(),
                          market_data_origin=get_yaml_parameter(settings_conf_yml, 'market-data-origin').lower(),
                          use_local_transactions=get_yaml_parameter(settings_conf_yml, 'use-local-transactions'),
-                         symbols_standard=get_yaml_parameter(settings_conf_yml, 'symbols-standard').lower())
+                         symbols_standard=get_yaml_parameter(settings_conf_yml, 'symbols-standard').lower(),
+                         log_dir=get_yaml_parameter(settings_conf_yml, 'log-dir'))
 
 class Directories:
 
-    def __init__(self, base_dir: str) -> None:
+    def __init__(self, base_dir: str, log_dir: Optional[str]) -> None:
+        self.log_dir = log_dir if log_dir else 'log/'
         self.base_dir = base_dir
         self.sheets_dir = self.base_dir + 'sheets/'
         self.market_data_dir = self.sheets_dir + 'market/'
