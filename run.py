@@ -1,13 +1,11 @@
 import pathlib
 from argparse import Namespace
 from jinja2 import Environment, FileSystemLoader
-from src.csv_mngr import CsvMngr
 from src.portfolio import Portfolio
 from src.transactions import build_transactions_object
 from src.cfg_mngr import Directories, build_config_manager
-from src.market_mngr import (MarketDataYahoo, Interval, MarketSymbol,
-                             get_yfinance_map, convertSymbListToDicts)
-from src.sheets_mngr import get_google_sheet
+from src.market_mngr import MarketDataYahoo, Interval, MarketSymbol
+from src.market_mngr import get_yfinance_map, convertSymbListToDicts
 from src.utils import parse_arguments, check_internet, get_yaml_parameter
 from src.csv_mngr import write_markdown_table, write_csv_lazy
 from src.plot import plot_combined, plot_monthly_stocks
