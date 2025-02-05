@@ -1,9 +1,11 @@
 import os
 import csv
+import pathlib
 import yfinance as yf
 from typing import Union, Optional, Tuple
 from datetime import date, datetime
 from src.sheets_mngr import get_google_sheet
+from src.csv_mngr import CsvMngr
 
 class Interval:
     DAILY = '1d'
@@ -134,7 +136,7 @@ class MarketDataGoogleFull(MarketDataGoogle):
 class MarketDataYahoo(MarketData):
 
     def __init__(self, tickers: list[str],
-                 ticker_map: YFinanceSymbMap,
+                 ticker_map: Optional[YFinanceSymbMap],
                  start_date: Union[str, date],
                  end_date: Optional[Union[str, date]]=None,
                  date_format: str='%Y-%m-%d',
@@ -142,7 +144,10 @@ class MarketDataYahoo(MarketData):
                  auto_convert_currency: bool=True,
                  **kwargs) -> None:
         super().__init__()
-        self.tickers = [ticker_map.tickerMap.get(ticker.lower(), ticker.lower()) for ticker in tickers]
+        if ticker_map:
+            self.tickers = [ticker_map.tickerMap.get(ticker.lower(), ticker.lower()) for ticker in tickers]
+        else:
+            self.tickers = tickers
         self.interval = interval
         self.date_format = date_format
         self.start_date = self.assign_date(start_date, self.date_format)
@@ -316,6 +321,17 @@ def convertSymbListToDicts(symbols: list[MarketSymbol]) -> Tuple[dict, dict]:
         for dater in symbol.history:
             history_dict[symbol.symbol][dater] = {'price' : symbol.history[dater]}
     return price_dict, history_dict
+
+def get_yfinance_map(sheet_address: str, directory: os.PathLike,
+                     file_name: str='yfinance-map.csv') -> YFinanceSymbMap:
+    return YFinanceSymbMap(
+            CsvMngr.convert_read_list_to_dict(
+                CsvMngr(
+                    pathlib.Path(
+                        get_google_sheet(sheet_address,
+                                         directory,
+                                         file_name)),
+                    ["symbol", "ticker"]).read()))
 
 def use_market_google():
     market = MarketDataGoogleLite({}, 'SSSS')

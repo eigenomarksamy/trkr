@@ -21,3 +21,4 @@ history-lite:
     vusa: <some_sheet>
     usd: <some_sheet>
 transactions: <some_sheet>
+yfinance-map: <some_sheet>

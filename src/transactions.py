@@ -1,6 +1,9 @@
+import os
+import pathlib
 from datetime import datetime
-from typing import List
-from src.cfg_mngr import CfgManager
+from typing import List, Optional
+from src.csv_mngr import CsvMngr
+from src.sheets_mngr import get_google_sheet
 
 class TransType:
     WATCH = 0
@@ -104,3 +107,20 @@ class Transactions:
         print("Transactions:")
         for transaction in self.transactions:
             print(transaction)
+
+def build_transactions_object(is_local: bool, address: str,
+                              directory: Optional[os.PathLike],
+                              is_quiet: bool) -> Transactions:
+    if is_local:
+        transactions_file = address
+    else:
+        transactions_file = get_google_sheet(address, f'{directory}', 'transactions.csv')
+        if not is_quiet:
+            print('CSV file saved to: {}'.format(transactions_file))
+    transactions_obj = Transactions()
+    trans_csv_obj = CsvMngr(pathlib.Path(f'{transactions_file}'),
+                      ["type", "date", "quantity", "fees", "price",
+                       "currency", "symbol", "exchange", "platform",
+                       "ex_rate", "ex_fees"])
+    transactions_obj.add_list(trans_csv_obj.read())
+    return transactions_obj
