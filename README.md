@@ -4,9 +4,7 @@
 
 ### YAML Files
 
-- *platforms.yml*: Includes the configurations for the used platforms (unused).
-- *settings.yml*: Includes the general settings for the program.
-- *sheets.yml*: Includes the addresses of the used sheets in the program.
+- *cfg.yml*: includes the configurations.
 
 ## Usage
 

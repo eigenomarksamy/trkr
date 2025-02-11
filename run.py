@@ -1,11 +1,10 @@
 import pathlib
-import logging
 from argparse import Namespace
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from src.portfolio import Portfolio
 from src.transactions import build_transactions_object
-from src.cfg_mngr import Directories, create_cfg
+from src.cfg_mngr import Directories, create_cfg, ConfigMapUri
 from src.market_mngr import MarketDataYahoo, Interval, MarketSymbol
 from src.market_mngr import get_yfinance_map, convertSymbListToDicts, get_yfinance_map_local
 from src.utils import parse_arguments, check_internet
@@ -18,13 +17,13 @@ def main(args: Namespace) -> None:
     log_level = args.log_level.upper()
     cfg_file = args.cfg_file
     cfg = create_cfg(cfg_file)
-    directories = Directories(base_dir=cfg.get_param('gen-dir'),
-                              log_dir=cfg.get_param('log-dir'),
-                              local_trans_dir=cfg.get_param('trans-dir') \
-                                if cfg.get_param('trans-src') == 'local' \
+    directories = Directories(base_dir=cfg.get_param(ConfigMapUri.GENERATION_DIRECTORY),
+                              log_dir=cfg.get_param(ConfigMapUri.LOG_DIRECTORY),
+                              local_trans_dir=cfg.get_param(ConfigMapUri.TRANSACTIONS_DIRECTORY) \
+                                if cfg.get_param(ConfigMapUri.TRANSACTIONS_SOURCE) == 'local' \
                                     else None,
-                              local_map_dir=cfg.get_param('sym-map-dir') \
-                                if cfg.get_param('sym-map-src') == 'local' \
+                              local_map_dir=cfg.get_param(ConfigMapUri.SYMBOLS_MAP_DIRECTORY) \
+                                if cfg.get_param(ConfigMapUri.SYMBOLS_MAP_SOURCE) == 'local' \
                                     else None)
     log_manager = LogManager(log_file=f'{directories.log_dir}app_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log',
                              log_level=log_level)
@@ -40,38 +39,38 @@ def main(args: Namespace) -> None:
     if not is_quiet:
         print("Connection exists.")
     logger.info('Connection exists.')
-    if cfg.get_param('trans-src') == 'cloud':
-        trans_sheets = cfg.get_param('trans-sheet')
+    if cfg.get_param(ConfigMapUri.TRANSACTIONS_SOURCE) == 'cloud':
+        trans_sheets = cfg.get_param(ConfigMapUri.TRANSACTIONS_SHEET)
     else:
-        trans_sheets = cfg.get_param('trans-dir')
+        trans_sheets = cfg.get_param(ConfigMapUri.TRANSACTIONS_DIRECTORY)
     if not is_quiet:
         print(cfg.print())
-    logger.info(cfg.print())
+    logger.info(cfg.to_str())
     yfinance_map_obj = None
-    if cfg.get_param('sym-std') == 'custom':
-        if cfg.get_param('sym-map-src') == 'cloud':
-            yfinance_map_obj = get_yfinance_map(cfg.get_param('sym-map-sheet'),
+    if cfg.get_param(ConfigMapUri.SYMBOLS_STANDARD) == 'custom':
+        if cfg.get_param(ConfigMapUri.SYMBOLS_MAP_SOURCE) == 'cloud':
+            yfinance_map_obj = get_yfinance_map(cfg.get_param(ConfigMapUri.SYMBOLS_MAP_SHEET),
                                                 f'{directories.sheets_dir}')
         else:
-            yfinance_map_obj = get_yfinance_map_local(cfg.get_param('sym-map-dir'))
+            yfinance_map_obj = get_yfinance_map_local(cfg.get_param(ConfigMapUri.SYMBOLS_MAP_DIRECTORY))
         if not is_quiet:
             print("Yahoo Finance Ticker map:")
             print(yfinance_map_obj.tickerMap)
-    transactions_obj = build_transactions_object(True if cfg.get_param('trans-src') == 'local' else False,
+    transactions_obj = build_transactions_object(True if cfg.get_param(ConfigMapUri.TRANSACTIONS_SOURCE) == 'local' else False,
                                                  trans_sheets,
                                                  f'{directories.sheets_dir}',
                                                  is_quiet)
     if not is_quiet:
         transactions_obj.print()
     symbols_of_interest = transactions_obj.get_symbols_of_interest()
-    symbols_of_interest += [f'{cfg.get_param("def-currency")}']
+    symbols_of_interest += [f'{cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY)}']
     if not is_quiet:
         print("Symbols of Interest: ", symbols_of_interest)
-    history_variant = cfg.get_param('history-var')
+    history_variant = cfg.get_param(ConfigMapUri.HISTORY_VARIANT)
     if history_variant == 'full':
         if not is_quiet:
             print("WARNING! Full history variant is not recommended.")
-    if cfg.get_param('market-origin') == 'yahoo':
+    if cfg.get_param(ConfigMapUri.MARKET_ORIGIN) == 'yahoo':
         start_date = transactions_obj.get_first_transaction_date()
         if not is_quiet:
             print("Start Date:", start_date)
@@ -81,9 +80,9 @@ def main(args: Namespace) -> None:
                                  interval=Interval.WEEKLY \
                                     if history_variant == 'lite' \
                                     else Interval.DAILY,
-                                 req_currency=cfg.get_param('def-currency'))
+                                 req_currency=cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY))
     else:
-        if cfg.get_param('market-origin')  == 'google':
+        if cfg.get_param(ConfigMapUri.MARKET_ORIGIN)  == 'google':
             raise Exception("Google origin is deprecated.")
         else:
             raise Exception("Not supported market origin.")
@@ -231,7 +230,7 @@ def main(args: Namespace) -> None:
     template = env.get_template('report_template.html')
     html_report = template.render(
         total=total_html,
-        default_currency=cfg.get_param('def-currency'),
+        default_currency=cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY),
         portfolio_dict=portfolio_dict,
         entries=entries_html,
         plots_history=figs_paths_stocks[::-1],
