@@ -8,3 +8,4 @@ data/
 __pycache__/
 templates/
 log/
+config/cfg.yml
