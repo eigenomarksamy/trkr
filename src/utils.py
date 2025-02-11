@@ -8,14 +8,9 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Tracker info')
     parser.add_argument('--quiet', '-q', action='store_true', dest='is_quiet',
                         help='Hide detailed output')
-    parser.add_argument('--sheets-config-file', type=pathlib.Path,
-                        dest='sheets_config_file',
-                        default=pathlib.Path('config/sheets.yml'),
-                        help='Path to the sheets configuration file')
-    parser.add_argument('--settings-config-file', type=pathlib.Path,
-                        dest='settings_config_file',
-                        default=pathlib.Path('config/settings.yml'),
-                        help='Path to the settings configuration file')
+    parser.add_argument('--cfg', type=pathlib.Path, dest='cfg_file',
+                        default=pathlib.Path('config/cfg.yml'),
+                        help='Path to the overall configuration file')
     parser.add_argument('--log-level', type=str, dest='log_level', default='info',
                         help='Log level [DEBUG | INFO | WARNING | ERROR | CRITICAL]')
     return parser.parse_args()

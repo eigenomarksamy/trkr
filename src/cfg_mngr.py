@@ -4,12 +4,10 @@ from src.utils import get_yaml_parameter
 
 class CfgParam:
 
-    def __init__(self, name: str, default: Any) -> None:
+    def __init__(self, name: str, default: Optional[Any]=None,
+                 value: Optional[Any]=None) -> None:
         self.name = name
-        self.value = default
-
-    def update(self, value: Any) -> None:
-        self.value = value
+        self.value = value if value else default
 
 class CfgParams:
 
@@ -18,18 +16,71 @@ class CfgParams:
         for name in cfg:
             self.params[name.name] = name.value
 
+    def add(self, cfg: list[CfgParam]) -> None:
+        for name in cfg:
+            self.params[name.name] = name.value
+
     def update(self, **kwargs) -> None:
         for key, value in kwargs.items():
             if key in self.params:
                 self.params[key] = value
 
-    def to_str(self, **kwargs) -> str:
-        pass
+    def get(self, key: str) -> Any:
+        return self.params.get(key)
+
+    def to_str(self) -> str:
+        ret = ''
+        for key, value in self.params.items():
+            ret += f'{key}: {value}  '
+        return ret
 
 class CfgManager:
 
     def __init__(self, cfg_params: CfgParams) -> None:
         self.params = cfg_params
+
+    def print(self) -> None:
+        print(self.params.to_str())
+
+    def get_param(self, key: str) -> Any:
+        return self.params.get(key)
+
+def create_cfg(yml_file: PathLike) -> CfgManager:
+    yml_dict = get_yaml_parameter(yml_file)
+    conf = [
+        CfgParam(name='market-origin', default='yahoo', value=yml_dict['market-data-origin']),
+        CfgParam(name='def-currency', default='EUR', value=yml_dict['comp']['default-currency']),
+        CfgParam(name='gen-dir', value=yml_dict['directories']['generation-dir']),
+        CfgParam(name='log-dir', value=yml_dict['directories']['log-dir']),
+        CfgParam(name='history-var', default='lite', value=yml_dict['comp']['history-variant']),
+        CfgParam(name='trans-src', default='local', value=yml_dict['transactions']['source']),
+        CfgParam(name='sym-std', default='yahoo', value=yml_dict['transactions']['symbols-standard'])
+    ]
+    params_obj = CfgParams(conf)
+    if params_obj.get('trans-src') == 'local':
+        conf = [
+            CfgParam(name='trans-dir', value=yml_dict['directories']['transactions-dir'])
+        ]
+    elif params_obj.get('trans-src') == 'cloud':
+        conf = [
+            CfgParam(name='trans-sheet', value=yml_dict['transactions']['shareable-address'])
+        ]
+    params_obj.add(conf)
+    if params_obj.get('sym-std') == 'custom':
+        conf = [
+            CfgParam(name='sym-map-src', value=yml_dict['symbols-map']['source'])
+        ]
+    params_obj.add(conf)
+    if params_obj.get('sym-map-src') == 'local':
+        conf = [
+            CfgParam(name='sym-map-dir', value=yml_dict['directories']['symbols-map-dir'])
+        ]
+    elif params_obj.get('sym-map-src') == 'cloud':
+        conf = [
+            CfgParam(name='sym-map-sheet', value=yml_dict['symbols-map']['shareable-address'])
+        ]
+    params_obj.add(conf)
+    return CfgManager(params_obj)
 
 class ConfigManager:
     def __init__(self, platform_cfg: dict = None,
@@ -99,9 +150,13 @@ def build_config_manager(settings_conf_yml: PathLike) -> ConfigManager:
 
 class Directories:
 
-    def __init__(self, base_dir: str, log_dir: Optional[str]) -> None:
+    def __init__(self, base_dir: str, log_dir: Optional[str],
+                 local_trans_dir: Optional[str]=None,
+                 local_map_dir: Optional[str]=None) -> None:
         self.log_dir = log_dir if log_dir else 'log/'
         self.base_dir = base_dir
+        self.local_trans_dir = local_trans_dir if local_trans_dir else base_dir
+        self.local_map_dir = local_map_dir if local_map_dir else base_dir
         self.sheets_dir = self.base_dir + 'sheets/'
         self.market_data_dir = self.sheets_dir + 'market/'
         self.history_dir = self.market_data_dir + 'history/'
@@ -119,13 +174,13 @@ class Directories:
 
 class Sheets:
 
-    def __init__(self, sheets_dict: dict, is_urls: bool=False) -> None:
+    def __init__(self, sheets_dict: dict) -> None:
         self.sheets_dict = {}
         self.sheets_dict_raw_refined = {}
         for key, value in sheets_dict.items():
             if isinstance(value, str):
                 sheet_id = value
-                if is_urls:
+                if 'https://docs.google.com/spreadsheets/d/' in sheet_id:
                     sheet_id = self.convert_sheet_url_to_id(value)
                 self.sheets_dict[key] = self.convert_sheet_id_to_url(sheet_id)
                 self.sheets_dict_raw_refined[key] = sheet_id
@@ -134,7 +189,7 @@ class Sheets:
                 for inner_key, inner_value in value.items():
                     if isinstance(inner_value, str):
                         sheet_id = inner_value
-                        if is_urls:
+                        if 'https://docs.google.com/spreadsheets/d/' in sheet_id:
                             sheet_id = self.convert_sheet_url_to_id(inner_value)
                         self.sheets_dict[f'{key}:{inner_key}'] = self.convert_sheet_id_to_url(sheet_id)
                         self.sheets_dict_raw_refined[key][inner_key] = sheet_id

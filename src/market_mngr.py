@@ -333,6 +333,13 @@ def get_yfinance_map(sheet_address: str, directory: os.PathLike,
                                          file_name)),
                     ["symbol", "ticker"]).read()))
 
+def get_yfinance_map_local(sheet_location: str) -> YFinanceSymbMap:
+    return YFinanceSymbMap(
+            CsvMngr.convert_read_list_to_dict(
+                CsvMngr(
+                    pathlib.Path(sheet_location),
+                    ["symbol", "ticker"]).read()))
+
 def use_market_google():
     market = MarketDataGoogleLite({}, 'SSSS')
     history_obj = MarketHistory(market, '2023-01-01')
