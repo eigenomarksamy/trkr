@@ -16,6 +16,8 @@ def parse_arguments() -> argparse.Namespace:
                         dest='settings_config_file',
                         default=pathlib.Path('config/settings.yml'),
                         help='Path to the settings configuration file')
+    parser.add_argument('--log-level', type=str, dest='log_level', default='info',
+                        help='Log level [DEBUG | INFO | WARNING | ERROR | CRITICAL]')
     return parser.parse_args()
 
 def check_internet(host="8.8.8.8", port=53, timeout=3) -> bool:

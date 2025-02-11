@@ -7,3 +7,4 @@ config/king-of-kings.yml
 data/
 __pycache__/
 templates/
+log/

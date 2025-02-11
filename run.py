@@ -1,5 +1,7 @@
 import pathlib
+import logging
 from argparse import Namespace
+from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from src.portfolio import Portfolio
 from src.transactions import build_transactions_object
@@ -9,25 +11,35 @@ from src.market_mngr import get_yfinance_map, convertSymbListToDicts
 from src.utils import parse_arguments, check_internet, get_yaml_parameter
 from src.csv_mngr import write_markdown_table, write_csv_lazy
 from src.plot import plot_combined, plot_monthly_stocks
+from src.log_mngr import LogManager
 
 def main(args: Namespace) -> None:
     is_quiet = args.is_quiet
+    log_level = args.log_level.upper()
+    settings_config_file_path = args.settings_config_file
+    sheets_config_file_path = args.sheets_config_file
+    cfg_obj = build_config_manager(settings_config_file_path)
+    directories = Directories(base_dir=cfg_obj.get_param('generation_dir'),
+                              log_dir=cfg_obj.get_param('log_dir'))
+    log_manager = LogManager(log_file=f'{directories.log_dir}app_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log',
+                             log_level=log_level)
+    logger = log_manager.get_logger()
     if not is_quiet:
         print("Checking for internet connection..")
+    logger.info('Checking for internet connection..')
     if not check_internet():
+        logger.error('Failed to connect.')
         if not is_quiet:
             print("Failed to connect.")
         return
     if not is_quiet:
         print("Connection exists.")
-    settings_config_file_path = args.settings_config_file
-    sheets_config_file_path = args.sheets_config_file
-    cfg_obj = build_config_manager(settings_config_file_path)
-    directories = Directories(base_dir=cfg_obj.get_param('generation_dir'))
+    logger.info('Connection exists.')
     if not cfg_obj.get_param('use_local_transactions'):
         sheets_address = get_yaml_parameter(sheets_config_file_path)
     if not is_quiet:
         print(cfg_obj.get_cfg())
+    logger.info(cfg_obj.get_cfg())
     yfinance_map_obj = None
     if cfg_obj.get_param('symbols_standard') != 'yahoo':
         yfinance_map_obj = get_yfinance_map(sheets_address['yfinance-map'],
