@@ -59,11 +59,14 @@ def main(args: Namespace) -> None:
     transactions_obj = build_transactions_object(True if cfg.get_param(ConfigMapUri.TRANSACTIONS_SOURCE) == 'local' else False,
                                                  trans_sheets,
                                                  f'{directories.sheets_dir}',
-                                                 is_quiet)
+                                                 is_quiet, yfinance_map_obj.tickerMap)
     if not is_quiet:
         transactions_obj.print()
     symbols_of_interest = transactions_obj.get_symbols_of_interest()
-    symbols_of_interest += [f'{cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY)}']
+    if yfinance_map_obj:
+        symbols_of_interest += [f'{yfinance_map_obj.tickerMap.get(cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY).lower())}']
+    else:
+        symbols_of_interest += [f'{cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY)}']
     if not is_quiet:
         print("Symbols of Interest: ", symbols_of_interest)
     history_variant = cfg.get_param(ConfigMapUri.HISTORY_VARIANT)
@@ -89,8 +92,6 @@ def main(args: Namespace) -> None:
     symbols_obj_list = []
     for symbol in symbols_of_interest:
         symbol_key = symbol
-        if yfinance_map_obj:
-            symbol_key = yfinance_map_obj.tickerMap.get(symbol.lower())
         symbols_obj_list.append(MarketSymbol(symbol, market.history[symbol_key],
                                              market.current_price[symbol_key],
                                              market.currency[symbol_key]))
@@ -161,6 +162,8 @@ def main(args: Namespace) -> None:
     <p>All values are in {{ default_currency }}.</p>
     <h2>Total</h2>
     {{ total | safe }}
+    <h2>Symbols Map</h2>
+    {{ symbols_map | safe }}
     <h2>Entry Points</h2>
     {{ entries | safe }}
     <h2>Portfolio</h2>
@@ -225,6 +228,9 @@ def main(args: Namespace) -> None:
     entries_html = ''
     for entry in entry_points:
         entries_html += f'{entry}: {entry_points[entry].capitalize()}<br>'
+    sym_map_html = ''
+    for sym in yfinance_map_obj.tickerMap:
+        sym_map_html += f'{sym}: {yfinance_map_obj.tickerMap[sym]}<br>'
     env = Environment(loader=FileSystemLoader('templates'))
     env.filters['abs'] = lambda x: pathlib.Path(x).absolute().as_uri()
     template = env.get_template('report_template.html')
@@ -232,6 +238,7 @@ def main(args: Namespace) -> None:
         total=total_html,
         default_currency=cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY),
         portfolio_dict=portfolio_dict,
+        symbols_map=sym_map_html,
         entries=entries_html,
         plots_history=figs_paths_stocks[::-1],
         plots_stats=figs_paths_stats

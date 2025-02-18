@@ -144,10 +144,7 @@ class MarketDataYahoo(MarketData):
                  auto_convert_currency: bool=True,
                  **kwargs) -> None:
         super().__init__()
-        if ticker_map:
-            self.tickers = [ticker_map.tickerMap.get(ticker.lower(), ticker.lower()) for ticker in tickers]
-        else:
-            self.tickers = tickers
+        self.tickers = tickers
         self.interval = interval
         self.date_format = date_format
         self.start_date = self.assign_date(start_date, self.date_format)

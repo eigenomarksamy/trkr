@@ -103,6 +103,10 @@ class Transactions:
         first_transaction = min(self.transactions, key=lambda t: datetime.strptime(t.date, "%Y-%m-%d"))
         return datetime.strptime(first_transaction.date, "%Y-%m-%d").strftime(date_format)
 
+    def match_symbols_standard(self, std_map: dict) -> None:
+        for transaction in self.transactions:
+            transaction.symbol = std_map.get(transaction.symbol.lower(), transaction.symbol.lower())
+
     def print(self) -> None:
         print("Transactions:")
         for transaction in self.transactions:
@@ -110,7 +114,8 @@ class Transactions:
 
 def build_transactions_object(is_local: bool, address: str,
                               directory: Optional[os.PathLike],
-                              is_quiet: bool) -> Transactions:
+                              is_quiet: bool,
+                              std_map: Optional[dict]) -> Transactions:
     if is_local:
         transactions_file = address
     else:
@@ -123,4 +128,6 @@ def build_transactions_object(is_local: bool, address: str,
                        "currency", "symbol", "exchange", "platform",
                        "ex_rate", "ex_fees"])
     transactions_obj.add_list(trans_csv_obj.read())
+    if std_map:
+        transactions_obj.match_symbols_standard(std_map)
     return transactions_obj
