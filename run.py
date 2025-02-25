@@ -1,51 +1,55 @@
+import os
+import sys
 import pathlib
 from argparse import Namespace
 from datetime import datetime
+from typing import Union, Tuple, Optional
 from jinja2 import Environment, FileSystemLoader
 from src.portfolio import Portfolio
 from src.transactions import build_transactions_object
 from src.cfg_mngr import Directories, create_cfg, ConfigMapUri
 from src.market_mngr import MarketDataYahoo, Interval, MarketSymbol
 from src.market_mngr import get_yfinance_map, convertSymbListToDicts, get_yfinance_map_local
-from src.utils import parse_arguments, check_internet
+from src.utils import parse_arguments, check_internet, get_exception
 from src.csv_mngr import write_markdown_table, write_csv_lazy
 from src.plot import plot_combined, plot_monthly_stocks
 from src.log_mngr import LogManager
 
-def main(args: Namespace) -> None:
-    is_quiet = args.is_quiet
-    log_level = args.log_level.upper()
-    cfg_file = args.cfg_file
+def exec(cfg_file: os.PathLike, quiet_arg: Optional[bool],
+         log_level: Optional[str]) -> None:
+    is_quiet = quiet_arg if quiet_arg is not None else True
     cfg = create_cfg(cfg_file)
     directories = Directories(base_dir=cfg.get_param(ConfigMapUri.GENERATION_DIRECTORY),
-                              log_dir=cfg.get_param(ConfigMapUri.LOG_DIRECTORY),
-                              local_trans_dir=cfg.get_param(ConfigMapUri.TRANSACTIONS_DIRECTORY) \
+                            log_dir=cfg.get_param(ConfigMapUri.LOG_DIRECTORY),
+                            local_trans_dir=cfg.get_param(ConfigMapUri.TRANSACTIONS_DIRECTORY) \
                                 if cfg.get_param(ConfigMapUri.TRANSACTIONS_SOURCE) == 'local' \
                                     else None,
-                              local_map_dir=cfg.get_param(ConfigMapUri.SYMBOLS_MAP_DIRECTORY) \
+                            local_map_dir=cfg.get_param(ConfigMapUri.SYMBOLS_MAP_DIRECTORY) \
                                 if cfg.get_param(ConfigMapUri.SYMBOLS_MAP_SOURCE) == 'local' \
                                     else None)
-    log_manager = LogManager(log_file=f'{directories.log_dir}app_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log',
-                             log_level=log_level)
-    logger = log_manager.get_logger()
-    if not is_quiet:
-        print("Checking for internet connection..")
-    logger.info('Checking for internet connection..')
+    logger = None
+    if log_level:
+        log_manager = LogManager(log_file=f'{directories.log_dir}app_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log',
+                                log_level=log_level)
+        logger = log_manager.get_logger()
     if not check_internet():
-        logger.error('Failed to connect.')
+        if logger:
+            logger.error('Failed to connect.')
         if not is_quiet:
             print("Failed to connect.")
-        return
+        raise Exception("503")
     if not is_quiet:
         print("Connection exists.")
-    logger.info('Connection exists.')
+    if logger:
+        logger.info('Connection exists.')
     if cfg.get_param(ConfigMapUri.TRANSACTIONS_SOURCE) == 'cloud':
         trans_sheets = cfg.get_param(ConfigMapUri.TRANSACTIONS_SHEET)
     else:
         trans_sheets = cfg.get_param(ConfigMapUri.TRANSACTIONS_DIRECTORY)
     if not is_quiet:
         print(cfg.print())
-    logger.info(cfg.to_str())
+    if logger:
+        logger.info(cfg.to_str())
     yfinance_map_obj = None
     if cfg.get_param(ConfigMapUri.SYMBOLS_STANDARD) == 'custom':
         if cfg.get_param(ConfigMapUri.SYMBOLS_MAP_SOURCE) == 'cloud':
@@ -86,9 +90,9 @@ def main(args: Namespace) -> None:
                                  req_currency=cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY))
     else:
         if cfg.get_param(ConfigMapUri.MARKET_ORIGIN)  == 'google':
-            raise Exception("Google origin is deprecated.")
+            raise Exception("299")
         else:
-            raise Exception("Not supported market origin.")
+            raise Exception("417")
     symbols_obj_list = []
     for symbol in symbols_of_interest:
         symbol_key = symbol
@@ -143,7 +147,7 @@ def main(args: Namespace) -> None:
                                     pie_title='Spending Percent',
                                     bar_title='Profit Percent')
     if not is_quiet:
-        print(f"Exit. Check {directories.base_dir} for information.")
+        print(f"Check {directories.base_dir} for information.")
     if not is_quiet:
         print("Generating HTML report..")
     template_dir = pathlib.Path('templates')
@@ -248,5 +252,30 @@ def main(args: Namespace) -> None:
     if not is_quiet:
         print(f"HTML report generated at {report_path}")
 
+def run_cli(args: Namespace) -> Union[int, Tuple]:
+    is_quiet = args.is_quiet
+    log_level = args.log_level.upper()
+    cfg_file = args.cfg_file
+    try:
+        exec(cfg_file, is_quiet, log_level)
+    except Exception as e_num:
+        return int(e_num.__str__()), get_exception(int(e_num.__str__()))
+    return 0
+
+def run_api(cfg_file: os.PathLike) -> Union[int, Tuple]:
+    try:
+        exec(cfg_file)
+    except Exception as e_num:
+        return int(e_num.__str__()), get_exception(int(e_num.__str__()))
+    return 0
+
 if __name__ == '__main__':
-    main(parse_arguments())
+    ret_tup = run_cli(parse_arguments())
+    if isinstance(ret_tup, tuple):
+        print(f"Exit text: {ret_tup[1]}")
+        exit_code = ret_tup[0]
+    else:
+        exit_code = ret_tup
+    print("Exit code:", exit_code)
+    sys.exit(exit_code)
+

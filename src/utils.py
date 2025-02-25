@@ -38,3 +38,9 @@ def get_yaml_parameter(yaml_path: pathlib.Path,
     if not parameter:
         return param_dict
     return param_val
+
+def get_exception(e_num: int) -> str:
+    e_map = {503: 'ServiceNotAvailable',
+             299: 'DeprecatedAPI',
+             417: 'UnsupportedConfiguration'}
+    return e_map.get(e_num, 'NotMapped')
