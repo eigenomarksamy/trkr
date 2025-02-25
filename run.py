@@ -4,17 +4,17 @@ import pathlib
 from argparse import Namespace
 from datetime import datetime
 from typing import Union, Tuple, Optional
-from jinja2 import Environment, FileSystemLoader
-from src.portfolio import Portfolio
-from src.transactions import build_transactions_object
-from src.cfg_mngr import Directories, create_cfg, ConfigMapUri
+from src.portfolio_mngr import Portfolio
 from src.market_mngr import MarketDataYahoo, Interval, MarketSymbol
+from src.cfg_mngr import Directories, ConfigMapUri
+from src.log_mngr import LogManager
+from src.cfg_mngr import create_cfg
+from src.transactions import build_transactions_object
 from src.market_mngr import get_yfinance_map, convertSymbListToDicts, get_yfinance_map_local
 from src.utils import parse_arguments, check_internet, get_exception
 from src.csv_mngr import write_markdown_table, write_csv_lazy
-from src.plot import plot_combined, plot_monthly_stocks
+from src.plot_mngr import plot_combined, plot_monthly_stocks
 from src.report_mngr import generate_html_report
-from src.log_mngr import LogManager
 
 def exec(cfg_file: os.PathLike, quiet_arg: Optional[bool],
          log_level: Optional[str]) -> None:
