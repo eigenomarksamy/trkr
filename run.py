@@ -188,4 +188,3 @@ if __name__ == '__main__':
         exit_code = ret_tup
     print("Exit code:", exit_code)
     sys.exit(exit_code)
-
