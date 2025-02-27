@@ -3,7 +3,7 @@ import sys
 import pathlib
 from argparse import Namespace
 from datetime import datetime
-from typing import Union, Tuple, Optional
+from typing import Union, Tuple
 from src.portfolio_mngr import Portfolio
 from src.market_mngr import MarketDataYahoo, Interval, MarketSymbol
 from src.cfg_mngr import Directories, ConfigMapUri
@@ -16,10 +16,10 @@ from src.csv_mngr import write_markdown_table, write_csv_lazy
 from src.plot_mngr import plot_combined, plot_monthly_stocks
 from src.report_mngr import generate_html_report
 
-def exec(cfg_file: os.PathLike, quiet_arg: Optional[bool],
-         log_level: Optional[str]) -> None:
-    is_quiet = quiet_arg if quiet_arg is not None else True
+def exec(cfg_file: os.PathLike) -> None:
     cfg = create_cfg(cfg_file)
+    is_quiet = cfg.get_param(ConfigMapUri.QUIET)
+    log_level = cfg.get_param(ConfigMapUri.LOG_LEVEL)
     directories = Directories(base_dir=cfg.get_param(ConfigMapUri.GENERATION_DIRECTORY),
                             log_dir=cfg.get_param(ConfigMapUri.LOG_DIRECTORY),
                             local_trans_dir=cfg.get_param(ConfigMapUri.TRANSACTIONS_DIRECTORY) \
@@ -29,7 +29,7 @@ def exec(cfg_file: os.PathLike, quiet_arg: Optional[bool],
                                 if cfg.get_param(ConfigMapUri.SYMBOLS_MAP_SOURCE) == 'local' \
                                     else None)
     logger = None
-    if log_level:
+    if LogManager.is_log_active(log_level):
         log_manager = LogManager(log_file=f'{directories.log_dir}app_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log',
                                 log_level=log_level)
         logger = log_manager.get_logger()
@@ -48,7 +48,7 @@ def exec(cfg_file: os.PathLike, quiet_arg: Optional[bool],
     else:
         trans_sheets = cfg.get_param(ConfigMapUri.TRANSACTIONS_DIRECTORY)
     if not is_quiet:
-        print(cfg.print())
+        cfg.print()
     if logger:
         logger.info(cfg.to_str())
     yfinance_map_obj = None
@@ -74,6 +74,8 @@ def exec(cfg_file: os.PathLike, quiet_arg: Optional[bool],
         symbols_of_interest += [f'{cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY)}']
     if not is_quiet:
         print("Symbols of Interest: ", symbols_of_interest)
+    if logger:
+        logger.info(f"Symbols of Interest: {symbols_of_interest}")
     history_variant = cfg.get_param(ConfigMapUri.HISTORY_VARIANT)
     if history_variant == 'full':
         if not is_quiet:
@@ -82,6 +84,8 @@ def exec(cfg_file: os.PathLike, quiet_arg: Optional[bool],
         start_date = transactions_obj.get_first_transaction_date()
         if not is_quiet:
             print("Start Date:", start_date)
+        if logger:
+            logger.info(f"Start date: {start_date}")
         market = MarketDataYahoo(tickers=symbols_of_interest,
                                  ticker_map=yfinance_map_obj,
                                  start_date=start_date,
@@ -103,6 +107,11 @@ def exec(cfg_file: os.PathLike, quiet_arg: Optional[bool],
     if not is_quiet:
         for symbol in symbols_obj_list:
             symbol.print()
+    if logger:
+        log_tmp_txt = ''
+        for symbol in symbols_obj_list:
+            log_tmp_txt += symbol.__str__() + '    '
+        logger.info(f"{log_tmp_txt}")
     prices_dict, history_dict = convertSymbListToDicts(symbols_obj_list)
     portfolio = Portfolio(transactions_obj, prices_dict, is_quiet=is_quiet)
     portfolio_dict, total_dict = portfolio.calculate()
@@ -163,11 +172,9 @@ def exec(cfg_file: os.PathLike, quiet_arg: Optional[bool],
         print(f'HTML report generated at {f"{directories.base_dir}report.html"}')
 
 def run_cli(args: Namespace) -> Union[int, Tuple]:
-    is_quiet = args.is_quiet
-    log_level = args.log_level.upper()
     cfg_file = args.cfg_file
     try:
-        exec(cfg_file, is_quiet, log_level)
+        exec(cfg_file)
     except Exception as e_num:
         return int(e_num.__str__()), get_exception(int(e_num.__str__()))
     return 0

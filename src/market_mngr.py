@@ -228,6 +228,9 @@ class MarketSymbol:
         for h in self.history:
             print("\t", h, self.history[h])
 
+    def __str__(self) -> str:
+        return f'Symbol: {self.symbol}, Currency: {self.currency}, Price: {self.price}, History: {self.history}'
+
 class MarketReader:
     def __init__(self, file: os.PathLike,
                  symbols_of_interest: list[str]) -> None:

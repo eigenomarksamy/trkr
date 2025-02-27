@@ -15,6 +15,8 @@ class ConfigMapUri:
     SYMBOLS_MAP_SOURCE = 'sym-map-src'
     SYMBOLS_MAP_DIRECTORY = 'sym-map-dir'
     SYMBOLS_MAP_SHEET = 'sym-map-sheet'
+    LOG_LEVEL = 'log-level'
+    QUIET = 'quiet'
 
 class CfgParam:
 
@@ -71,7 +73,9 @@ def create_cfg(yml_file: PathLike) -> CfgManager:
         CfgParam(name=ConfigMapUri.LOG_DIRECTORY, value=yml_dict['directories']['log-dir']),
         CfgParam(name=ConfigMapUri.HISTORY_VARIANT, default='lite', value=yml_dict['comp']['history-variant']),
         CfgParam(name=ConfigMapUri.TRANSACTIONS_SOURCE, default='local', value=yml_dict['transactions']['source']),
-        CfgParam(name=ConfigMapUri.SYMBOLS_STANDARD, default='yahoo', value=yml_dict['transactions']['symbols-standard'])
+        CfgParam(name=ConfigMapUri.SYMBOLS_STANDARD, default='yahoo', value=yml_dict['transactions']['symbols-standard']),
+        CfgParam(name=ConfigMapUri.LOG_LEVEL, default='NOTSET', value=yml_dict['cli-exec']['log-level'].upper()),
+        CfgParam(name=ConfigMapUri.QUIET, default=False, value=yml_dict['cli-exec']['quiet'])
     ]
     params_obj = CfgParams(conf)
     conf.clear()

@@ -44,6 +44,12 @@ class LogManager:
     def get_logger(self):
         return self.logger
 
+    @staticmethod
+    def is_log_active(log_level: str) -> bool:
+        if log_level != 'NOTSET':
+            return True
+        return False
+
 if __name__ == "__main__":
     log_manager = LogManager(log_file=f'log/app_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log',
                              log_level='DEBUG')

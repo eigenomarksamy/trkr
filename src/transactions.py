@@ -35,7 +35,7 @@ class Transaction:
     def __str__(self) -> str:
         return f"{self.type} {self.quantity} {self.exchange}::{self.symbol} " + \
                f"at {self.price} {self.currency} " + \
-               f" with extra {self.fees}, {self.ex_rate} and {self.ex_fees}" + \
+               f"with extra {self.fees}, {self.ex_rate} and {self.ex_fees} " + \
                f"on {self.date} to {self.wallet}"
 
     def __dict__(self) -> dict:
