@@ -167,7 +167,9 @@ def exec(cfg_file: os.PathLike) -> None:
                          def_currency=cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY),
                          figs_paths_stocks=figs_paths_stocks[::-1],
                          figs_paths_stats=figs_paths_stats,
-                         req_path=f'{directories.base_dir}report.html')
+                         transactions_list=transactions_obj.get(),
+                         req_path=f'{directories.base_dir}report.html',
+                         sub_dir=f'{directories.generated_dir}')
     if not is_quiet:
         print(f'HTML report generated at {f"{directories.base_dir}report.html"}')
 
