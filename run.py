@@ -168,6 +168,7 @@ def exec(cfg_file: os.PathLike) -> None:
                          figs_paths_stocks=figs_paths_stocks[::-1],
                          figs_paths_stats=figs_paths_stats,
                          transactions_list=transactions_obj.get(),
+                         historical_valuation=historical_valuation,
                          req_path=f'{directories.base_dir}report.html',
                          sub_dir=f'{directories.generated_dir}')
     if not is_quiet:
