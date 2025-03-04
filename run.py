@@ -50,7 +50,7 @@ def exec(cfg_file: os.PathLike) -> None:
     if not is_quiet:
         cfg.print()
     if logger:
-        logger.info(cfg.to_str())
+        logger.info('Configuration retrieved.')
     yfinance_map_obj = None
     if cfg.get_param(ConfigMapUri.SYMBOLS_STANDARD) == 'custom':
         if cfg.get_param(ConfigMapUri.SYMBOLS_MAP_SOURCE) == 'cloud':
@@ -61,12 +61,16 @@ def exec(cfg_file: os.PathLike) -> None:
         if not is_quiet:
             print("Yahoo Finance Ticker map:")
             print(yfinance_map_obj.tickerMap)
+        if logger:
+            logger.info("Ticker map built.")
     transactions_obj = build_transactions_object(True if cfg.get_param(ConfigMapUri.TRANSACTIONS_SOURCE) == 'local' else False,
                                                  trans_sheets,
                                                  f'{directories.sheets_dir}',
                                                  is_quiet, yfinance_map_obj.tickerMap)
     if not is_quiet:
         transactions_obj.print()
+    if logger:
+        logger.info("Transactions retrieved.")
     symbols_of_interest = transactions_obj.get_symbols_of_interest()
     if yfinance_map_obj:
         symbols_of_interest += [f'{yfinance_map_obj.tickerMap.get(cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY).lower())}']
@@ -75,7 +79,7 @@ def exec(cfg_file: os.PathLike) -> None:
     if not is_quiet:
         print("Symbols of Interest: ", symbols_of_interest)
     if logger:
-        logger.info(f"Symbols of Interest: {symbols_of_interest}")
+        logger.info("Symbols of Interest retrieved.")
     history_variant = cfg.get_param(ConfigMapUri.HISTORY_VARIANT)
     if history_variant == 'full':
         if not is_quiet:
@@ -108,15 +112,18 @@ def exec(cfg_file: os.PathLike) -> None:
         for symbol in symbols_obj_list:
             symbol.print()
     if logger:
-        log_tmp_txt = ''
-        for symbol in symbols_obj_list:
-            log_tmp_txt += symbol.__str__() + '    '
-        logger.info(f"{log_tmp_txt}")
+        logger.info("Market data instantiated.")
     prices_dict, history_dict = convertSymbListToDicts(symbols_obj_list)
     portfolio = Portfolio(transactions_obj, prices_dict, is_quiet=is_quiet)
     portfolio_dict, total_dict = portfolio.calculate()
+    if logger:
+        logger.info("Portfolio calculated.")
+        logger.info("Total computed.")
     historical_valuation = portfolio.compute_historical_valuation(history_dict)
     entry_points = portfolio.get_entry_points_months()
+    if logger:
+        logger.info("History valuated.")
+        logger.info("Entry points obtained.")
     if not is_quiet:
         print("Historical Evaluation Dict:")
         for hv in historical_valuation.keys():
@@ -134,6 +141,8 @@ def exec(cfg_file: os.PathLike) -> None:
                          'Symbol', 'Date', entry_points)
     if not is_quiet:
         print("Files generated.")
+    if logger:
+        logger.info("Files generated.")
     spending_list, profit_percent_list,\
         spending_percent_per_month_list, \
         symbols_list, pp_list, months_list = \
@@ -156,6 +165,8 @@ def exec(cfg_file: os.PathLike) -> None:
                                     points1_title='Valuation Percent',
                                     pie_title='Spending Percent',
                                     bar_title='Profit Percent')
+    if logger:
+        logger.info("Plots created.")
     if not is_quiet:
         print(f"Check {directories.base_dir} for information.")
     if not is_quiet:
@@ -171,6 +182,8 @@ def exec(cfg_file: os.PathLike) -> None:
                          historical_valuation=historical_valuation,
                          req_path=f'{directories.base_dir}report.html',
                          sub_dir=f'{directories.generated_dir}')
+    if logger:
+        logger.info("HTMLs created.")
     if not is_quiet:
         print(f'HTML report generated at {f"{directories.base_dir}report.html"}')
 
