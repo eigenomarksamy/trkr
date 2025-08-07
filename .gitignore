@@ -4,8 +4,9 @@ config/platforms.yml
 config/settings.yml
 config/sheets.yml
 config/king-of-kings.yml
+config/cfg.yml
+config/cfg_bat.yml
 data/
 __pycache__/
 templates/
 log/
-config/cfg.yml

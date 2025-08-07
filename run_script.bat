@@ -12,7 +12,7 @@ REM Install required dependencies
 python -m pip install -r requirements.txt
 
 REM Run the Python script
-python run.py
+python run.py --cfg config/cfg_bat.yml
 
 REM (Optional) Deactivate the virtual environment
 deactivate
