@@ -86,7 +86,7 @@ with a map between the symbols of interest and how they're represented on yahoo-
     sheets.yml:
 
     ``
-    `yfinance-map: 1RZ_NBdxaFfT-ElmmaaQdouxoeVKLuT2r0inuvxFX8n4`
+`yfinance-map: 1RZ_NBdxaFfT-ElmmaaQdouxoeVKLuT2r0inuvxFX8n4`
     ``
 
     ***Please note that this is just an example and not an actual sheet.***
