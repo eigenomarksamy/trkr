@@ -104,3 +104,70 @@ def test_invalid_positions_block_exits_with_422(block, message, capsys):
     with pytest.raises(Exception, match='^422$'):
         parse_positions(block)
     assert message in capsys.readouterr().out
+
+def write_source_cfg(tmp_path, transactions_source, symbols_standard, map_source):
+    symbols_map = f"""
+symbols-map:
+  source: {map_source}
+  shareable-address: made-up-map-sheet
+""" if map_source else ''
+    path = tmp_path / 'cfg.yml'
+    path.write_text(f"""
+market-data-origin: yahoo
+comp:
+  default-currency: USD
+  history-variant: full
+directories:
+  generation-dir: out/
+  log-dir: logs/
+  transactions-dir: trans.csv
+  symbols-map-dir: symbols.csv
+transactions:
+  source: {transactions_source}
+  symbols-standard: {symbols_standard}
+  shareable-address: made-up-trans-sheet
+cli-exec:
+  quiet: true
+  log-level: debug
+""" + symbols_map, encoding='utf-8')
+    return path
+
+SOURCE_KEYS = [ConfigMapUri.TRANSACTIONS_DIRECTORY, ConfigMapUri.TRANSACTIONS_SHEET,
+               ConfigMapUri.SYMBOLS_MAP_SOURCE, ConfigMapUri.SYMBOLS_MAP_DIRECTORY,
+               ConfigMapUri.SYMBOLS_MAP_SHEET]
+
+@pytest.mark.parametrize('transactions_source, symbols_standard, map_source, expected', [
+    ('local', 'custom', 'local', {ConfigMapUri.TRANSACTIONS_DIRECTORY: 'trans.csv',
+                                  ConfigMapUri.SYMBOLS_MAP_SOURCE: 'local',
+                                  ConfigMapUri.SYMBOLS_MAP_DIRECTORY: 'symbols.csv'}),
+    ('local', 'custom', 'cloud', {ConfigMapUri.TRANSACTIONS_DIRECTORY: 'trans.csv',
+                                  ConfigMapUri.SYMBOLS_MAP_SOURCE: 'cloud',
+                                  ConfigMapUri.SYMBOLS_MAP_SHEET: 'made-up-map-sheet'}),
+    ('cloud', 'custom', 'local', {ConfigMapUri.TRANSACTIONS_SHEET: 'made-up-trans-sheet',
+                                  ConfigMapUri.SYMBOLS_MAP_SOURCE: 'local',
+                                  ConfigMapUri.SYMBOLS_MAP_DIRECTORY: 'symbols.csv'}),
+    ('cloud', 'custom', 'cloud', {ConfigMapUri.TRANSACTIONS_SHEET: 'made-up-trans-sheet',
+                                  ConfigMapUri.SYMBOLS_MAP_SOURCE: 'cloud',
+                                  ConfigMapUri.SYMBOLS_MAP_SHEET: 'made-up-map-sheet'}),
+    # With Yahoo symbols the symbols-map block isn't read, so it can be left out.
+    ('local', 'yahoo', None, {ConfigMapUri.TRANSACTIONS_DIRECTORY: 'trans.csv'}),
+    ('cloud', 'yahoo', None, {ConfigMapUri.TRANSACTIONS_SHEET: 'made-up-trans-sheet'}),
+])
+def test_create_cfg_reads_only_the_keys_of_the_chosen_sources(
+        tmp_path, transactions_source, symbols_standard, map_source, expected):
+    cfg = create_cfg(write_source_cfg(tmp_path, transactions_source, symbols_standard, map_source))
+    assert {key: cfg.get_param(key) for key in SOURCE_KEYS} == \
+        {key: expected.get(key) for key in SOURCE_KEYS}
+
+def test_create_cfg_common_keys(tmp_path):
+    cfg = create_cfg(write_source_cfg(tmp_path, 'local', 'custom', 'local'))
+    assert {key: cfg.get_param(key) for key in [
+        ConfigMapUri.MARKET_ORIGIN, ConfigMapUri.DEFAULT_CURRENCY,
+        ConfigMapUri.GENERATION_DIRECTORY, ConfigMapUri.LOG_DIRECTORY,
+        ConfigMapUri.HISTORY_VARIANT, ConfigMapUri.TRANSACTIONS_SOURCE,
+        ConfigMapUri.SYMBOLS_STANDARD, ConfigMapUri.LOG_LEVEL, ConfigMapUri.QUIET]} == {
+        ConfigMapUri.MARKET_ORIGIN: 'yahoo', ConfigMapUri.DEFAULT_CURRENCY: 'USD',
+        ConfigMapUri.GENERATION_DIRECTORY: 'out/', ConfigMapUri.LOG_DIRECTORY: 'logs/',
+        ConfigMapUri.HISTORY_VARIANT: 'full', ConfigMapUri.TRANSACTIONS_SOURCE: 'local',
+        ConfigMapUri.SYMBOLS_STANDARD: 'custom', ConfigMapUri.LOG_LEVEL: 'DEBUG',
+        ConfigMapUri.QUIET: True}
