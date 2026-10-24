@@ -138,7 +138,7 @@ def plot_projection(fig_path: PathLike, years: list[int], birth_year: int,
     """One line per series (at most three), each labelled in the legend with its final value."""
     Path(fig_path).parent.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(1, 1, figsize=(12, 6))
-    for color, (name, values) in zip(SERIES_COLORS, series.items()):
+    for color, (name, values) in zip(SERIES_COLORS, series.items(), strict=False):
         ax.plot(years, values, color=color, linewidth=2,
                 solid_joinstyle='round', solid_capstyle='round',
                 label=f'{name}: {format_compact(values[-1])}')

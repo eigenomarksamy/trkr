@@ -174,11 +174,11 @@ def build_positions(is_local: bool, address: str,
             average_price = float(row['average_price'])
             ex_rate = float(row.get('ex_rate') or 1)
         except ValueError:
-            raise input_error(f'{where}: quantity, average_price and ex_rate must be numbers.')
+            raise input_error(f'{where}: quantity, average_price and ex_rate must be numbers.') from None
         try:
             datetime.strptime(row['date'].strip(), '%Y-%m-%d')
         except ValueError:
-            raise input_error(f'{where}: date must be YYYY-MM-DD, not {row["date"]!r}.')
+            raise input_error(f'{where}: date must be YYYY-MM-DD, not {row["date"]!r}.') from None
         if not row['symbol'].strip():
             raise input_error(f'{where}: symbol is empty.')
         if quantity <= 0:

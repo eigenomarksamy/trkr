@@ -12,7 +12,7 @@ class CsvMngr:
         with open(self.file_path, 'r') as file:
             reader = csv.reader(file)
             rows = list(reader)
-            ret = [dict(zip(self.headers, row)) for row in rows]
+            ret = [dict(zip(self.headers, row, strict=False)) for row in rows]
             ret.pop(0)
             return ret
 

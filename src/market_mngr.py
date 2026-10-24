@@ -97,7 +97,7 @@ class MarketDataGoogleLite(MarketDataGoogle):
         for elm in self.data_aligned:
             if elm == 'USD':
                 continue
-            for date in self.data_aligned[elm]:
+            for date in self.data_aligned[elm]:  # noqa: F402 -- dead code, removed in Phase 2
                 if self.def_currency == 'EUR' and self.data_aligned[elm][date]['currency'] == 'USD':
                     self.data_aligned[elm][date]['price'] *= self.data_aligned['USD'][date]['price']
                     self.data_aligned[elm][date]['currency'] = 'EUR'
@@ -119,7 +119,7 @@ class MarketDataGoogleFull(MarketDataGoogle):
         for elm in self.data_aligned:
             if elm == 'USD':
                 continue
-            for date in self.data_aligned[elm]:
+            for date in self.data_aligned[elm]:  # noqa: F402 -- dead code, removed in Phase 2
                 if self.def_currency == 'EUR' and self.data_aligned[elm][date]['currency'] == 'USD':
                     try:
                         self.data_aligned[elm][date]['price'] *= self.data_aligned['USD'][date]['price']
@@ -273,9 +273,9 @@ class MarketReader:
             except ValueError as verr:
                 if not is_quiet:
                     raise ValueError(f"Exception raised!\n\t--> {verr}.\n" +
-                                     f"In other words,\n\t" +
+                                     "In other words,\n\t" +
                                      f'GOOGLEFINANCE is down for {entry["symbol"]}.' +
-                                     '\n\tPossibly more')
+                                     '\n\tPossibly more') from verr
                 raise verr
         for entry in data_aligned.keys():
             if def_currency == 'EUR':
@@ -343,7 +343,7 @@ def get_yfinance_map_local(sheet_location: str) -> YFinanceSymbMap:
 def use_market_google():
     market = MarketDataGoogleLite({}, 'SSSS')
     history_obj = MarketHistory(market, '2023-01-01')
-    symbol = MarketSymbol('sss', history_obj.history, 1212, 'ssss')
+    symbol = MarketSymbol('sss', history_obj.history, 1212, 'ssss')  # noqa: F841 -- dead code, removed in Phase 2
 
 def execute_yahoo_finance():
     symbols_of_interest = ['META', 'NVDA', 'btceur', 'pfe', 'usd', 'iwda', 'vwce', "VEUR", 'vusa']

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Tuple, Union
+from typing import Tuple
 from dateutil.relativedelta import relativedelta
 from src.transactions import Transactions
 

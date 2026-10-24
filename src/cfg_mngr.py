@@ -145,7 +145,7 @@ def parse_projection_cfg(block: Optional[dict], portfolio_names: list[str],
                 raise ValueError(amount)
             plan[int(year)] = amount
     except (AttributeError, ValueError):
-        raise config_error('projection: deposits-withdrawals must map calendar years to amounts.')
+        raise config_error('projection: deposits-withdrawals must map calendar years to amounts.') from None
     block['deposits-withdrawals'] = plan
     if block['birth-year'] + block['retirement-age'] <= current_year:
         raise config_error('projection: retirement-age is reached this year or earlier, '
