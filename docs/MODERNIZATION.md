@@ -1,0 +1,276 @@
+# Modernization plan
+
+A living checklist. Tick items as they land and note the commit hash. Order matters: Phase 0 builds the safety net that makes the later phases safe, because the portfolio math has only end-to-end golden coverage and has confirmed bugs.
+
+State as of 2026-10-22: the last code change was 2025-03; the scheduled job ran successfully through 2025-11-04.
+
+2026-10-23: the net-worth projection and imaginary portfolios landed, ahead of the phases, at the owner's request. They brought part of Phase 0 with them: offline test fixtures, the golden end-to-end test and the demo config.
+
+2026-10-23: added a plan for a local web app ("Feature: web app"). Nothing is built yet.
+
+## Decisions for the owner
+
+Claude assumes the defaults below unless told otherwise.
+
+| Question | Default |
+|---|---|
+| Environment/lock tool | `uv` (`pyproject.toml` + `uv.lock`), with `requirements.txt` exported from the lock until `run_script.bat` switches over. Needs `winget install astral-sh.uv`. Alternative: plain pip + `pip-compile`. |
+| Python floor | `>=3.11`, so the current venv keeps working. |
+| Cost basis for sells | Average cost (already implied by `break_even_price`). Realized and unrealized P&L reported separately. |
+| Data sources | Keep Google Sheets (CSV export) and local CSV. Keep Yahoo via `yfinance`. |
+| Report format | Keep a static HTML report + PNGs, but make it portable (relative paths). Interactive charts are Phase 4. |
+| Projection starting point | The real portfolio's current market value plus a fixed `cash` amount from the config. Expected return and fees are explicit inputs, never derived from past performance. |
+| Projection percentages | Whole numbers in the YAML (`7` = 7%), as in the C++ tool. |
+| Nominal vs real | Nominal, as in the C++ tool. Setting `inflation` adds real-value columns. |
+| Imaginary portfolios | Transactions files in the same format as the real one, priced live from Yahoo through the same pipeline. The C++ model (holdings valued at their purchase price) is not ported. |
+| Mortgage calculator in `networth_projection` | Not ported. |
+| First projection row | One year after the run (owner, 2026-10-23). A run in October 2026 labels row 1 as 2027, so no year is credited with a full year it hasn't had. |
+| Opening positions | One row per investment (quantity, average price, a date per row) in a separate optional file, local or cloud. Positions are an opening balance that later trades in the transactions sheet adjust (owner, 2026-10-23). Real portfolio only for now. |
+| Web app: where it runs | On the owner's PC only, bound to `127.0.0.1`, with no login. The pages show holdings, and the config holds sheet IDs that anyone with the link can read. Opening it to the LAN or the internet needs auth and HTTPS first, and is a separate decision. |
+| Web app: stack | FastAPI + Jinja2 + htmx, rendered on the server, with no Node build step. htmx and `plotly.min.js` are vendored at pinned versions, so the pages work offline. Alternative: Streamlit gets to a first page faster, but it can't share templates or tests with the static report. |
+| Web app: charts | Plotly. Figures are built in Python from the run snapshot and drawn in the browser. |
+| Web app: how a run executes | The CLI runs as a subprocess, one run at a time, under a lock file that the scheduled job also takes. A crash or a hang can't take the server down, and process-wide state (bugs 5 and 9) stays out of the server. |
+| Web app: data contract | Every CLI run writes a versioned `snapshot.json`, the scheduled run included. The server reads snapshots. The only thing it computes itself is projections. |
+| Web app: config | Read-only. The server never writes `cfg.yml` or `cfg_bat.yml`. What-ifs live in the URL or under `<gen-dir>/web/`. `run_web.bat` points at `cfg_bat.yml`, so the app opens on the scheduled job's latest run. |
+| Web app: dependencies | An optional `web` extra in `pyproject.toml`, so the scheduled job doesn't install FastAPI. |
+
+## Phase 0: Safety net (no behaviour changes)
+
+- [ ] `pyproject.toml` with project metadata and runtime deps with lower bounds: pyyaml, requests, matplotlib, numpy, yfinance, jinja2, **python-dateutil** (imported in `portfolio_mngr.py` but undeclared; it arrives transitively via pandas). Drop **markdown2** (never imported). Dev deps: pytest, ruff.
+- [ ] Lock file, with `requirements.txt` regenerated from it so `run_script.bat` installs the same versions.
+- [ ] Ruff lint + format config. Do the first format pass as its own commit.
+- [x] `tests/` with offline fixtures: synthetic transactions CSV, symbol-map CSV, and a stubbed `yfinance.Ticker` returning fixed DataFrames. Also freezes `datetime.today()` in `portfolio_mngr`. pytest is configured in `pytest.ini` and installed in the venv, but not declared as a dependency until the `pyproject.toml` item.
+- [ ] Characterization tests: `Portfolio.calculate` (buys only, several symbols), `compute_spending_history`, `get_entry_points_months`, `convert_date_to_short_str`, `create_cfg` for each source combination, `CsvMngr.read`, and `get_google_sheet` URL building.
+- [x] Golden end-to-end test: `exec()` against a fixture config with the network stubbed. Snapshot `portfolio.csv`, `total.md` and `entries.md`; for PNG/HTML, only assert that they exist. (`tests/test_exec.py`; `TRKR_UPDATE_GOLDEN=1` rewrites the snapshots.)
+- [x] Fill in `config/demo-cfg.yml` (currently empty) to point at tracked sample CSVs in `examples/` (`trans-src: local`, `sym-map-src: local`), so a fresh clone can run the tool. It also shows an imaginary portfolio and a projection.
+- [ ] Fix the README. It documents `sheets.yml`/`settings.yml` and a `--sheets-config-file` flag that no longer exist; the real CLI is `run.py --cfg <file>`. Document the actual YAML schema. Done so far: the Demo and Tests sections, and the two new blocks. The Sheets and Settings sections are still stale.
+- [ ] Once ruff is installed, add a PostToolUse hook in `.claude/settings.json` that formats edited `.py` files.
+
+## Phase 1: Known bugs (each fix: failing test first, then the fix)
+
+Ordered by impact. Line numbers are as of commit `c1d28fe`.
+
+1. [ ] **Partial sells corrupt totals.** `src/portfolio_mngr.py:51-54`: a sell subtracts the symbol's *entire* spending from the total but leaves the symbol's own spending unchanged. No sale proceeds are recorded either, so realized P&L is lost.
+   Reproduced: buy 10 @ 10 of A and of B, then sell 5 of A. Reported: total spending 100 and profit +60%. Correct: remaining cost basis 150, unrealized +6.7%, realized +10. With a single symbol, a partial sell raises `ZeroDivisionError`.
+   Related: `amount == 0` float equality (`:57`) keeps dust positions after crypto sells, and a sell seen before any buy of that symbol uses `current_price` 0.
+2. [ ] **`history-variant: full` crashes.** Daily history is keyed `YYYY-MM-DD`, but `compute_historical_valuation` looks up month keys like `jan24`, which raises `KeyError`. That error then turns into bug 4.
+3. [ ] **`symbols-standard: yahoo` crashes.** `run.py:69,76,177` dereference `yfinance_map_obj.tickerMap` unconditionally, and `MarketDataYahoo` requires a ticker map for currency conversion (`src/market_mngr.py:161`).
+4. [ ] **Error handler crashes on ordinary exceptions.** `run.py:195,202` do `int(str(e))`, so any exception without a numeric message raises `ValueError` inside `except`: a traceback, and exit code 1 only by accident.
+5. [ ] **`check_internet` sets a global 3 s socket timeout** (`src/utils.py:20`) for the rest of the process, including every yfinance/requests call after it. It also leaks the socket. Likely source of flaky runs on slow networks.
+6. [ ] **Historical valuation is not a valuation.** `compute_historical_valuation` *adds* sell quantities (`:136`). It also only prices each lot in the month it was bought and never revalues holdings, so the result is closer to cumulative money invested. Decide what the "Valuation Percent" chart should show, then fix it.
+7. [ ] **Currency conversion only supports two currencies.** Every non-default-currency asset is multiplied by the one FX ticker, so a GBP/GBp/CHF listing would be silently mispriced. Convert per currency pair.
+8. [ ] `--quiet` / `--log-level` CLI flags are ignored (`src/utils.py` parses them; `run.py` never reads them).
+9. [ ] Matplotlib figures are never closed (`src/plot_mngr.py`), which warns past ~20 figures and leaks memory in long runs.
+10. [ ] `plot_monthly_stocks` locates the entry point with the `names` list from the *previous* symbol (`src/plot_mngr.py:49`). Wrong x position when two series have different dates.
+11. [ ] File I/O has no `encoding=`, so on Windows a non-ASCII character in a sheet (e.g. `€`) breaks reads under cp1252.
+
+## Phase 2: Structure and cleanup (behaviour-preserving, guarded by Phase 0 tests)
+
+- [ ] Delete dead code: `MarketDataGoogle*`, `MarketReader`, `fetch_histories`, `use_market_google`, `execute_yahoo_finance`, unused parts of `Sheets`, `src/market_tester.py`, unused `TransType`.
+- [ ] A single month-key helper instead of two copies of `convert_date_to_short_str`.
+- [ ] `Transaction` becomes a `@dataclass`; remove the `__dict__` method; `Transactions.get()` stops exposing the mutable internal list.
+- [ ] Config becomes typed dataclasses with validation and clear error messages (same YAML schema). Use `pathlib.Path` for every directory, which removes the trailing-slash requirement.
+- [ ] A real exception hierarchy (`TrkrError` → `NoNetworkError`, `UnsupportedConfigError`, …), mapped to exit codes in one place.
+- [ ] Replace `print` + `is_quiet` threading with `logging` (console level from `quiet`); simplify `LogManager` to stdlib level parsing.
+- [ ] `CsvMngr.read` → `csv.DictReader` keyed by the header row. Today it relies on column order and blindly drops the first row.
+- [ ] Templates become tracked `.html` files loaded via `PackageLoader`, no longer rewritten at runtime. Un-ignore them, and turn on Jinja autoescape.
+- [ ] `Interval` → `StrEnum`; tidy type hints (`Optional[...]` → `X | None`).
+
+## Phase 3: Packaging and performance
+
+- [ ] `src/trkr/` package with a `trkr` console script (`python -m trkr --cfg …`). Keep `run.py` as a thin shim. Point `run_script.bat` at it and stop reinstalling dependencies on every scheduled run.
+- [ ] Fetch prices in one batched `yf.download(tickers, …)` call. Today each ticker costs three requests (`history`, `.info`, `history(period="1d")`), and `.info` is the slowest and flakiest. Get currency from `fast_info`.
+- [ ] Optional on-disk cache of history, so same-day re-runs need little network.
+- [ ] Relative paths in the HTML report, so a `data/<run>/` folder can be moved or zipped.
+- [ ] GitHub Actions (`origin` is GitHub): ruff + pytest on push and PRs.
+
+## Feature: net-worth projection and imaginary portfolios
+
+A port of the owner's C++ tool at `C:\dev_ws\networth_projection` (`src/networth/`, `src/portfolio/`), which lives outside this repo. Landed 2026-10-23, before Phase 2, so the report sections are inline strings in `report_mngr.py` like the rest; they move with the other templates. Build fixtures from made-up numbers: don't use that project's `gen/` files or its `fillDefaults()` values.
+
+### What the C++ projection computes
+
+One row per year, from the current age to the retirement age inclusive. For year *n*, with return `r`, income growth `g` and fees `f`:
+
+- `income` starts at the configured value and grows by `g` from year 2 on.
+- `contribution = income × invest%`.
+- `extra` is the deposit (+) or withdrawal (−) planned for year *n*, or 0.
+- `return = NW[n−1] × r + (contribution + extra) × r / 2`. New money earns half a year's return (mid-year convention).
+- `NW[n] = NW[n−1] + contribution + extra + return`.
+- The whole series runs twice: gross with `r`, net with `r − f`.
+
+Output columns: age, year, income, yearly investment, deposit/withdrawal, gross return, gross net worth, net return, net net worth.
+
+C++ defects not to carry over:
+
+- **The year-1 deposit/withdrawal is always dropped.** The constructor reads the plan (`networth.cpp:16`) before `main.cpp:25` calls `setDepWithdrawalPlan`, and the year-1 net-worth formula leaves out the deposit term anyway (`:18`). Also fixed in `networth_projection` on 2026-10-23 (not committed there), and `bin/investor.exe` was rebuilt.
+- Plan entries are keyed by year index, where 1 is the first projected year. trkr runs on a schedule, so year 1 moves every January and the plan would drift. Key it by calendar year.
+- Values accumulate in 32-bit `float` over ~40 years. Python floats fix this, so any golden values taken from `bin/investor.exe` need a tolerance.
+- The projection stops at retirement, with no drawdown phase.
+
+### Projection
+
+- [x] `projection.py`: a pure function, inputs dataclass → list of row dataclasses, with no I/O and no network. Tests come first: a hand-computed 3-year case, `fees: 0` (gross == net), deposits and withdrawals including year 1, and one golden case checked against `bin/investor.exe` run on the same made-up inputs.
+- [x] Config: an optional `projection:` block. Absent means the feature is off and output is unchanged. `create_cfg` indexes required keys with `[]`, so read the new keys with `.get()`. Store `birth-year`, not age, so the config doesn't go stale. Validate that retirement is in the future and that percentages are in range. Sketch (made-up values):
+
+  ```yaml
+  projection:
+    birth-year: 1990
+    retirement-age: 65
+    start-net-worth: portfolio   # or a fixed number
+    cash: 5000                   # added to the start value
+    income: 50000
+    income-growth: 2             # % per year
+    invest-percent: 15           # % of income
+    return: 7                    # % per year, before fees
+    fees: 0.5                    # % per year
+    inflation: 2                 # optional: adds real-value columns
+    deposits-withdrawals:        # optional: calendar year -> amount, negative = withdrawal
+      2030: -20000
+  ```
+
+- [x] `start-net-worth: portfolio` takes `total['value']` from `Portfolio.calculate`, the current market value in the default currency, and adds `cash`.
+- [x] Outputs: `generated/projection.csv`, `generated/projection.md`, and `plots/projection.png` with gross and net net worth by age, plus real net worth when `inflation` is set. Close the figure (see bug 9).
+- [x] Report: a "Projection" section in `report.html` with the chart and the assumptions. Show the amount actually invested over the last 12 months (from `compute_spending_history`) next to the assumed yearly contribution, so the assumption can be sanity-checked.
+
+### Imaginary portfolios
+
+- [x] Extract the "transactions → market data → `Portfolio` → outputs" part of `exec` (`run.py:19-188`) into a function that takes a transactions source and an output directory. This is behaviour-preserving and guarded by the Phase 0 golden test. (`process_portfolio` → `PortfolioRun`.)
+- [x] An optional `imaginary-portfolios:` list in the YAML. Each entry has `name`, `source: local|cloud`, and `transactions-dir` or `shareable-address`, mirroring the real `transactions` block. The files use the same columns as real transactions, and their tickers must be in the symbol map. Outputs go under `<gen-dir>/imaginary/<name>/`, linked from the main report. Each portfolio fetches its own market data, so adding one can't change the real portfolio's history window. The Phase 3 batched download should batch across portfolios too.
+- [x] A comparison table in the report: the real portfolio against each imaginary one, showing invested, value, profit and profit %.
+- [x] `start-net-worth` can name an imaginary portfolio, to project "what if I had held X instead".
+
+### Later, owner's call
+
+- [ ] Buys without a price: leave `price` empty and fill it from that day's Yahoo close, so a what-if portfolio needs only a date, a ticker and an amount. Needs daily history (bug 2).
+- [ ] Scenarios: several named return/fee sets (e.g. pessimistic, base, optimistic) on one chart.
+- [ ] Drawdown after retirement: a withdrawal rate, and how long the money lasts.
+
+## Feature: opening positions
+
+For holdings without a full trade history: one row per investment with quantity, average buy price and a date.
+
+- [x] `build_positions` (`src/transactions.py`) reads the file by column name (`symbol`, `quantity`, `average_price`, `date` required; `currency`, `ex_rate`, `exchange` optional). It validates each row and exits with 400 `InvalidInputData` on bad data. Each row becomes a `buy` at the average price, on its date, with platform `positions file`.
+- [x] Optional `positions:` block (`source: local` with `positions-dir`, or `cloud` with `shareable-address`). Positions are prepended to the transactions, because `Portfolio.calculate` processes the list in order.
+- [x] Tests: reader and validation, config, and an end-to-end run combining positions with trades. The demo config uses `examples/positions.csv`.
+- [ ] Positions for imaginary portfolios, which would make "I hold N at price P" what-ifs possible without a transactions file.
+- [ ] A position followed by a partial sell inherits bug 1 (totals). Fixing bug 1 fixes this too.
+
+## Feature: web app
+
+A local web app that shows everything the static report shows. It also does what a static page can't: start a run, browse past runs, and recompute the projection as its inputs are edited. It is a second front end on the same core, not a fork. The CLI stays the only code that fetches data and computes portfolios, and the scheduled job keeps working. The defaults are the "Web app" rows in the decisions table.
+
+Prerequisites:
+
+- W0 needs only the Phase 0 tests, because it is a behaviour-preserving refactor guarded by the golden test.
+- W1 onward needs these Phase 2 items: the exception hierarchy (the server shows error names, which also retires bug 4), `logging` instead of `print`, tracked templates with autoescape (transactions come from a sheet and are now rendered in a browser), and typed config with `pathlib`. It also needs the Phase 3 package item, so the server can live in `trkr.web`.
+- Fix bug 1 before using the app day to day, so the new UI doesn't show wrong totals.
+- The Phase 3 batched download and history cache make "Run now" much faster. They are not required.
+
+### Feature parity
+
+Each feature of the CLI, and where it ends up in the app:
+
+| Feature | Today | Web app | Milestone |
+| --- | --- | --- | --- |
+| Transactions from a local CSV or a public Google Sheet, symbol map, opening positions | YAML config, read by `run.py` | Same config, run by the CLI subprocess | W2 |
+| Totals: spending, value, profit, profit %, cash-out, holding period, average ROI | `report.html`, Total | Overview | W1 |
+| Per-symbol table with price targets | `report.html`, Portfolio | Holdings (sortable), plus a page per symbol | W1 |
+| Stats charts: spending %, profit %, spending per month, valuation % | `plots/gen_stats.png` | Overview: PNGs first, then interactive | W1, W3 |
+| Price history per ticker with entry points | `plots/stocks/*.png`, `figs_historical.html` | Symbol pages | W1, W3 |
+| Transactions list | `transactions.html` | Transactions, filterable by symbol, type and platform | W1 |
+| Symbol map, entry points, historical valuation | `misc_tables.html` | Data | W1 |
+| Generated files: `portfolio.csv`, `total.md`, `entries.md`, `projection.csv`, `projection.md` | `generated/` | Downloads on Data | W1 |
+| Imaginary portfolios and the comparison table | `imaginary/<name>/report.html`, main report | The same views per portfolio; the comparison on Overview | W1 |
+| Net-worth projection | `report.html`, `projection.html` | Projection page, then editable inputs | W1, W4 |
+| Scheduled run | `run_script.bat` | Unchanged; its snapshots show up in the app | W0 |
+| Logs and exit codes | `log/`, console | Run status with the error name and the log tail | W2 |
+| Static HTML report | `report.html` | Still written by the CLI, and linked from Data | none |
+
+### W0: Core seam (CLI only, no web code)
+
+- [ ] Split computation from output. `process_portfolio` and `process_projection` return data only. Writing the CSV, Markdown and PNG files moves into a separate `write_outputs(run, directories)`. The golden test passes unchanged.
+- [ ] A `RunSnapshot` dataclass that holds everything any page needs:
+  - run time and a config summary: default currency, history variant, and `local`/`cloud` for each source, but never addresses or sheet IDs;
+  - the ticker map, per-symbol rows, totals, monthly spending, entry points and historical valuation;
+  - price history per ticker, in the default currency;
+  - transactions, with positions marked;
+  - each imaginary portfolio, in the same shape;
+  - projection inputs, start value and rows.
+
+  It gets `to_json`/`from_json` and a `schema_version`.
+- [ ] Every run writes `<gen-dir>/snapshot.json`, plus a copy at `<gen-dir>/snapshots/<YYYYmmdd_HHMMSS>.json`. It writes a temp file and renames it, so a reader never sees half a file. Keep every copy: at tens of KB per run, a year of daily runs is a few MB.
+- [ ] Tests: a golden `snapshot.json` for the fixture config (same `TRKR_UPDATE_GOLDEN=1` flow), and a JSON round trip.
+
+### W1: Read-only viewer
+
+- [ ] `trkr web --cfg <file>` starts the server on `127.0.0.1:8765`, using uvicorn and a `create_app(cfg_path)` factory. It shows the latest snapshot from the config's `generation-dir`. When there is no snapshot yet, the page explains how to make one. A snapshot with a different `schema_version` asks for a new run.
+- [ ] Layout: navigation, an `as of <run time>` line, and a warning when the snapshot is more than a week old. That warning would have flagged the scheduled job's last run on 2025-11-04 long before 2026-10. The layout works at phone width.
+- [ ] Pages, following the parity table:
+  - Overview.
+  - Holdings, plus one page per symbol with its price history, entry point, break-even and price targets.
+  - Transactions.
+  - Imaginary: each portfolio gets the same Overview, Holdings and Transactions pages under `/imaginary/<name>/`.
+  - Projection.
+  - Data: the misc tables, downloads, and a link to the static report.
+- [ ] Charts: the existing PNGs. Files are served only from inside `<gen-dir>`, and the resolved path is checked.
+- [ ] Read-only JSON at `/api/snapshot` and `/api/snapshot/imaginary/<name>`.
+- [ ] Tests with FastAPI's `TestClient` (`httpx` becomes a dev dependency), run on the fixture snapshot:
+  - every page returns 200 and shows the fixture values;
+  - a made-up sheet ID from the fixture config appears in no response;
+  - a request for a file outside `<gen-dir>` gets 404.
+
+### W2: Runs from the browser
+
+- [ ] "Run now": `POST /runs` starts `python -m trkr --cfg <file>` as a subprocess and returns a run id. The page polls the run with htmx and shows the tail of its output. When the run finishes, the page loads the new snapshot.
+- [ ] One run at a time per `generation-dir`. The CLI takes `<gen-dir>/.run.lock` and writes its PID into it, so a lock left behind by a dead process can be broken. The scheduled job takes the lock too, so it and a web run never write the same files at once. A second "Run now" gets "already running".
+- [ ] A failed run shows the exit code, the error name and the log tail. The last good snapshot stays on screen.
+- [ ] Run history: every snapshot with its time, value, profit and profit %, and each one can be opened. A chart of total value across snapshots gives a real value-over-time series from the scheduled runs, which the "Valuation Percent" chart doesn't (bug 6).
+- [ ] Tests: the runner sits behind an interface, and the tests swap in a fake (no subprocess, no network). They cover lock contention and the failure path.
+
+### W3: Interactive charts
+
+- [ ] `trkr/charts.py` holds pure functions that turn a snapshot into a Plotly figure dict, one for each current matplotlib chart: spending %, profit %, spending per month, valuation %, price history per ticker with its entry point, and the projection. The tests check each figure's structure (series, labels, values) on the fixture snapshot, not its pixels.
+- [ ] The pages draw the figures with the vendored `plotly.min.js`. Nothing loads from a CDN.
+- [ ] Interactions:
+  - hover values, legend toggles and date-range zoom;
+  - break-even and price-target lines on symbol charts;
+  - imaginary portfolios overlaid on the real one.
+- [ ] Phase 4's interactive-report item can then reuse these figures in the static report. Until the owner decides on that, the CLI report keeps its PNGs.
+
+### W4: Projection playground
+
+- [ ] A form filled in from the config's `projection:` block. It has every field, including the deposit and withdrawal rows. `start-net-worth` is a choice between the real portfolio, each imaginary portfolio and a fixed amount, with the current values taken from the snapshot.
+- [ ] Each change is validated with the same rules as `parse_projection_cfg` and recomputed with `project_net_worth`. That needs no network and takes milliseconds, so htmx can swap in the new table, chart and summary as the owner types. Invalid input shows the message the CLI prints before raising 422.
+- [ ] The inputs live in the query string, so a what-if can be bookmarked. "Copy as YAML" gives a `projection:` block to paste into the config; the app never writes the config.
+- [ ] When the Scenarios item (projection feature, "Later") lands, each scenario becomes its own set of inputs on a shared chart.
+- [ ] Tests: the fixture inputs entered through the form give the same rows as calling `project_net_worth` directly. Each validation error is also tested.
+
+### W5: What-if portfolios from the browser (owner's call)
+
+- [ ] Create an imaginary portfolio by uploading a CSV or typing rows. The same reader that reads the transactions file checks them. The result is saved as `<gen-dir>/web/imaginary/<name>.csv`.
+- [ ] A new CLI option, `--imaginary-dir <dir>`, adds every CSV in that directory as an imaginary portfolio named after its file. The web runner passes `<gen-dir>/web/imaginary/`, so portfolios made in the browser join the next run without touching the config.
+- [ ] Ticker suggestions come from the symbol map, with a warning for tickers it doesn't contain, since those would fail the run.
+- [ ] This builds on two open items: buys without a price (so a row needs only a date, a ticker and an amount) and positions for imaginary portfolios.
+- [ ] Tests:
+  - upload validation: bad columns, bad dates, unknown symbols, and non-ASCII text (needs bug 11);
+  - `--imaginary-dir` end to end with the offline fixture.
+
+### W6: Running it day to day
+
+- [ ] `run_web.bat` runs `-m trkr web --cfg config/cfg_bat.yml` with the venv's Python and opens the browser. Optionally, add a Task Scheduler entry that starts it at logon. `run_script.bat` stays as it is; it gets the run lock through the CLI.
+- [ ] A "Web app" section in the README.
+- [ ] The GitHub Actions job runs the web tests along with the rest.
+
+### Not planned
+
+- Accounts, hosting or a database. There is one user on one machine, and snapshots are files.
+- Editing the real transactions. The Google Sheet or the CSV stays the source of truth.
+- A separate JavaScript front end (React or similar). It would add a Node build and gain nothing at this size.
+
+## Phase 4: Optional, owner's call
+
+- [ ] pandas-based computation: history as DataFrames, monthly resampling instead of string month keys.
+- [ ] Interactive report (e.g. Plotly) instead of PNGs. Web app W3 builds the figures; this item reuses them in the static report.
+- [ ] Dividends, deposits/withdrawals, transfers.
+- [ ] Money-weighted (XIRR) / time-weighted returns, replacing the linear `profit_percent / days * 365`.

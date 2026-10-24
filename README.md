@@ -101,9 +101,64 @@ The settings are fairly simple.
 
 `generation-dir:` That's the directory that will have the output of the program, for example: 'data/user/' without the quotes.
 
+### Positions (opening balances)
+
+Optional. When you don't have every past trade, list what you hold instead: one row per investment with the quantity, your average buy price and a date (e.g. when you first bought it). Each row counts as a single buy on that date, before the trades in the transactions sheet, so later buys and sells adjust it. Charts and monthly spending start at that date.
+
+```yaml
+positions:
+  source: local                 # a local CSV file...
+  positions-dir: data/positions.csv
+  # source: cloud               # ...or a shared Google Sheet
+  # shareable-address: <sheet id>
+```
+
+| symbol | quantity | average_price | date       | currency | ex_rate | exchange |
+|--------|----------|---------------|------------|----------|---------|----------|
+| vwce   | 12       | 92.40         | 2023-03-06 | EUR      | 1       | XETRA    |
+| aapl   | 4        | 150.20        | 2023-05-08 | USD      | 1.09    | NASDAQ   |
+
+`symbol`, `quantity`, `average_price` and `date` (YYYY-MM-DD) are required. The average price is in the investment's own currency, and `ex_rate` converts it to the default currency the same way as in transactions (default 1). `currency` and `exchange` are only shown. Symbols go through the symbol map like transactions.
+
+### Imaginary portfolios
+
+Optional. An imaginary portfolio is a transactions file in the same format as the real one. It is priced from Yahoo like the real portfolio and gets its own report under `<generation-dir>imaginary/<name>/`. The main report compares it with the real portfolio. Its symbols must be in the symbol map.
+
+```yaml
+imaginary-portfolios:
+  - name: all-world-only        # letters, digits, '-' and '_'
+    source: local               # a local CSV file...
+    transactions-dir: examples/transactions-all-world.csv
+  - name: tech-heavy
+    source: cloud               # ...or a shared Google Sheet
+    shareable-address: <sheet id>
+```
+
+### Net-worth projection
+
+Optional. Projects net worth year by year until retirement and adds a section, a chart and a full table to the report. It also writes `generated/projection.csv` and `generated/projection.md`. Percentages are whole numbers: `7` means 7%.
+
+```yaml
+projection:
+  birth-year: 1992              # required
+  retirement-age: 60            # required
+  return: 7                     # required: yearly, before fees
+  start-net-worth: portfolio    # 'portfolio' (default), an imaginary portfolio's name, or a number
+  cash: 5000                    # added to the start value (default 0)
+  income: 45000                 # yearly (default 0)
+  income-growth: 2              # default 0
+  invest-percent: 15            # share of income invested each year (default 0)
+  fees: 0.3                     # yearly, taken off the return (default 0)
+  inflation: 2                  # optional: adds a today's-money column
+  deposits-withdrawals:         # optional: calendar year -> amount, negative = withdrawal
+    2030: -15000
+```
+
+Each row is one year from the day of the run, so the first row is next calendar year. Contributions and deposits arrive through the year and earn half a year's return.
+
 ## Demo
 
-**To run the demo execute the following command in the home directory terminal for the project:**
+`config/demo-cfg.yml` runs on the made-up transactions in `examples/`, with live prices from Yahoo. **To run it, execute the following commands in the project's home directory:**
 
 ``$ python -m venv .venv``
 
@@ -113,6 +168,12 @@ The settings are fairly simple.
 
 ``$ pip install -r requirements.txt``
 
-``$ python run.py --sheets-config-file config/demo-sheets.yml --settings-config-file config/demo-settings.yml``
+``$ python run.py --cfg config/demo-cfg.yml``
 
-Then check the directory `data/demo/`
+Then open `data/demo-run/report.html`.
+
+## Tests
+
+``$ .venv/Scripts/python.exe -m pytest``
+
+The tests run offline. When a change to the output is intended, regenerate the golden files in `tests/golden/` with `TRKR_UPDATE_GOLDEN=1` and review the diff.
