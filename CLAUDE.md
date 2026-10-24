@@ -10,8 +10,10 @@ Personal investment-portfolio tracker. Reads a transactions CSV (local file or a
 - `.venv/Scripts/python.exe run.py --cfg config/cfg.yml`. Needs network (Google Sheets + Yahoo), ~10-15 s.
 - `run_script.bat` is the owner's scheduled job: activates the venv, runs `pip install -r requirements.txt`, then runs with `config/cfg_bat.yml` → `data/bat_script/`, `log/bat_script/`. Keep it working.
 - The `--quiet` and `--log-level` CLI flags are parsed but ignored; the `cli-exec` block in the YAML is what counts.
-- Tests: `.venv/Scripts/python.exe -m pytest` (offline, ~2 s). pytest is installed in the venv but not yet declared anywhere; there is no linter or formatter yet (Phase 0 of the plan).
-- `tests/test_exec.py` snapshots the real portfolio's `portfolio.csv`, `total.md` and `entries.md` in `tests/golden/`. When an output change is intended, rerun with `TRKR_UPDATE_GOLDEN=1` and review the golden diff.
+- Tests: `.venv/Scripts/python.exe -m pytest` (offline, ~3 s).
+- Lint and format: `.venv/Scripts/python.exe -m ruff check .` and `... -m ruff format .` (config in `pyproject.toml`). A PostToolUse hook (`.claude/hooks/format_python.py`) already sorts imports and formats each `.py` file Claude edits, so an Edit's `old_string` may need re-reading after a reformat.
+- Dependencies: declared in `pyproject.toml`, locked in `uv.lock`. `requirements.txt` is generated from the lock (`uv export --no-dev --no-hashes --no-emit-project -o requirements.txt`), so never edit it by hand. To change dependencies, edit `pyproject.toml` (or `uv add --no-sync`), run `uv lock`, then re-export. Never run plain `uv sync` or `uv add` on `.venv`: an exact sync removes packages the owner installed outside the lock. Use `uv sync --inexact` to install. uv is installed by winget and may be missing from an older shell's PATH; it lives at `%LOCALAPPDATA%\Microsoft\WinGet\Packages\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\uv.exe`.
+- `tests/test_exec.py` snapshots the fixture portfolio's `portfolio.csv`, `total.md` and `entries.md` in `tests/golden/`. When an output change is intended, rerun with `TRKR_UPDATE_GOLDEN=1` and review the golden diff.
 - `config/demo-cfg.yml` runs on made-up data in `examples/` plus live Yahoo prices, writing to `data/demo-run/`. It doesn't touch the owner's sheets, so it is safe to run.
 
 ## Private data
@@ -37,7 +39,7 @@ Errors are signalled as `raise Exception("503")`; `run_cli` turns the message in
 
 ## Non-obvious conventions
 
-- Transaction dates are `YYYY-MM-DD` strings everywhere. Monthly buckets use short keys like `jan24` from `convert_date_to_short_str`, which is duplicated in `market_mngr.py` and `portfolio_mngr.py`; keep the two copies identical until they're merged.
+- Transaction dates are `YYYY-MM-DD` strings everywhere. Monthly buckets use short keys like `jan24` from `convert_date_to_short_str`, which is duplicated in `market_mngr.py` and `portfolio_mngr.py`. The copies differ only when called with no arguments (`None` vs `''`, pinned in `tests/test_month_key.py`); keep them otherwise identical until they're merged.
 - `history-variant: lite` (weekly bars) keys history by those month keys, so weeks collapse and the last close of the month wins. `full` keys by `YYYY-MM-DD`, which the monthly code in `Portfolio` can't look up (known bug).
 - `Transaction.__dict__` is a *method* returning a dict, so callers write `t.__dict__()`. `vars(t)` won't do what you expect.
 - `Transactions.get()` returns the internal list, and several `Portfolio` methods `.sort()` it in place.

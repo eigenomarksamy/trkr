@@ -8,6 +8,8 @@ State as of 2026-10-22: the last code change was 2025-03; the scheduled job ran 
 
 2026-10-23: added a plan for a local web app ("Feature: web app"). Nothing is built yet.
 
+2026-10-24: Phase 0 is done. The work from 2026-10-23 was committed first (`49af3d4`, `e18cdee`). Writing the characterization tests turned up a new bug, added to Phase 1 as bug 12.
+
 ## Decisions for the owner
 
 Claude assumes the defaults below unless told otherwise.
@@ -36,15 +38,15 @@ Claude assumes the defaults below unless told otherwise.
 
 ## Phase 0: Safety net (no behaviour changes)
 
-- [ ] `pyproject.toml` with project metadata and runtime deps with lower bounds: pyyaml, requests, matplotlib, numpy, yfinance, jinja2, **python-dateutil** (imported in `portfolio_mngr.py` but undeclared; it arrives transitively via pandas). Drop **markdown2** (never imported). Dev deps: pytest, ruff.
-- [ ] Lock file, with `requirements.txt` regenerated from it so `run_script.bat` installs the same versions.
-- [ ] Ruff lint + format config. Do the first format pass as its own commit.
-- [x] `tests/` with offline fixtures: synthetic transactions CSV, symbol-map CSV, and a stubbed `yfinance.Ticker` returning fixed DataFrames. Also freezes `datetime.today()` in `portfolio_mngr`. pytest is configured in `pytest.ini` and installed in the venv, but not declared as a dependency until the `pyproject.toml` item.
-- [ ] Characterization tests: `Portfolio.calculate` (buys only, several symbols), `compute_spending_history`, `get_entry_points_months`, `convert_date_to_short_str`, `create_cfg` for each source combination, `CsvMngr.read`, and `get_google_sheet` URL building.
-- [x] Golden end-to-end test: `exec()` against a fixture config with the network stubbed. Snapshot `portfolio.csv`, `total.md` and `entries.md`; for PNG/HTML, only assert that they exist. (`tests/test_exec.py`; `TRKR_UPDATE_GOLDEN=1` rewrites the snapshots.)
-- [x] Fill in `config/demo-cfg.yml` (currently empty) to point at tracked sample CSVs in `examples/` (`trans-src: local`, `sym-map-src: local`), so a fresh clone can run the tool. It also shows an imaginary portfolio and a projection.
-- [ ] Fix the README. It documents `sheets.yml`/`settings.yml` and a `--sheets-config-file` flag that no longer exist; the real CLI is `run.py --cfg <file>`. Document the actual YAML schema. Done so far: the Demo and Tests sections, and the two new blocks. The Sheets and Settings sections are still stale.
-- [ ] Once ruff is installed, add a PostToolUse hook in `.claude/settings.json` that formats edited `.py` files.
+- [x] `pyproject.toml` with project metadata and runtime deps with lower bounds: pyyaml, requests, matplotlib, numpy, yfinance, jinja2, **python-dateutil** (imported in `portfolio_mngr.py` but undeclared; it arrives transitively via pandas). Drop **markdown2** (never imported). Dev deps: pytest, ruff, and pandas (the tests import it). (`977d6d4`)
+- [x] Lock file, with `requirements.txt` regenerated from it so `run_script.bat` installs the same versions. `uv.lock` pins the versions that were already in the venv, so the scheduled job's next `pip install` changes nothing. (`977d6d4`)
+- [x] Ruff lint + format config. Do the first format pass as its own commit. The rules are listed explicitly (`E4, E7, E9, F, I, B`), because ruff 0.17's default set is much wider and moves with upgrades. Line length is 100, with single quotes. Config and lint fixes: `1ae21ea`. Format pass: `e09c62a`, skipped by `git blame` via `.git-blame-ignore-revs` (`4b87973`).
+- [x] `tests/` with offline fixtures: synthetic transactions CSV, symbol-map CSV, and a stubbed `yfinance.Ticker` returning fixed DataFrames. Also freezes `datetime.today()` in `portfolio_mngr`. pytest is configured in `pytest.ini`. (`49af3d4`)
+- [x] Characterization tests: `Portfolio.calculate` (buys only, several symbols), `compute_spending_history`, `get_entry_points_months`, `convert_date_to_short_str`, `create_cfg` for each source combination, `CsvMngr.read`, and `get_google_sheet` URL building. (`f9910cc`; `tests/test_portfolio.py`, `test_month_key.py`, `test_csv_mngr.py`, `test_sheets.py`, `test_cfg.py`)
+- [x] Golden end-to-end test: `exec()` against a fixture config with the network stubbed. Snapshot `portfolio.csv`, `total.md` and `entries.md`; for PNG/HTML, only assert that they exist. (`tests/test_exec.py`; `TRKR_UPDATE_GOLDEN=1` rewrites the snapshots.) (`49af3d4`)
+- [x] Fill in `config/demo-cfg.yml` (currently empty) to point at tracked sample CSVs in `examples/` (`trans-src: local`, `sym-map-src: local`), so a fresh clone can run the tool. It also shows an imaginary portfolio and a projection. (`49af3d4`)
+- [x] Fix the README. It documents `sheets.yml`/`settings.yml` and a `--sheets-config-file` flag that no longer exist; the real CLI is `run.py --cfg <file>`. Document the actual YAML schema. (`9e252d5`)
+- [x] Once ruff is installed, add a PostToolUse hook in `.claude/settings.json` that formats edited `.py` files. (`1a5a07f`; `.claude/hooks/format_python.py` sorts imports and formats.)
 
 ## Phase 1: Known bugs (each fix: failing test first, then the fix)
 
@@ -63,11 +65,12 @@ Ordered by impact. Line numbers are as of commit `c1d28fe`.
 9. [ ] Matplotlib figures are never closed (`src/plot_mngr.py`), which warns past ~20 figures and leaks memory in long runs.
 10. [ ] `plot_monthly_stocks` locates the entry point with the `names` list from the *previous* symbol (`src/plot_mngr.py:49`). Wrong x position when two series have different dates.
 11. [ ] File I/O has no `encoding=`, so on Windows a non-ASCII character in a sheet (e.g. `€`) breaks reads under cp1252.
+12. [ ] **Monthly loops drop the last month.** `compute_spending_history` and `compute_historical_valuation` step one month at a time from the *first* transaction's date and stop once past the *last* transaction's date. When the last transaction falls on an earlier day of the month than the first (first 2024-01-20, last 2024-03-05), the final month is never visited, so its buys are missing. This affects the spending chart, the valuation chart and the projection's "invested in the last 12 months". The golden fixture (2024-01-15 → 2024-04-08) and the demo (2024-01-08 → 2025-02-03) both hit it. Found 2026-10-24; pinned by `test_spending_history_drops_the_last_month_when_its_day_is_earlier`. Iterate over month starts instead.
 
 ## Phase 2: Structure and cleanup (behaviour-preserving, guarded by Phase 0 tests)
 
 - [ ] Delete dead code: `MarketDataGoogle*`, `MarketReader`, `fetch_histories`, `use_market_google`, `execute_yahoo_finance`, unused parts of `Sheets`, `src/market_tester.py`, unused `TransType`.
-- [ ] A single month-key helper instead of two copies of `convert_date_to_short_str`.
+- [ ] A single month-key helper instead of two copies of `convert_date_to_short_str`. They already differ when called with no arguments: the `portfolio_mngr` copy returns `None`, the `market_mngr` copy `''` (`tests/test_month_key.py`).
 - [ ] `Transaction` becomes a `@dataclass`; remove the `__dict__` method; `Transactions.get()` stops exposing the mutable internal list.
 - [ ] Config becomes typed dataclasses with validation and clear error messages (same YAML schema). Use `pathlib.Path` for every directory, which removes the trailing-slash requirement.
 - [ ] A real exception hierarchy (`TrkrError` → `NoNetworkError`, `UnsupportedConfigError`, …), mapped to exit codes in one place.
@@ -83,6 +86,7 @@ Ordered by impact. Line numbers are as of commit `c1d28fe`.
 - [ ] Optional on-disk cache of history, so same-day re-runs need little network.
 - [ ] Relative paths in the HTML report, so a `data/<run>/` folder can be moved or zipped.
 - [ ] GitHub Actions (`origin` is GitHub): ruff + pytest on push and PRs.
+- [ ] Upgrade the locked dependencies. `uv.lock` still pins the venv as of 2025 (yfinance 0.2.59, pandas 2.2.3, numpy 2.1.2, matplotlib 3.10.0). Upgrade with `uv lock --upgrade`, check with the golden test and a demo run, then re-export `requirements.txt`. pandas 3 changes the default string dtype and turns on copy-on-write, so take it as its own step.
 
 ## Feature: net-worth projection and imaginary portfolios
 
