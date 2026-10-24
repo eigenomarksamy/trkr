@@ -1,0 +1,5 @@
+# Formatting-only commits, skipped by `git blame`.
+# Use with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Format with ruff and sort imports
+e09c62ae8bf7b01031dcbcd398ceaabfc9c5187f
