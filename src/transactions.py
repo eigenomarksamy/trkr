@@ -1,4 +1,5 @@
 import os
+import csv
 import pathlib
 from datetime import datetime
 from typing import List, Optional
@@ -64,6 +65,9 @@ class Transactions:
         for transaction in transactions:
             transaction = Transaction(transaction)
             self.transactions.append(transaction)
+
+    def prepend(self, transactions: List[Transaction]) -> None:
+        self.transactions[:0] = transactions
 
     def get(self) -> list:
         return self.transactions
@@ -131,3 +135,69 @@ def build_transactions_object(is_local: bool, address: str,
     if std_map:
         transactions_obj.match_symbols_standard(std_map)
     return transactions_obj
+
+POSITION_COLUMNS = ['symbol', 'quantity', 'average_price', 'date']
+
+def input_error(message: str) -> Exception:
+    print(f'Input error: {message}')
+    return Exception("400")
+
+def build_positions(is_local: bool, address: str,
+                    directory: Optional[os.PathLike],
+                    is_quiet: bool,
+                    std_map: Optional[dict]) -> List[Transaction]:
+    """Reads opening positions, one row per investment, as buys at the average price.
+
+    Required columns: symbol, quantity, average_price, date (YYYY-MM-DD).
+    Optional: currency, ex_rate (default 1, same meaning as in transactions), exchange.
+    """
+    if is_local:
+        positions_file = address
+    else:
+        positions_file = get_google_sheet(address, f'{directory}', 'positions.csv')
+        if not is_quiet:
+            print('CSV file saved to: {}'.format(positions_file))
+    with open(positions_file, 'r', newline='', encoding='utf-8-sig') as file:
+        reader = csv.DictReader(file)
+        reader.fieldnames = [name.strip().lower() for name in reader.fieldnames or []]
+        missing = [column for column in POSITION_COLUMNS if column not in reader.fieldnames]
+        if missing:
+            raise input_error(f'{positions_file}: missing columns: {", ".join(missing)}.')
+        rows = list(reader)
+    positions = Transactions()
+    for line, row in enumerate(rows, start=2):
+        if not any(isinstance(value, str) and value.strip() for value in row.values()):
+            continue
+        where = f'{positions_file} line {line}'
+        try:
+            quantity = float(row['quantity'])
+            average_price = float(row['average_price'])
+            ex_rate = float(row.get('ex_rate') or 1)
+        except ValueError:
+            raise input_error(f'{where}: quantity, average_price and ex_rate must be numbers.')
+        try:
+            datetime.strptime(row['date'].strip(), '%Y-%m-%d')
+        except ValueError:
+            raise input_error(f'{where}: date must be YYYY-MM-DD, not {row["date"]!r}.')
+        if not row['symbol'].strip():
+            raise input_error(f'{where}: symbol is empty.')
+        if quantity <= 0:
+            raise input_error(f'{where}: quantity must be positive.')
+        if average_price < 0:
+            raise input_error(f'{where}: average_price must not be negative.')
+        if ex_rate <= 0:
+            raise input_error(f'{where}: ex_rate must be positive.')
+        positions.add(Transaction({"type": "buy",
+                                   "date": row['date'].strip(),
+                                   "quantity": quantity,
+                                   "fees": 0,
+                                   "price": average_price,
+                                   "currency": (row.get('currency') or '').strip(),
+                                   "symbol": row['symbol'].strip(),
+                                   "exchange": (row.get('exchange') or '').strip(),
+                                   "platform": 'positions file',
+                                   "ex_rate": ex_rate,
+                                   "ex_fees": 0}))
+    if std_map:
+        positions.match_symbols_standard(std_map)
+    return positions.get()

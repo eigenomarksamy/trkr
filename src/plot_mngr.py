@@ -2,6 +2,19 @@ import numpy as np
 from os import PathLike
 from pathlib import Path
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter, MaxNLocator
+
+# Categorical slots 1-3 of the validated dataviz palette, in fixed order.
+SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a']
+TEXT_PRIMARY = '#0b0b0b'
+TEXT_SECONDARY = '#52514e'
+GRID_COLOR = '#e4e3df'
+
+def format_compact(value: float) -> str:
+    for threshold, suffix in ((1e9, 'B'), (1e6, 'M'), (1e3, 'K')):
+        if abs(value) >= threshold:
+            return f'{value / threshold:.3g}{suffix}'
+    return f'{value:.0f}'
 
 def plot_pie(nums: list[float], fig_path: PathLike, labels: list[str] = None) -> None:
     y = np.array(nums)
@@ -119,3 +132,34 @@ def plot_combined(fig_path: PathLike, nums_pie: list[float], nums_bar: list[floa
     if kwargs.get('show', False):
         plt.show()
     return figs_paths
+
+def plot_projection(fig_path: PathLike, years: list[int], birth_year: int,
+                    series: dict[str, list[float]]) -> PathLike:
+    """One line per series (at most three), each labelled in the legend with its final value."""
+    Path(fig_path).parent.mkdir(parents=True, exist_ok=True)
+    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+    for color, (name, values) in zip(SERIES_COLORS, series.items()):
+        ax.plot(years, values, color=color, linewidth=2,
+                solid_joinstyle='round', solid_capstyle='round',
+                label=f'{name}: {format_compact(values[-1])}')
+        ax.plot(years[-1], values[-1], marker='o', markersize=8, color=color,
+                markeredgecolor='white', markeredgewidth=2)
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda year, _: f'{year:.0f}\nage {year - birth_year:.0f}'))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: format_compact(value)))
+    if min(min(values) for values in series.values()) >= 0:
+        ax.set_ylim(bottom=0)
+    ax.grid(True, axis='y', color=GRID_COLOR, linewidth=1)
+    ax.set_axisbelow(True)
+    for side in ('top', 'right'):
+        ax.spines[side].set_visible(False)
+    for side in ('left', 'bottom'):
+        ax.spines[side].set_color(GRID_COLOR)
+    ax.tick_params(colors=TEXT_SECONDARY, length=0)
+    ax.set_title('Net-worth Projection', loc='left', color=TEXT_PRIMARY)
+    legend = ax.legend(frameon=False, loc='upper left')
+    for text in legend.get_texts():
+        text.set_color(TEXT_SECONDARY)
+    fig.savefig(fig_path)
+    plt.close(fig)
+    return fig_path

@@ -1,0 +1,4 @@
+type,date,quantity,fees,price,currency,symbol,exchange,platform,ex_rate,ex_fees
+buy,2024-01-15,10,1,50,EUR,aaa,AMS,broker-x,1,0
+buy,2024-02-12,5,1,100,USD,bbb,NASDAQ,broker-x,1.1,0.5
+buy,2024-04-08,4,1,55,EUR,aaa,AMS,broker-y,1,0

@@ -41,6 +41,17 @@ def write_markdown_table(path: pathlib.Path, title: str,
         for key, value in writable_dict.items():
             file.write(f'| {key} | {value} |\n')
 
+def write_markdown_grid(path: pathlib.Path, title: str,
+                        headers: list[str], rows: list[list]) -> None:
+    pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, mode='w', newline='') as file:
+        file.write(f'# {title}\n\n')
+        file.write('| ' + ' | '.join(headers) + ' |\n')
+        file.write('|' + '|'.join('-------' for _ in headers) + '|\n')
+        for row in rows:
+            cells = [f'{cell:.2f}' if isinstance(cell, float) else str(cell) for cell in row]
+            file.write('| ' + ' | '.join(cells) + ' |\n')
+
 def write_markdown_urls(path: pathlib.Path, title: str,
                         writable_dict: dict) -> None:
     pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)

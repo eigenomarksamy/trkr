@@ -1,0 +1,6 @@
+type,date,quantity,fees,price,currency,symbol,exchange,platform,ex_rate,ex_fees
+buy,2024-01-08,10,1,105.20,EUR,vwce,XETRA,broker-a,1,0
+buy,2024-03-04,2,1,175.10,USD,aapl,NASDAQ,broker-b,1.08,2
+buy,2024-06-03,5,1,115.80,EUR,vwce,XETRA,broker-a,1,0
+buy,2024-11-04,1,1,222.00,USD,aapl,NASDAQ,broker-b,1.09,2
+buy,2025-02-03,5,1,128.40,EUR,vwce,XETRA,broker-a,1,0

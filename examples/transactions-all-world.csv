@@ -1,0 +1,4 @@
+type,date,quantity,fees,price,currency,symbol,exchange,platform,ex_rate,ex_fees
+buy,2024-01-08,15,1,105.20,EUR,vwce,XETRA,paper,1,0
+buy,2024-06-03,6,1,115.80,EUR,vwce,XETRA,paper,1,0
+buy,2025-02-03,5,1,128.40,EUR,vwce,XETRA,paper,1,0

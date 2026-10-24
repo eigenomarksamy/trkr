@@ -1,0 +1,48 @@
+# Demo config: made-up transactions from examples/, live prices from Yahoo.
+# Run: .venv/Scripts/python.exe run.py --cfg config/demo-cfg.yml
+market-data-origin: yahoo
+comp:
+  default-currency: EUR
+  history-variant: lite
+directories:            # directory values must end with '/'
+  generation-dir: data/demo-run/
+  log-dir: log/demo-run/
+  transactions-dir: examples/transactions.csv
+  symbols-map-dir: examples/symbols.csv
+transactions:
+  source: local         # or cloud, with shareable-address: <sheet id>
+  symbols-standard: custom
+symbols-map:
+  source: local
+cli-exec:
+  quiet: false
+  log-level: info
+
+# Optional. Opening balances: one row per investment with quantity, average price
+# and a date. Trades in the transactions file come on top of them.
+positions:
+  source: local         # or cloud, with shareable-address: <sheet id>
+  positions-dir: examples/positions.csv
+
+# Optional. Each one is priced like the real portfolio and gets its own report
+# under <generation-dir>imaginary/<name>/.
+imaginary-portfolios:
+  - name: all-world-only
+    source: local       # or cloud, with shareable-address: <sheet id>
+    transactions-dir: examples/transactions-all-world.csv
+
+# Optional. Percentages are whole numbers: 7 means 7%.
+projection:
+  birth-year: 1992
+  retirement-age: 60
+  start-net-worth: portfolio   # 'portfolio', an imaginary portfolio's name, or a number
+  cash: 5000                   # added to the start value
+  income: 45000                # yearly
+  income-growth: 2
+  invest-percent: 15           # of income
+  return: 7                    # yearly, before fees
+  fees: 0.3
+  inflation: 2                 # optional: adds a today's-money column
+  deposits-withdrawals:        # optional: calendar year -> amount, negative = withdrawal
+    2030: -15000
+    2035: 10000

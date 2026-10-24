@@ -1,0 +1,2 @@
+type,date,quantity,fees,price,currency,symbol,exchange,platform,ex_rate,ex_fees
+buy,2024-02-12,20,0,100,USD,bbb,NASDAQ,paper,1.1,0

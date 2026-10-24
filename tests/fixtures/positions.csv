@@ -1,0 +1,3 @@
+symbol,quantity,average_price,date,currency,ex_rate,exchange
+aaa,20,40,2024-01-02,EUR,,AMS
+bbb,3,90,2024-01-02,USD,1.2,NASDAQ

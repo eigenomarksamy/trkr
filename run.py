@@ -1,20 +1,35 @@
 import os
 import sys
+import logging
 import pathlib
 from argparse import Namespace
-from datetime import datetime
-from typing import Union, Tuple
+from dataclasses import dataclass
+from datetime import date, datetime
+from typing import Union, Tuple, Optional
 from src.portfolio_mngr import Portfolio
-from src.market_mngr import MarketDataYahoo, Interval, MarketSymbol
-from src.cfg_mngr import Directories, ConfigMapUri
+from src.projection import (ProjectionCfg, project_net_worth, resolve_start_value,
+                            invested_last_12_months, projection_table)
+from src.market_mngr import MarketDataYahoo, Interval, MarketSymbol, YFinanceSymbMap
+from src.cfg_mngr import CfgManager, Directories, ConfigMapUri, PositionsCfg
 from src.log_mngr import LogManager
 from src.cfg_mngr import create_cfg
-from src.transactions import build_transactions_object
+from src.transactions import Transactions, build_transactions_object, build_positions
 from src.market_mngr import get_yfinance_map, convertSymbListToDicts, get_yfinance_map_local
 from src.utils import parse_arguments, check_internet, get_exception
-from src.csv_mngr import write_markdown_table, write_csv_lazy
-from src.plot_mngr import plot_combined, plot_monthly_stocks
+from src.csv_mngr import CsvMngr, write_markdown_table, write_markdown_grid, write_csv_lazy
+from src.plot_mngr import plot_combined, plot_monthly_stocks, plot_projection
 from src.report_mngr import generate_html_report
+
+@dataclass
+class PortfolioRun:
+    transactions: Transactions
+    portfolio: Portfolio
+    portfolio_dict: dict
+    total_dict: dict
+    entry_points: dict
+    historical_valuation: dict
+    figs_paths_stocks: list
+    figs_paths_stats: list
 
 def exec(cfg_file: os.PathLike) -> None:
     cfg = create_cfg(cfg_file)
@@ -63,10 +78,113 @@ def exec(cfg_file: os.PathLike) -> None:
             print(yfinance_map_obj.tickerMap)
         if logger:
             logger.info("Ticker map built.")
-    transactions_obj = build_transactions_object(True if cfg.get_param(ConfigMapUri.TRANSACTIONS_SOURCE) == 'local' else False,
+    portfolio_run = process_portfolio(cfg, directories,
+                                      cfg.get_param(ConfigMapUri.TRANSACTIONS_SOURCE) == 'local',
+                                      trans_sheets, yfinance_map_obj, is_quiet, logger,
+                                      positions=cfg.get_param(ConfigMapUri.POSITIONS))
+    imaginary_runs = {}
+    for imaginary in cfg.get_param(ConfigMapUri.IMAGINARY_PORTFOLIOS):
+        if not is_quiet:
+            print(f"Imaginary portfolio '{imaginary.name}':")
+        imaginary_dirs = Directories(base_dir=f'{directories.imaginary_dir}{imaginary.name}/',
+                                     log_dir=directories.log_dir)
+        imaginary_runs[imaginary.name] = process_portfolio(cfg, imaginary_dirs,
+                                                           imaginary.is_local, imaginary.location,
+                                                           yfinance_map_obj, is_quiet, logger)
+        write_report(cfg, imaginary_dirs, imaginary_runs[imaginary.name], yfinance_map_obj,
+                     title=f'Imaginary Portfolio: {imaginary.name}')
+        if logger:
+            logger.info(f"Imaginary portfolio '{imaginary.name}' processed.")
+    projection = None
+    if cfg.get_param(ConfigMapUri.PROJECTION):
+        projection = process_projection(cfg.get_param(ConfigMapUri.PROJECTION), directories,
+                                        portfolio_run, imaginary_runs)
+        if logger:
+            logger.info("Projection computed.")
+    if not is_quiet:
+        print("Generating HTML report..")
+    write_report(cfg, directories, portfolio_run, yfinance_map_obj,
+                 imaginary_portfolios=[{'name': name,
+                                        'total': imaginary_run.total_dict,
+                                        'report': f'{directories.imaginary_dir}{name}/report.html'}
+                                       for name, imaginary_run in imaginary_runs.items()],
+                 projection=projection)
+    if logger:
+        logger.info("HTMLs created.")
+    if not is_quiet:
+        print(f'HTML report generated at {f"{directories.base_dir}report.html"}')
+
+def write_report(cfg: CfgManager, directories: Directories, portfolio_run: PortfolioRun,
+                 yfinance_map_obj: Optional[YFinanceSymbMap], **kwargs) -> None:
+    generate_html_report(total_dict=portfolio_run.total_dict,
+                         entry_points=portfolio_run.entry_points,
+                         portfolio_dict=portfolio_run.portfolio_dict,
+                         ticker_map=yfinance_map_obj.tickerMap,
+                         def_currency=cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY),
+                         figs_paths_stocks=portfolio_run.figs_paths_stocks[::-1],
+                         figs_paths_stats=portfolio_run.figs_paths_stats,
+                         transactions_list=portfolio_run.transactions.get(),
+                         historical_valuation=portfolio_run.historical_valuation,
+                         req_path=f'{directories.base_dir}report.html',
+                         sub_dir=f'{directories.generated_dir}',
+                         **kwargs)
+
+def process_projection(projection_cfg: ProjectionCfg, directories: Directories,
+                       portfolio_run: PortfolioRun,
+                       imaginary_runs: dict[str, PortfolioRun]) -> dict:
+    portfolio_values = {'portfolio': portfolio_run.total_dict['value']}
+    for name, imaginary_run in imaginary_runs.items():
+        portfolio_values[name] = imaginary_run.total_dict['value']
+    start_value = resolve_start_value(projection_cfg, portfolio_values)
+    today = date.today()
+    rows = project_net_worth(projection_cfg, start_value, today.year + 1)
+    headers, lines = projection_table(rows, labels=False)
+    CsvMngr(pathlib.Path(directories.gen_projection_csv), headers).write(lines)
+    labels, _ = projection_table(rows, labels=True)
+    write_markdown_grid(pathlib.Path(directories.gen_projection_md), 'Net-worth Projection',
+                        labels, lines)
+    series = {'Net worth': [row.net_worth_before_fees for row in rows],
+              'Net worth (after fees)': [row.net_worth_after_fees for row in rows]}
+    if projection_cfg.inflation is not None:
+        series["Net worth (after fees, today's money)"] = [row.net_worth_real for row in rows]
+    fig_path = plot_projection(directories.gen_plots_projection,
+                               [row.year for row in rows], projection_cfg.birth_year, series)
+    if projection_cfg.start_net_worth == 'portfolio':
+        start_label = "the real portfolio's current value"
+    elif isinstance(projection_cfg.start_net_worth, str):
+        start_label = f"the current value of imaginary portfolio '{projection_cfg.start_net_worth}'"
+    else:
+        start_label = 'a fixed amount from the config'
+    if projection_cfg.cash:
+        start_label += f' plus {projection_cfg.cash:.2f} cash'
+    return {'cfg': projection_cfg,
+            'start_value': start_value,
+            'start_label': start_label,
+            'last': rows[-1],
+            'contribution': rows[0].contribution,
+            'invested_last_12_months': invested_last_12_months(
+                portfolio_run.portfolio.compute_spending_history(), today),
+            'fig': fig_path,
+            'headers': labels,
+            'rows': lines}
+
+def process_portfolio(cfg: CfgManager, directories: Directories,
+                      is_local: bool, trans_sheets: str,
+                      yfinance_map_obj: Optional[YFinanceSymbMap],
+                      is_quiet: bool,
+                      logger: Optional[logging.Logger],
+                      positions: Optional[PositionsCfg]=None) -> PortfolioRun:
+    transactions_obj = build_transactions_object(is_local,
                                                  trans_sheets,
                                                  f'{directories.sheets_dir}',
                                                  is_quiet, yfinance_map_obj.tickerMap)
+    if positions:
+        # Opening balances go first: Portfolio.calculate walks the list in order.
+        transactions_obj.prepend(build_positions(positions.is_local, positions.location,
+                                                 f'{directories.sheets_dir}',
+                                                 is_quiet, yfinance_map_obj.tickerMap))
+        if logger:
+            logger.info("Positions retrieved.")
     if not is_quiet:
         transactions_obj.print()
     if logger:
@@ -169,23 +287,14 @@ def exec(cfg_file: os.PathLike) -> None:
         logger.info("Plots created.")
     if not is_quiet:
         print(f"Check {directories.base_dir} for information.")
-    if not is_quiet:
-        print("Generating HTML report..")
-    generate_html_report(total_dict=total_dict,
-                         entry_points=entry_points,
-                         portfolio_dict=portfolio_dict,
-                         ticker_map=yfinance_map_obj.tickerMap,
-                         def_currency=cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY),
-                         figs_paths_stocks=figs_paths_stocks[::-1],
-                         figs_paths_stats=figs_paths_stats,
-                         transactions_list=transactions_obj.get(),
-                         historical_valuation=historical_valuation,
-                         req_path=f'{directories.base_dir}report.html',
-                         sub_dir=f'{directories.generated_dir}')
-    if logger:
-        logger.info("HTMLs created.")
-    if not is_quiet:
-        print(f'HTML report generated at {f"{directories.base_dir}report.html"}')
+    return PortfolioRun(transactions=transactions_obj,
+                        portfolio=portfolio,
+                        portfolio_dict=portfolio_dict,
+                        total_dict=total_dict,
+                        entry_points=entry_points,
+                        historical_valuation=historical_valuation,
+                        figs_paths_stocks=figs_paths_stocks,
+                        figs_paths_stats=figs_paths_stats)
 
 def run_cli(args: Namespace) -> Union[int, Tuple]:
     cfg_file = args.cfg_file

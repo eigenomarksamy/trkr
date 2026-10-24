@@ -1,5 +1,6 @@
 import pathlib
 from os import PathLike
+from typing import Optional
 from jinja2 import Environment, FileSystemLoader
 
 def generate_misc_tables_html(symbols_map: str, entry_points: str,
@@ -113,14 +114,61 @@ def generate_historical_report(figs_historical: list[PathLike],
     report_path = pathlib.Path(f'{output_path}figs_historical.html')
     report_path.write_text(html_report)
 
+def generate_projection_html(headers: list[str], rows: list[list],
+                             output_path: PathLike) -> None:
+    template_dir = pathlib.Path('templates')
+    template_dir.mkdir(parents=True, exist_ok=True)
+    template_file = template_dir / 'projection_template.html'
+    template_file.write_text("""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Net-worth Projection</title>
+    </head>
+    <body>
+    <h1>Net-worth Projection</h1>
+    <table>
+        <thead>
+            <tr>
+                {% for header in headers %}
+                <th>{{ header }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                {% for cell in row %}
+                <td>{{ '%.2f' % cell if cell is float else cell }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </body>
+    </html>
+    """)
+    env = Environment(loader=FileSystemLoader('templates'))
+    template = env.get_template('projection_template.html')
+    html_report = template.render(headers=headers, rows=rows)
+    report_path = pathlib.Path(f'{output_path}projection.html')
+    report_path.write_text(html_report)
+
 def generate_html_report(total_dict: dict, entry_points: dict,
                          portfolio_dict: dict, ticker_map: dict,
                          def_currency: str, figs_paths_stocks: list[PathLike],
                          figs_paths_stats: list[PathLike],
                          transactions_list: list, historical_valuation: dict,
                          req_path: PathLike,
-                         sub_dir: PathLike) -> None:
+                         sub_dir: PathLike,
+                         title: str='Portfolio Report',
+                         imaginary_portfolios: Optional[list[dict]]=None,
+                         projection: Optional[dict]=None) -> None:
     generate_transactions_html(transactions_list, sub_dir)
+    if projection:
+        generate_projection_html(projection['headers'], projection['rows'], sub_dir)
     generate_historical_report(figs_paths_stocks[1:], sub_dir)
     entries_html = ''
     for entry in entry_points:
@@ -141,10 +189,10 @@ def generate_html_report(total_dict: dict, entry_points: dict,
     <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Report</title>
+    <title>{{ title }}</title>
     </head>
     <body>
-    <h1>Portfolio Report</h1>
+    <h1>{{ title }}</h1>
     <p>All values are in {{ default_currency }}.</p>
     <h2>Total</h2>
     {{ total | safe }}
@@ -188,6 +236,70 @@ def generate_html_report(total_dict: dict, entry_points: dict,
             {% endfor %}
         </tbody>
     </table>
+    {% if imaginary_portfolios %}
+    <h2>Imaginary Portfolios</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Portfolio</th>
+                <th>Invested</th>
+                <th>Value</th>
+                <th>Profit/Loss</th>
+                <th>Profit (%)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Real portfolio</td>
+                <td>{{ '%.2f' % total_dict['spending'] }}</td>
+                <td>{{ '%.2f' % total_dict['value'] }}</td>
+                <td>{{ '%.2f' % total_dict['profit_net'] }}</td>
+                <td>{{ '%.2f' % total_dict['profit_percent'] }}</td>
+            </tr>
+            {% for imaginary in imaginary_portfolios %}
+            <tr>
+                <td><a href="{{ imaginary['report'] | abs }}">{{ imaginary['name'] }}</a></td>
+                <td>{{ '%.2f' % imaginary['total']['spending'] }}</td>
+                <td>{{ '%.2f' % imaginary['total']['value'] }}</td>
+                <td>{{ '%.2f' % imaginary['total']['profit_net'] }}</td>
+                <td>{{ '%.2f' % imaginary['total']['profit_percent'] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% if projection %}
+    {% set cfg = projection['cfg'] %}
+    {% set last = projection['last'] %}
+    <h2>Net-worth Projection</h2>
+    <p>
+        Starting from {{ '%.2f' % projection['start_value'] }}: {{ projection['start_label'] }}.
+        In {{ last.year }}, at age {{ last.age }}, net worth reaches {{ '%.2f' % last.net_worth_before_fees }},
+        or {{ '%.2f' % last.net_worth_after_fees }} after fees{% if last.net_worth_real is not none %}
+        ({{ '%.2f' % last.net_worth_real }} in today's money){% endif %}.
+    </p>
+    <table>
+        <tbody>
+            <tr><td>Yearly return</td><td>{{ cfg.yearly_return }}%</td></tr>
+            <tr><td>Fees</td><td>{{ cfg.fees }}%</td></tr>
+            <tr><td>Income</td><td>{{ '%.2f' % cfg.income }}, growing {{ cfg.income_growth }}% a year</td></tr>
+            <tr><td>Invested</td><td>{{ cfg.invest_percent }}% of income</td></tr>
+            {% if cfg.inflation is not none %}
+            <tr><td>Inflation</td><td>{{ cfg.inflation }}%</td></tr>
+            {% endif %}
+            {% for year, amount in cfg.deposits_withdrawals.items() %}
+            <tr><td>{{ 'Deposit' if amount >= 0 else 'Withdrawal' }} in {{ year }}</td><td>{{ '%.2f' % amount }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p>
+        Assumed contribution in the first year: {{ '%.2f' % projection['contribution'] }}.
+        Actually bought in the last 12 months: {{ '%.2f' % projection['invested_last_12_months'] }}.
+    </p>
+    <img src="{{ projection['fig'] | abs }}" alt="Net-worth Projection">
+    <br>
+    <a href="{{ projection_report_dir | abs }}">View Projection Table</a>
+    {% endif %}
     <h2>Plots</h2>
     <div>
         <h3>Statistics Plots</h3>
@@ -215,6 +327,11 @@ def generate_html_report(total_dict: dict, entry_points: dict,
     env.filters['abs'] = lambda x: pathlib.Path(x).absolute().as_uri()
     template = env.get_template('report_template.html')
     html_report = template.render(
+        title=title,
+        total_dict=total_dict,
+        imaginary_portfolios=imaginary_portfolios,
+        projection=projection,
+        projection_report_dir=f'{sub_dir}projection.html',
         total=total_html,
         default_currency=def_currency,
         portfolio_dict=portfolio_dict,
