@@ -1,10 +1,12 @@
 import re
-from os import PathLike
-from datetime import date
 from dataclasses import dataclass
-from typing import Optional, Any
-from src.utils import get_yaml_parameter
+from datetime import date
+from os import PathLike
+from typing import Any, Optional
+
 from src.projection import ProjectionCfg
+from src.utils import get_yaml_parameter
+
 
 class ConfigMapUri:
     MARKET_ORIGIN = 'market-origin'
@@ -25,6 +27,7 @@ class ConfigMapUri:
     PROJECTION = 'projection'
     POSITIONS = 'positions'
 
+
 @dataclass
 class ImaginaryPortfolioCfg:
     name: str
@@ -32,11 +35,13 @@ class ImaginaryPortfolioCfg:
     # The transactions file for a local source, the sheet address for a cloud one.
     location: str
 
+
 @dataclass
 class PositionsCfg:
     is_local: bool
     # The positions file for a local source, the sheet address for a cloud one.
     location: str
+
 
 # YAML key -> ProjectionCfg field
 PROJECTION_KEYS = {
@@ -53,12 +58,15 @@ PROJECTION_KEYS = {
     'deposits-withdrawals': 'deposits_withdrawals',
 }
 
+
 def config_error(message: str) -> Exception:
     print(f'Configuration error: {message}')
-    return Exception("422")
+    return Exception('422')
+
 
 def is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
 
 def parse_imaginary_portfolios(block: Optional[list]) -> list[ImaginaryPortfolioCfg]:
     if block is None:
@@ -71,17 +79,26 @@ def parse_imaginary_portfolios(block: Optional[list]) -> list[ImaginaryPortfolio
             raise config_error('each imaginary-portfolios entry must be a mapping.')
         unknown = set(entry) - {'name', 'source', 'transactions-dir', 'shareable-address'}
         if unknown:
-            raise config_error(f'unknown keys in imaginary-portfolios: {", ".join(sorted(unknown))}.')
+            raise config_error(
+                f'unknown keys in imaginary-portfolios: {", ".join(sorted(unknown))}.'
+            )
         name = entry.get('name')
         if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z0-9_-]+', name):
-            raise config_error(f'imaginary portfolio name {name!r} must use only letters, digits, "-" and "_".')
+            raise config_error(
+                f'imaginary portfolio name {name!r} must use only letters, digits, "-" and "_".'
+            )
         if name == 'portfolio':
-            raise config_error("imaginary portfolio name 'portfolio' is reserved for the real portfolio.")
+            raise config_error(
+                "imaginary portfolio name 'portfolio' is reserved for the real portfolio."
+            )
         if name in [portfolio.name for portfolio in portfolios]:
             raise config_error(f"imaginary portfolio name '{name}' is used twice.")
-        is_local, location = parse_source(entry, 'transactions-dir', f"imaginary portfolio '{name}'")
+        is_local, location = parse_source(
+            entry, 'transactions-dir', f"imaginary portfolio '{name}'"
+        )
         portfolios.append(ImaginaryPortfolioCfg(name=name, is_local=is_local, location=location))
     return portfolios
+
 
 def parse_positions(block: Optional[dict]) -> Optional[PositionsCfg]:
     if block is None:
@@ -93,6 +110,7 @@ def parse_positions(block: Optional[dict]) -> Optional[PositionsCfg]:
         raise config_error(f'unknown keys in positions: {", ".join(sorted(unknown))}.')
     is_local, location = parse_source(block, 'positions-dir', 'positions')
     return PositionsCfg(is_local=is_local, location=location)
+
 
 def parse_source(block: dict, local_key: str, context: str) -> tuple[bool, str]:
     """Reads 'source: local' with a file under local_key, or 'source: cloud' with a sheet address."""
@@ -107,8 +125,10 @@ def parse_source(block: dict, local_key: str, context: str) -> tuple[bool, str]:
         raise config_error(f"{context}: {location_key} is required for source '{source}'.")
     return source == 'local', str(block[location_key])
 
-def parse_projection_cfg(block: Optional[dict], portfolio_names: list[str],
-                         current_year: int) -> Optional[ProjectionCfg]:
+
+def parse_projection_cfg(
+    block: Optional[dict], portfolio_names: list[str], current_year: int
+) -> Optional[ProjectionCfg]:
     if block is None:
         return None
     if not isinstance(block, dict):
@@ -129,8 +149,10 @@ def parse_projection_cfg(block: Optional[dict], portfolio_names: list[str],
             raise config_error(f'projection: {key} must be a whole number.')
     start = block.get('start-net-worth', 'portfolio')
     if not is_number(start) and start not in portfolio_names:
-        raise config_error("projection: start-net-worth must be a number, 'portfolio' or "
-                           f"an imaginary portfolio's name, not {start!r}.")
+        raise config_error(
+            "projection: start-net-worth must be a number, 'portfolio' or "
+            f"an imaginary portfolio's name, not {start!r}."
+        )
     if not 0 <= block.get('invest-percent', 0) <= 100:
         raise config_error('projection: invest-percent must be between 0 and 100.')
     if block.get('fees', 0) < 0:
@@ -145,22 +167,27 @@ def parse_projection_cfg(block: Optional[dict], portfolio_names: list[str],
                 raise ValueError(amount)
             plan[int(year)] = amount
     except (AttributeError, ValueError):
-        raise config_error('projection: deposits-withdrawals must map calendar years to amounts.') from None
+        raise config_error(
+            'projection: deposits-withdrawals must map calendar years to amounts.'
+        ) from None
     block['deposits-withdrawals'] = plan
     if block['birth-year'] + block['retirement-age'] <= current_year:
-        raise config_error('projection: retirement-age is reached this year or earlier, '
-                           'so there is nothing to project.')
+        raise config_error(
+            'projection: retirement-age is reached this year or earlier, '
+            'so there is nothing to project.'
+        )
     return ProjectionCfg(**{PROJECTION_KEYS[key]: value for key, value in block.items()})
 
-class CfgParam:
 
-    def __init__(self, name: str, default: Optional[Any]=None,
-                 value: Optional[Any]=None) -> None:
+class CfgParam:
+    def __init__(
+        self, name: str, default: Optional[Any] = None, value: Optional[Any] = None
+    ) -> None:
         self.name = name
         self.value = value if value else default
 
-class CfgParams:
 
+class CfgParams:
     def __init__(self, cfg: list[CfgParam]) -> None:
         self.params = {}
         for name in cfg:
@@ -184,8 +211,8 @@ class CfgParams:
             ret += f'{key}: {value}  '
         return ret
 
-class CfgManager:
 
+class CfgManager:
     def __init__(self, cfg_params: CfgParams) -> None:
         self.params = cfg_params
 
@@ -198,28 +225,59 @@ class CfgManager:
     def get_param(self, key: str) -> Any:
         return self.params.get(key)
 
+
 def create_cfg(yml_file: PathLike) -> CfgManager:
     yml_dict = get_yaml_parameter(yml_file)
     conf = [
-        CfgParam(name=ConfigMapUri.MARKET_ORIGIN, default='yahoo', value=yml_dict['market-data-origin']),
-        CfgParam(name=ConfigMapUri.DEFAULT_CURRENCY, default='EUR', value=yml_dict['comp']['default-currency']),
-        CfgParam(name=ConfigMapUri.GENERATION_DIRECTORY, value=yml_dict['directories']['generation-dir']),
+        CfgParam(
+            name=ConfigMapUri.MARKET_ORIGIN, default='yahoo', value=yml_dict['market-data-origin']
+        ),
+        CfgParam(
+            name=ConfigMapUri.DEFAULT_CURRENCY,
+            default='EUR',
+            value=yml_dict['comp']['default-currency'],
+        ),
+        CfgParam(
+            name=ConfigMapUri.GENERATION_DIRECTORY, value=yml_dict['directories']['generation-dir']
+        ),
         CfgParam(name=ConfigMapUri.LOG_DIRECTORY, value=yml_dict['directories']['log-dir']),
-        CfgParam(name=ConfigMapUri.HISTORY_VARIANT, default='lite', value=yml_dict['comp']['history-variant']),
-        CfgParam(name=ConfigMapUri.TRANSACTIONS_SOURCE, default='local', value=yml_dict['transactions']['source']),
-        CfgParam(name=ConfigMapUri.SYMBOLS_STANDARD, default='yahoo', value=yml_dict['transactions']['symbols-standard']),
-        CfgParam(name=ConfigMapUri.LOG_LEVEL, default='NOTSET', value=yml_dict['cli-exec']['log-level'].upper()),
-        CfgParam(name=ConfigMapUri.QUIET, default=False, value=yml_dict['cli-exec']['quiet'])
+        CfgParam(
+            name=ConfigMapUri.HISTORY_VARIANT,
+            default='lite',
+            value=yml_dict['comp']['history-variant'],
+        ),
+        CfgParam(
+            name=ConfigMapUri.TRANSACTIONS_SOURCE,
+            default='local',
+            value=yml_dict['transactions']['source'],
+        ),
+        CfgParam(
+            name=ConfigMapUri.SYMBOLS_STANDARD,
+            default='yahoo',
+            value=yml_dict['transactions']['symbols-standard'],
+        ),
+        CfgParam(
+            name=ConfigMapUri.LOG_LEVEL,
+            default='NOTSET',
+            value=yml_dict['cli-exec']['log-level'].upper(),
+        ),
+        CfgParam(name=ConfigMapUri.QUIET, default=False, value=yml_dict['cli-exec']['quiet']),
     ]
     params_obj = CfgParams(conf)
     conf.clear()
     if params_obj.get(ConfigMapUri.TRANSACTIONS_SOURCE) == 'local':
         conf = [
-            CfgParam(name=ConfigMapUri.TRANSACTIONS_DIRECTORY, value=yml_dict['directories']['transactions-dir'])
+            CfgParam(
+                name=ConfigMapUri.TRANSACTIONS_DIRECTORY,
+                value=yml_dict['directories']['transactions-dir'],
+            )
         ]
     elif params_obj.get(ConfigMapUri.TRANSACTIONS_SOURCE) == 'cloud':
         conf = [
-            CfgParam(name=ConfigMapUri.TRANSACTIONS_SHEET, value=yml_dict['transactions']['shareable-address'])
+            CfgParam(
+                name=ConfigMapUri.TRANSACTIONS_SHEET,
+                value=yml_dict['transactions']['shareable-address'],
+            )
         ]
     params_obj.add(conf)
     conf.clear()
@@ -229,13 +287,25 @@ def create_cfg(yml_file: PathLike) -> CfgManager:
         ]
     params_obj.add(conf)
     conf.clear()
-    if params_obj.get(ConfigMapUri.SYMBOLS_STANDARD) == 'custom' and params_obj.get(ConfigMapUri.SYMBOLS_MAP_SOURCE) == 'local':
+    if (
+        params_obj.get(ConfigMapUri.SYMBOLS_STANDARD) == 'custom'
+        and params_obj.get(ConfigMapUri.SYMBOLS_MAP_SOURCE) == 'local'
+    ):
         conf = [
-            CfgParam(name=ConfigMapUri.SYMBOLS_MAP_DIRECTORY, value=yml_dict['directories']['symbols-map-dir'])
+            CfgParam(
+                name=ConfigMapUri.SYMBOLS_MAP_DIRECTORY,
+                value=yml_dict['directories']['symbols-map-dir'],
+            )
         ]
-    elif params_obj.get(ConfigMapUri.SYMBOLS_STANDARD) == 'custom' and params_obj.get(ConfigMapUri.SYMBOLS_MAP_SOURCE) == 'cloud':
+    elif (
+        params_obj.get(ConfigMapUri.SYMBOLS_STANDARD) == 'custom'
+        and params_obj.get(ConfigMapUri.SYMBOLS_MAP_SOURCE) == 'cloud'
+    ):
         conf = [
-            CfgParam(name=ConfigMapUri.SYMBOLS_MAP_SHEET, value=yml_dict['symbols-map']['shareable-address'])
+            CfgParam(
+                name=ConfigMapUri.SYMBOLS_MAP_SHEET,
+                value=yml_dict['symbols-map']['shareable-address'],
+            )
         ]
     params_obj.add(conf)
     conf.clear()
@@ -244,20 +314,28 @@ def create_cfg(yml_file: PathLike) -> CfgManager:
     conf = [
         CfgParam(name=ConfigMapUri.POSITIONS, value=parse_positions(yml_dict.get('positions'))),
         CfgParam(name=ConfigMapUri.IMAGINARY_PORTFOLIOS, default=[], value=imaginary),
-        CfgParam(name=ConfigMapUri.PROJECTION,
-                 value=parse_projection_cfg(yml_dict.get('projection'),
-                                            ['portfolio'] + [p.name for p in imaginary],
-                                            date.today().year))
+        CfgParam(
+            name=ConfigMapUri.PROJECTION,
+            value=parse_projection_cfg(
+                yml_dict.get('projection'),
+                ['portfolio'] + [p.name for p in imaginary],
+                date.today().year,
+            ),
+        ),
     ]
     params_obj.add(conf)
     conf.clear()
     return CfgManager(params_obj)
 
-class Directories:
 
-    def __init__(self, base_dir: str, log_dir: Optional[str],
-                 local_trans_dir: Optional[str]=None,
-                 local_map_dir: Optional[str]=None) -> None:
+class Directories:
+    def __init__(
+        self,
+        base_dir: str,
+        log_dir: Optional[str],
+        local_trans_dir: Optional[str] = None,
+        local_map_dir: Optional[str] = None,
+    ) -> None:
         self.log_dir = log_dir if log_dir else 'log/'
         self.base_dir = base_dir
         self.local_trans_dir = local_trans_dir if local_trans_dir else base_dir

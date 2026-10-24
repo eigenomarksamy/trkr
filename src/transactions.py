@@ -1,10 +1,12 @@
-import os
 import csv
+import os
 import pathlib
 from datetime import datetime
 from typing import List, Optional
+
 from src.csv_mngr import CsvMngr
 from src.sheets_mngr import get_google_sheet
+
 
 class TransType:
     WATCH = 0
@@ -18,41 +20,44 @@ class TransType:
 
 class Transaction:
     def __init__(self, transaction: dict) -> None:
-        self.type = transaction["type"]
-        self.date = transaction["date"]
-        self.quantity = float(transaction["quantity"])
-        self.fees = float(transaction["fees"])
-        self.price = float(transaction["price"])
-        self.currency = transaction["currency"]
-        self.symbol = transaction["symbol"]
-        self.exchange = transaction["exchange"]
+        self.type = transaction['type']
+        self.date = transaction['date']
+        self.quantity = float(transaction['quantity'])
+        self.fees = float(transaction['fees'])
+        self.price = float(transaction['price'])
+        self.currency = transaction['currency']
+        self.symbol = transaction['symbol']
+        self.exchange = transaction['exchange']
         try:
-            self.wallet = transaction["platform"]
+            self.wallet = transaction['platform']
         except KeyError:
-            self.wallet = transaction["wallet"]
-        self.ex_rate = float(transaction["ex_rate"])
-        self.ex_fees = float(transaction["ex_fees"])
+            self.wallet = transaction['wallet']
+        self.ex_rate = float(transaction['ex_rate'])
+        self.ex_fees = float(transaction['ex_fees'])
 
     def __str__(self) -> str:
-        return f"{self.type} {self.quantity} {self.exchange}::{self.symbol} " + \
-               f"at {self.price} {self.currency} " + \
-               f"with extra {self.fees}, {self.ex_rate} and {self.ex_fees} " + \
-               f"on {self.date} to {self.wallet}"
+        return (
+            f'{self.type} {self.quantity} {self.exchange}::{self.symbol} '
+            + f'at {self.price} {self.currency} '
+            + f'with extra {self.fees}, {self.ex_rate} and {self.ex_fees} '
+            + f'on {self.date} to {self.wallet}'
+        )
 
     def __dict__(self) -> dict:
         return {
-            "type": self.type,
-            "date": self.date,
-            "quantity": self.quantity,
-            "fees": self.fees,
-            "price": self.price,
-            "currency": self.currency,
-            "symbol": self.symbol,
-            "exchange": self.exchange,
-            "wallet": self.wallet,
-            "ex_rate": self.ex_rate,
-            "ex_fees": self.ex_fees
+            'type': self.type,
+            'date': self.date,
+            'quantity': self.quantity,
+            'fees': self.fees,
+            'price': self.price,
+            'currency': self.currency,
+            'symbol': self.symbol,
+            'exchange': self.exchange,
+            'wallet': self.wallet,
+            'ex_rate': self.ex_rate,
+            'ex_fees': self.ex_fees,
         }
+
 
 class Transactions:
     def __init__(self) -> None:
@@ -91,7 +96,7 @@ class Transactions:
     def get_transactions_month(self, date: datetime) -> List[dict]:
         transactions_month = []
         for transaction in self.transactions:
-            transaction_date = datetime.strptime(transaction.date, "%Y-%m-%d").date()
+            transaction_date = datetime.strptime(transaction.date, '%Y-%m-%d').date()
             if transaction_date.month == date.month and transaction_date.year == date.year:
                 transactions_month.append(transaction.__dict__())
         return transactions_month
@@ -103,23 +108,29 @@ class Transactions:
                 symbols_of_interest.append(transaction.symbol)
         return symbols_of_interest
 
-    def get_first_transaction_date(self, date_format: str='%Y-%m-%d') -> str:
-        first_transaction = min(self.transactions, key=lambda t: datetime.strptime(t.date, "%Y-%m-%d"))
-        return datetime.strptime(first_transaction.date, "%Y-%m-%d").strftime(date_format)
+    def get_first_transaction_date(self, date_format: str = '%Y-%m-%d') -> str:
+        first_transaction = min(
+            self.transactions, key=lambda t: datetime.strptime(t.date, '%Y-%m-%d')
+        )
+        return datetime.strptime(first_transaction.date, '%Y-%m-%d').strftime(date_format)
 
     def match_symbols_standard(self, std_map: dict) -> None:
         for transaction in self.transactions:
             transaction.symbol = std_map.get(transaction.symbol.lower(), transaction.symbol.lower())
 
     def print(self) -> None:
-        print("Transactions:")
+        print('Transactions:')
         for transaction in self.transactions:
             print(transaction)
 
-def build_transactions_object(is_local: bool, address: str,
-                              directory: Optional[os.PathLike],
-                              is_quiet: bool,
-                              std_map: Optional[dict]) -> Transactions:
+
+def build_transactions_object(
+    is_local: bool,
+    address: str,
+    directory: Optional[os.PathLike],
+    is_quiet: bool,
+    std_map: Optional[dict],
+) -> Transactions:
     if is_local:
         transactions_file = address
     else:
@@ -127,25 +138,43 @@ def build_transactions_object(is_local: bool, address: str,
         if not is_quiet:
             print('CSV file saved to: {}'.format(transactions_file))
     transactions_obj = Transactions()
-    trans_csv_obj = CsvMngr(pathlib.Path(f'{transactions_file}'),
-                      ["type", "date", "quantity", "fees", "price",
-                       "currency", "symbol", "exchange", "platform",
-                       "ex_rate", "ex_fees"])
+    trans_csv_obj = CsvMngr(
+        pathlib.Path(f'{transactions_file}'),
+        [
+            'type',
+            'date',
+            'quantity',
+            'fees',
+            'price',
+            'currency',
+            'symbol',
+            'exchange',
+            'platform',
+            'ex_rate',
+            'ex_fees',
+        ],
+    )
     transactions_obj.add_list(trans_csv_obj.read())
     if std_map:
         transactions_obj.match_symbols_standard(std_map)
     return transactions_obj
 
+
 POSITION_COLUMNS = ['symbol', 'quantity', 'average_price', 'date']
+
 
 def input_error(message: str) -> Exception:
     print(f'Input error: {message}')
-    return Exception("400")
+    return Exception('400')
 
-def build_positions(is_local: bool, address: str,
-                    directory: Optional[os.PathLike],
-                    is_quiet: bool,
-                    std_map: Optional[dict]) -> List[Transaction]:
+
+def build_positions(
+    is_local: bool,
+    address: str,
+    directory: Optional[os.PathLike],
+    is_quiet: bool,
+    std_map: Optional[dict],
+) -> List[Transaction]:
     """Reads opening positions, one row per investment, as buys at the average price.
 
     Required columns: symbol, quantity, average_price, date (YYYY-MM-DD).
@@ -174,7 +203,9 @@ def build_positions(is_local: bool, address: str,
             average_price = float(row['average_price'])
             ex_rate = float(row.get('ex_rate') or 1)
         except ValueError:
-            raise input_error(f'{where}: quantity, average_price and ex_rate must be numbers.') from None
+            raise input_error(
+                f'{where}: quantity, average_price and ex_rate must be numbers.'
+            ) from None
         try:
             datetime.strptime(row['date'].strip(), '%Y-%m-%d')
         except ValueError:
@@ -187,17 +218,23 @@ def build_positions(is_local: bool, address: str,
             raise input_error(f'{where}: average_price must not be negative.')
         if ex_rate <= 0:
             raise input_error(f'{where}: ex_rate must be positive.')
-        positions.add(Transaction({"type": "buy",
-                                   "date": row['date'].strip(),
-                                   "quantity": quantity,
-                                   "fees": 0,
-                                   "price": average_price,
-                                   "currency": (row.get('currency') or '').strip(),
-                                   "symbol": row['symbol'].strip(),
-                                   "exchange": (row.get('exchange') or '').strip(),
-                                   "platform": 'positions file',
-                                   "ex_rate": ex_rate,
-                                   "ex_fees": 0}))
+        positions.add(
+            Transaction(
+                {
+                    'type': 'buy',
+                    'date': row['date'].strip(),
+                    'quantity': quantity,
+                    'fees': 0,
+                    'price': average_price,
+                    'currency': (row.get('currency') or '').strip(),
+                    'symbol': row['symbol'].strip(),
+                    'exchange': (row.get('exchange') or '').strip(),
+                    'platform': 'positions file',
+                    'ex_rate': ex_rate,
+                    'ex_fees': 0,
+                }
+            )
+        )
     if std_map:
         positions.match_symbols_standard(std_map)
     return positions.get()

@@ -1,9 +1,10 @@
 import os
+
 import requests
 
-def get_google_sheet(spreadsheet_id: str, outDir: str,
-                     outFile: str) -> os.PathLike:
-    os.makedirs(outDir, exist_ok = True)
+
+def get_google_sheet(spreadsheet_id: str, outDir: str, outFile: str) -> os.PathLike:
+    os.makedirs(outDir, exist_ok=True)
     url = f'https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv'
     if Sheets.is_url(spreadsheet_id):
         url = f'{spreadsheet_id}'
@@ -17,8 +18,8 @@ def get_google_sheet(spreadsheet_id: str, outDir: str,
         print(f'Error downloading Google Sheet: {response.status_code}')
         raise Exception(f'Error downloading Google Sheet: {response.status_code}')
 
-class Sheets:
 
+class Sheets:
     def __init__(self, sheets_dict: dict) -> None:
         self.sheets_dict = {}
         self.sheets_dict_raw_refined = {}
@@ -36,7 +37,9 @@ class Sheets:
                         sheet_id = inner_value
                         if self.is_url(sheet_id):
                             sheet_id = self.convert_sheet_url_to_id(inner_value)
-                        self.sheets_dict[f'{key}:{inner_key}'] = self.convert_sheet_id_to_url(sheet_id)
+                        self.sheets_dict[f'{key}:{inner_key}'] = self.convert_sheet_id_to_url(
+                            sheet_id
+                        )
                         self.sheets_dict_raw_refined[key][inner_key] = sheet_id
 
     @staticmethod
@@ -49,9 +52,9 @@ class Sheets:
 
     @staticmethod
     def is_url(text: str) -> bool:
-         if 'https://' in text:
-             return True
-         return False
+        if 'https://' in text:
+            return True
+        return False
 
     def get_sheets_links(self) -> dict:
         return self.sheets_dict

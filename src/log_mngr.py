@@ -1,11 +1,11 @@
-import os
 import logging
-from typing import Union
+import os
 from datetime import datetime
+from typing import Union
+
 
 class LogManager:
-    def __init__(self, log_file: str='app.log',
-                 log_level:Union[int, str]=logging.NOTSET):
+    def __init__(self, log_file: str = 'app.log', log_level: Union[int, str] = logging.NOTSET):
         self.logger = logging.getLogger('LogManager')
         if isinstance(log_level, str):
             self.logger.setLevel(self.convert_log_level(log_level))
@@ -50,9 +50,11 @@ class LogManager:
             return True
         return False
 
-if __name__ == "__main__":
-    log_manager = LogManager(log_file=f'log/app_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log',
-                             log_level='DEBUG')
+
+if __name__ == '__main__':
+    log_manager = LogManager(
+        log_file=f'log/app_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log', log_level='DEBUG'
+    )
     logger = log_manager.get_logger()
     logger.debug('This is a debug message')
     logger.info('This is an info message')

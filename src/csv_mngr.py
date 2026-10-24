@@ -2,9 +2,9 @@ import csv
 import pathlib
 from typing import Any, Iterable
 
+
 class CsvMngr:
-    def __init__(self, file_path: pathlib.Path,
-                 headers: list[str]) -> None:
+    def __init__(self, file_path: pathlib.Path, headers: list[str]) -> None:
         self.file_path = file_path
         self.headers = headers
 
@@ -27,12 +27,13 @@ class CsvMngr:
         ret = {}
         for it in read_list:
             dumbo = list(it.values())
-            ret[dumbo[0]]= dumbo[1]
+            ret[dumbo[0]] = dumbo[1]
         return ret
 
-def write_markdown_table(path: pathlib.Path, title: str,
-                         col1_title: str, col2_title: str,
-                         writable_dict: dict) -> None:
+
+def write_markdown_table(
+    path: pathlib.Path, title: str, col1_title: str, col2_title: str, writable_dict: dict
+) -> None:
     pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, mode='w', newline='') as file:
         file.write(f'# {title}\n\n')
@@ -41,8 +42,10 @@ def write_markdown_table(path: pathlib.Path, title: str,
         for key, value in writable_dict.items():
             file.write(f'| {key} | {value} |\n')
 
-def write_markdown_grid(path: pathlib.Path, title: str,
-                        headers: list[str], rows: list[list]) -> None:
+
+def write_markdown_grid(
+    path: pathlib.Path, title: str, headers: list[str], rows: list[list]
+) -> None:
     pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, mode='w', newline='') as file:
         file.write(f'# {title}\n\n')
@@ -52,13 +55,14 @@ def write_markdown_grid(path: pathlib.Path, title: str,
             cells = [f'{cell:.2f}' if isinstance(cell, float) else str(cell) for cell in row]
             file.write('| ' + ' | '.join(cells) + ' |\n')
 
-def write_markdown_urls(path: pathlib.Path, title: str,
-                        writable_dict: dict) -> None:
+
+def write_markdown_urls(path: pathlib.Path, title: str, writable_dict: dict) -> None:
     pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, mode='w', newline='') as file:
         file.write(f'# {title}\n\n')
         for key, value in writable_dict.items():
             file.write(f'* [{key}]({value})\n')
+
 
 def write_csv_lazy(path: pathlib.Path, data_dict: dict, key: str) -> None:
     pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)

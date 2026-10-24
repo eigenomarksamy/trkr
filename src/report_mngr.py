@@ -1,11 +1,13 @@
 import pathlib
 from os import PathLike
 from typing import Optional
+
 from jinja2 import Environment, FileSystemLoader
 
-def generate_misc_tables_html(symbols_map: str, entry_points: str,
-                              historical_valuation: str,
-                              output_path: PathLike) -> None:
+
+def generate_misc_tables_html(
+    symbols_map: str, entry_points: str, historical_valuation: str, output_path: PathLike
+) -> None:
     template_dir = pathlib.Path('templates')
     template_dir.mkdir(parents=True, exist_ok=True)
     template_file = template_dir / 'misc_tables_template.html'
@@ -29,14 +31,16 @@ def generate_misc_tables_html(symbols_map: str, entry_points: str,
     """)
     env = Environment(loader=FileSystemLoader('templates'))
     template = env.get_template('misc_tables_template.html')
-    html_report = template.render(symbols_map=symbols_map,
-                                  entry_points=entry_points,
-                                  historical_valuation=historical_valuation)
+    html_report = template.render(
+        symbols_map=symbols_map,
+        entry_points=entry_points,
+        historical_valuation=historical_valuation,
+    )
     report_path = pathlib.Path(f'{output_path}misc_tables.html')
     report_path.write_text(html_report)
 
-def generate_transactions_html(transactions: list[dict],
-                               output_path: PathLike) -> None:
+
+def generate_transactions_html(transactions: list[dict], output_path: PathLike) -> None:
     template_dir = pathlib.Path('templates')
     template_dir.mkdir(parents=True, exist_ok=True)
     template_file = template_dir / 'transactions_template.html'
@@ -85,8 +89,8 @@ def generate_transactions_html(transactions: list[dict],
     report_path = pathlib.Path(f'{output_path}transactions.html')
     report_path.write_text(html_report)
 
-def generate_historical_report(figs_historical: list[PathLike],
-                               output_path: PathLike) -> None:
+
+def generate_historical_report(figs_historical: list[PathLike], output_path: PathLike) -> None:
     template_dir = pathlib.Path('templates')
     template_dir.mkdir(parents=True, exist_ok=True)
     template_file = template_dir / 'historical_template.html'
@@ -110,12 +114,14 @@ def generate_historical_report(figs_historical: list[PathLike],
     """)
     env = Environment(loader=FileSystemLoader('templates'))
     template = env.get_template('historical_template.html')
-    html_report = template.render(plots_history=[str(pathlib.Path(plot).absolute()) for plot in figs_historical])
+    html_report = template.render(
+        plots_history=[str(pathlib.Path(plot).absolute()) for plot in figs_historical]
+    )
     report_path = pathlib.Path(f'{output_path}figs_historical.html')
     report_path.write_text(html_report)
 
-def generate_projection_html(headers: list[str], rows: list[list],
-                             output_path: PathLike) -> None:
+
+def generate_projection_html(headers: list[str], rows: list[list], output_path: PathLike) -> None:
     template_dir = pathlib.Path('templates')
     template_dir.mkdir(parents=True, exist_ok=True)
     template_file = template_dir / 'projection_template.html'
@@ -156,16 +162,23 @@ def generate_projection_html(headers: list[str], rows: list[list],
     report_path = pathlib.Path(f'{output_path}projection.html')
     report_path.write_text(html_report)
 
-def generate_html_report(total_dict: dict, entry_points: dict,
-                         portfolio_dict: dict, ticker_map: dict,
-                         def_currency: str, figs_paths_stocks: list[PathLike],
-                         figs_paths_stats: list[PathLike],
-                         transactions_list: list, historical_valuation: dict,
-                         req_path: PathLike,
-                         sub_dir: PathLike,
-                         title: str='Portfolio Report',
-                         imaginary_portfolios: Optional[list[dict]]=None,
-                         projection: Optional[dict]=None) -> None:
+
+def generate_html_report(
+    total_dict: dict,
+    entry_points: dict,
+    portfolio_dict: dict,
+    ticker_map: dict,
+    def_currency: str,
+    figs_paths_stocks: list[PathLike],
+    figs_paths_stats: list[PathLike],
+    transactions_list: list,
+    historical_valuation: dict,
+    req_path: PathLike,
+    sub_dir: PathLike,
+    title: str = 'Portfolio Report',
+    imaginary_portfolios: Optional[list[dict]] = None,
+    projection: Optional[dict] = None,
+) -> None:
     generate_transactions_html(transactions_list, sub_dir)
     if projection:
         generate_projection_html(projection['headers'], projection['rows'], sub_dir)
@@ -339,7 +352,7 @@ def generate_html_report(total_dict: dict, entry_points: dict,
         overview_history_fig=figs_paths_stocks[0],
         plots_stats=figs_paths_stats,
         trans_report_dir=f'{sub_dir}transactions.html',
-        misc_tables_report_dir=f'{sub_dir}misc_tables.html'
+        misc_tables_report_dir=f'{sub_dir}misc_tables.html',
     )
     report_path = pathlib.Path(req_path)
     report_path.write_text(html_report)

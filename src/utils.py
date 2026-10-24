@@ -1,21 +1,34 @@
-import yaml
-import socket
-import pathlib
 import argparse
+import pathlib
+import socket
 from typing import Optional, Union
+
+import yaml
+
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Tracker info')
-    parser.add_argument('--quiet', '-q', action='store_true', dest='is_quiet',
-                        help='Hide detailed output')
-    parser.add_argument('--cfg', type=pathlib.Path, dest='cfg_file',
-                        default=pathlib.Path('config/cfg.yml'),
-                        help='Path to the overall configuration file')
-    parser.add_argument('--log-level', type=str, dest='log_level', default='info',
-                        help='Log level [DEBUG | INFO | WARNING | ERROR | CRITICAL]')
+    parser.add_argument(
+        '--quiet', '-q', action='store_true', dest='is_quiet', help='Hide detailed output'
+    )
+    parser.add_argument(
+        '--cfg',
+        type=pathlib.Path,
+        dest='cfg_file',
+        default=pathlib.Path('config/cfg.yml'),
+        help='Path to the overall configuration file',
+    )
+    parser.add_argument(
+        '--log-level',
+        type=str,
+        dest='log_level',
+        default='info',
+        help='Log level [DEBUG | INFO | WARNING | ERROR | CRITICAL]',
+    )
     return parser.parse_args()
 
-def check_internet(host="8.8.8.8", port=53, timeout=3) -> bool:
+
+def check_internet(host='8.8.8.8', port=53, timeout=3) -> bool:
     try:
         socket.setdefaulttimeout(timeout)
         socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
@@ -24,8 +37,10 @@ def check_internet(host="8.8.8.8", port=53, timeout=3) -> bool:
         print(ex)
         return False
 
-def get_yaml_parameter(yaml_path: pathlib.Path,
-                       parameter: Optional[str]=None) -> Union[str, dict]:
+
+def get_yaml_parameter(
+    yaml_path: pathlib.Path, parameter: Optional[str] = None
+) -> Union[str, dict]:
     param_val = None
     param_dict = {}
     with open(yaml_path, 'r') as stream:
@@ -39,10 +54,13 @@ def get_yaml_parameter(yaml_path: pathlib.Path,
         return param_dict
     return param_val
 
+
 def get_exception(e_num: int) -> str:
-    e_map = {400: 'InvalidInputData',
-             503: 'ServiceNotAvailable',
-             299: 'DeprecatedAPI',
-             417: 'UnsupportedConfiguration',
-             422: 'InvalidConfiguration'}
+    e_map = {
+        400: 'InvalidInputData',
+        503: 'ServiceNotAvailable',
+        299: 'DeprecatedAPI',
+        417: 'UnsupportedConfiguration',
+        422: 'InvalidConfiguration',
+    }
     return e_map.get(e_num, 'NotMapped')

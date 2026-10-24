@@ -1,8 +1,10 @@
 import os
+
 os.environ.setdefault('MPLBACKEND', 'Agg')
 
 import pathlib
 from datetime import datetime
+
 import pandas as pd
 import pytest
 
@@ -16,6 +18,7 @@ TICKERS = {
     'USDEUR=X': {'currency': 'EUR', 'base': 0.9, 'current': 0.92},
 }
 
+
 class FakeTicker:
     def __init__(self, ticker: str) -> None:
         self.data = TICKERS[ticker]
@@ -23,25 +26,30 @@ class FakeTicker:
 
     def history(self, period=None, **kwargs) -> pd.DataFrame:
         if period == '1d':
-            return pd.DataFrame({'Close': [self.data['current']]},
-                                index=pd.to_datetime(['2024-06-28']))
+            return pd.DataFrame(
+                {'Close': [self.data['current']]}, index=pd.to_datetime(['2024-06-28'])
+            )
         index = pd.date_range('2024-01-01', '2024-06-24', freq='W-MON')
         closes = [self.data['base'] * (1 + 0.01 * week) for week in range(len(index))]
         return pd.DataFrame({'Close': closes}, index=index)
+
 
 class FrozenDatetime(datetime):
     @classmethod
     def today(cls):
         return cls(2024, 6, 30)
 
+
 def _no_network(*args, **kwargs):
     raise AssertionError('Tests must not touch the network.')
+
 
 @pytest.fixture
 def offline(monkeypatch, tmp_path) -> pathlib.Path:
     """Stubs Yahoo, Google Sheets, the connectivity check and today's date."""
     import run
     from src import portfolio_mngr
+
     monkeypatch.setattr('src.market_mngr.yf.Ticker', FakeTicker)
     monkeypatch.setattr('src.sheets_mngr.requests.get', _no_network)
     monkeypatch.setattr(run, 'check_internet', lambda: True)
@@ -50,9 +58,11 @@ def offline(monkeypatch, tmp_path) -> pathlib.Path:
     monkeypatch.chdir(tmp_path)
     return tmp_path
 
+
 def make_cfg(tmp_path: pathlib.Path, extra_yaml: str = '') -> pathlib.Path:
     """Writes a config that reads the fixture CSVs and generates into tmp_path/out/."""
-    cfg = f"""
+    cfg = (
+        f"""
 market-data-origin: yahoo
 comp:
   default-currency: EUR
@@ -70,10 +80,13 @@ symbols-map:
 cli-exec:
   quiet: true
   log-level: notset
-""" + extra_yaml
+"""
+        + extra_yaml
+    )
     path = tmp_path / 'cfg.yml'
     path.write_text(cfg, encoding='utf-8')
     return path
+
 
 def check_golden(actual: pathlib.Path, name: str) -> None:
     """Compares a generated file with tests/golden/<name>; TRKR_UPDATE_GOLDEN=1 rewrites it."""

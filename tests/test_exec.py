@@ -1,22 +1,28 @@
 import csv
 from datetime import date
+
 import pytest
+
 import run
-from conftest import FIXTURES, make_cfg, check_golden
+from conftest import FIXTURES, check_golden, make_cfg
+
 
 def check_real_portfolio_outputs(out):
     generated = out / 'generated'
     for name in ('portfolio.csv', 'total.md', 'entries.md'):
         check_golden(generated / name, f'exec/{name}')
-    for path in ('report.html',
-                 'generated/transactions.html',
-                 'generated/misc_tables.html',
-                 'generated/figs_historical.html',
-                 'generated/plots/stocks/history.png',
-                 'generated/plots/stocks/history_aaa.as.png',
-                 'generated/plots/gen_stats_pie_spending_percent.png',
-                 'generated/plots/gen_stats_points_valuation_percent.png'):
+    for path in (
+        'report.html',
+        'generated/transactions.html',
+        'generated/misc_tables.html',
+        'generated/figs_historical.html',
+        'generated/plots/stocks/history.png',
+        'generated/plots/stocks/history_aaa.as.png',
+        'generated/plots/gen_stats_pie_spending_percent.png',
+        'generated/plots/gen_stats_points_valuation_percent.png',
+    ):
         assert (out / path).exists(), path
+
 
 def test_exec_matches_golden(offline):
     run.exec(make_cfg(offline))
@@ -28,9 +34,13 @@ def test_exec_matches_golden(offline):
     assert not (out / 'imaginary').exists()
     assert not (out / 'generated' / 'projection.csv').exists()
 
+
 def test_exec_with_imaginary_portfolio_and_projection(offline):
     year = date.today().year
-    run.exec(make_cfg(offline, f"""
+    run.exec(
+        make_cfg(
+            offline,
+            f"""
 imaginary-portfolios:
   - name: paper
     source: local
@@ -47,7 +57,9 @@ projection:
   inflation: 2
   deposits-withdrawals:
     {year + 2}: -500
-"""))
+""",
+        )
+    )
     out = offline / 'out'
     check_real_portfolio_outputs(out)
 
@@ -76,12 +88,18 @@ projection:
     assert 'Net-worth Projection' in report
     assert "imaginary portfolio 'paper' plus 100.00 cash" in report
 
+
 def test_exec_with_opening_positions(offline):
-    run.exec(make_cfg(offline, f"""
+    run.exec(
+        make_cfg(
+            offline,
+            f"""
 positions:
   source: local
   positions-dir: {(FIXTURES / 'positions.csv').as_posix()}
-"""))
+""",
+        )
+    )
     generated = offline / 'out' / 'generated'
     with open(generated / 'portfolio.csv', newline='') as file:
         holdings = {row['symbol']: row for row in csv.DictReader(file)}

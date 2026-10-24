@@ -1,11 +1,14 @@
-from datetime import date
 from dataclasses import dataclass, field, fields
+from datetime import date
 from typing import Optional, Union
+
 from dateutil.relativedelta import relativedelta
+
 from src.portfolio_mngr import convert_date_to_short_str
 
 # Ported from the owner's C++ networth_projection tool. Percentages are whole
 # numbers (7 means 7%), as there.
+
 
 @dataclass
 class ProjectionCfg:
@@ -23,6 +26,7 @@ class ProjectionCfg:
     # Calendar year -> amount; negative amounts are withdrawals.
     deposits_withdrawals: dict[int, float] = field(default_factory=dict)
 
+
 @dataclass
 class ProjectionRow:
     year: int
@@ -35,6 +39,7 @@ class ProjectionRow:
     return_after_fees: float
     net_worth_after_fees: float
     net_worth_real: Optional[float]
+
 
 ROW_LABELS = {
     'year': 'Year',
@@ -49,8 +54,10 @@ ROW_LABELS = {
     'net_worth_real': "Net worth (after fees, today's money)",
 }
 
-def project_net_worth(cfg: ProjectionCfg, start_value: float,
-                      start_year: int) -> list[ProjectionRow]:
+
+def project_net_worth(
+    cfg: ProjectionCfg, start_value: float, start_year: int
+) -> list[ProjectionRow]:
     """One row per year, from start_year to the year of retirement.
 
     Row n is the state n years after start_value was measured, so the first
@@ -70,22 +77,31 @@ def project_net_worth(cfg: ProjectionCfg, start_value: float,
         deposit_withdrawal = cfg.deposits_withdrawals.get(year, 0)
         new_money = contribution + deposit_withdrawal
         # New money arrives through the year, so it earns half a year's return.
-        return_before_fees = net_worth_before_fees * rate_before_fees + new_money * rate_before_fees / 2
+        return_before_fees = (
+            net_worth_before_fees * rate_before_fees + new_money * rate_before_fees / 2
+        )
         return_after_fees = net_worth_after_fees * rate_after_fees + new_money * rate_after_fees / 2
         net_worth_before_fees += new_money + return_before_fees
         net_worth_after_fees += new_money + return_after_fees
         net_worth_real = None
         if cfg.inflation is not None:
             net_worth_real = net_worth_after_fees / (1 + cfg.inflation / 100) ** n
-        rows.append(ProjectionRow(year=year, age=year - cfg.birth_year,
-                                  income=income, contribution=contribution,
-                                  deposit_withdrawal=deposit_withdrawal,
-                                  return_before_fees=return_before_fees,
-                                  net_worth_before_fees=net_worth_before_fees,
-                                  return_after_fees=return_after_fees,
-                                  net_worth_after_fees=net_worth_after_fees,
-                                  net_worth_real=net_worth_real))
+        rows.append(
+            ProjectionRow(
+                year=year,
+                age=year - cfg.birth_year,
+                income=income,
+                contribution=contribution,
+                deposit_withdrawal=deposit_withdrawal,
+                return_before_fees=return_before_fees,
+                net_worth_before_fees=net_worth_before_fees,
+                return_after_fees=return_after_fees,
+                net_worth_after_fees=net_worth_after_fees,
+                net_worth_real=net_worth_real,
+            )
+        )
     return rows
+
 
 def resolve_start_value(cfg: ProjectionCfg, portfolio_values: dict[str, float]) -> float:
     if isinstance(cfg.start_net_worth, str):
@@ -94,10 +110,12 @@ def resolve_start_value(cfg: ProjectionCfg, portfolio_values: dict[str, float]) 
         start_value = cfg.start_net_worth
     return start_value + cfg.cash
 
+
 def invested_last_12_months(spending_history: dict, today: date) -> float:
     """Sums Portfolio.compute_spending_history over this month and the 11 before it."""
     months = [convert_date_to_short_str(date=today - relativedelta(months=i)) for i in range(12)]
     return sum(spending_history.get(month, 0) for month in months)
+
 
 def projection_table(rows: list[ProjectionRow], labels: bool) -> tuple[list[str], list[list]]:
     """Headers and rows for writing out, money rounded to cents.

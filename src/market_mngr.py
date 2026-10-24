@@ -1,24 +1,27 @@
-import os
 import csv
+import os
 import pathlib
-import yfinance as yf
-from typing import Union, Optional, Tuple
 from datetime import date, datetime
-from src.sheets_mngr import get_google_sheet
+from typing import Optional, Tuple, Union
+
+import yfinance as yf
+
 from src.csv_mngr import CsvMngr
+from src.sheets_mngr import get_google_sheet
+
 
 class Interval:
     DAILY = '1d'
     MONTHLY = '1mo'
     WEEKLY = '1wk'
 
-class YFinanceSymbMap:
 
+class YFinanceSymbMap:
     def __init__(self, tickers_map: dict) -> None:
         self.tickerMap = tickers_map
 
-class MarketData:
 
+class MarketData:
     def __init__(self) -> None:
         pass
 
@@ -32,8 +35,20 @@ class MarketData:
 
     @staticmethod
     def convert_date_to_short_str(**kwargs) -> str:
-        months = ['January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December']
+        months = [
+            'January',
+            'February',
+            'March',
+            'April',
+            'May',
+            'June',
+            'July',
+            'August',
+            'September',
+            'October',
+            'November',
+            'December',
+        ]
         month = kwargs.get('month', None)
         year = kwargs.get('year', None)
         date = kwargs.get('date', None)
@@ -55,8 +70,8 @@ class MarketData:
         else:
             return months[month - 1][:3].lower() + str(year)[2:]
 
-class MarketDataGoogle(MarketData):
 
+class MarketDataGoogle(MarketData):
     def __init__(self, def_currency: str, files_dict: dict) -> None:
         super().__init__()
         self.data = {}
@@ -84,8 +99,8 @@ class MarketDataGoogle(MarketData):
     def align_data(self) -> None:
         pass
 
-class MarketDataGoogleLite(MarketDataGoogle):
 
+class MarketDataGoogleLite(MarketDataGoogle):
     def __init__(self, files_dict: dict, def_currency: str):
         super().__init__(files_dict, def_currency)
 
@@ -93,7 +108,9 @@ class MarketDataGoogleLite(MarketDataGoogle):
         for elm in self.data:
             self.data_aligned[elm] = {}
             for i in self.data[elm]:
-                self.data_aligned[elm][MarketData.convert_date_to_short_str(date=MarketData.format_date(i['Date']))] = {'price': float(i['Close']), 'currency': i['Currency']}
+                self.data_aligned[elm][
+                    MarketData.convert_date_to_short_str(date=MarketData.format_date(i['Date']))
+                ] = {'price': float(i['Close']), 'currency': i['Currency']}
         for elm in self.data_aligned:
             if elm == 'USD':
                 continue
@@ -101,12 +118,14 @@ class MarketDataGoogleLite(MarketDataGoogle):
                 if self.def_currency == 'EUR' and self.data_aligned[elm][date]['currency'] == 'USD':
                     self.data_aligned[elm][date]['price'] *= self.data_aligned['USD'][date]['price']
                     self.data_aligned[elm][date]['currency'] = 'EUR'
-                elif self.def_currency == 'USD' and self.data_aligned[elm][date]['currency'] == 'EUR':
+                elif (
+                    self.def_currency == 'USD' and self.data_aligned[elm][date]['currency'] == 'EUR'
+                ):
                     self.data_aligned[elm][date]['price'] /= self.data_aligned['USD'][date]['price']
                     self.data_aligned[elm][date]['currency'] = 'USD'
 
-class MarketDataGoogleFull(MarketDataGoogle):
 
+class MarketDataGoogleFull(MarketDataGoogle):
     def __init__(self, files_dict: dict, def_currency: str, currency_conv_rate: float) -> None:
         self.currency_conv_rate = currency_conv_rate
         super().__init__(files_dict, def_currency)
@@ -115,34 +134,46 @@ class MarketDataGoogleFull(MarketDataGoogle):
         for elm in self.data:
             self.data_aligned[elm] = {}
             for i in self.data[elm]:
-                self.data_aligned[elm][i['Date'].split()[0]] = {'price': float(i['Close']), 'currency': i['Currency']}
+                self.data_aligned[elm][i['Date'].split()[0]] = {
+                    'price': float(i['Close']),
+                    'currency': i['Currency'],
+                }
         for elm in self.data_aligned:
             if elm == 'USD':
                 continue
             for date in self.data_aligned[elm]:  # noqa: F402 -- dead code, removed in Phase 2
                 if self.def_currency == 'EUR' and self.data_aligned[elm][date]['currency'] == 'USD':
                     try:
-                        self.data_aligned[elm][date]['price'] *= self.data_aligned['USD'][date]['price']
+                        self.data_aligned[elm][date]['price'] *= self.data_aligned['USD'][date][
+                            'price'
+                        ]
                     except KeyError:
                         self.data_aligned[elm][date]['price'] *= self.currency_conv_rate
                     self.data_aligned[elm][date]['currency'] = 'EUR'
-                elif self.def_currency == 'USD' and self.data_aligned[elm][date]['currency'] == 'EUR':
+                elif (
+                    self.def_currency == 'USD' and self.data_aligned[elm][date]['currency'] == 'EUR'
+                ):
                     try:
-                        self.data_aligned[elm][date]['price'] /= self.data_aligned['USD'][date]['price']
+                        self.data_aligned[elm][date]['price'] /= self.data_aligned['USD'][date][
+                            'price'
+                        ]
                     except KeyError:
                         self.data_aligned[elm][date]['price'] /= self.currency_conv_rate
                     self.data_aligned[elm][date]['currency'] = 'USD'
 
-class MarketDataYahoo(MarketData):
 
-    def __init__(self, tickers: list[str],
-                 ticker_map: Optional[YFinanceSymbMap],
-                 start_date: Union[str, date],
-                 end_date: Optional[Union[str, date]]=None,
-                 date_format: str='%Y-%m-%d',
-                 interval: Interval=Interval.DAILY,
-                 auto_convert_currency: bool=True,
-                 **kwargs) -> None:
+class MarketDataYahoo(MarketData):
+    def __init__(
+        self,
+        tickers: list[str],
+        ticker_map: Optional[YFinanceSymbMap],
+        start_date: Union[str, date],
+        end_date: Optional[Union[str, date]] = None,
+        date_format: str = '%Y-%m-%d',
+        interval: Interval = Interval.DAILY,
+        auto_convert_currency: bool = True,
+        **kwargs,
+    ) -> None:
         super().__init__()
         self.tickers = tickers
         self.interval = interval
@@ -160,17 +191,16 @@ class MarketDataYahoo(MarketData):
             req_currency = kwargs.get('req_currency', 'NA')
             self.currency_key = ticker_map.tickerMap.get(req_currency.lower(), None)
             if not self.currency_key:
-                raise Exception("Currency conversion required, no currency provided.")
+                raise Exception('Currency conversion required, no currency provided.')
             else:
                 self.convert_currencies(req_currency)
 
     @staticmethod
     def get_current_price_ticker(ticker: str) -> float:
-        return float(yf.Ticker(ticker).history(period="1d")['Close'].iloc[-1])
+        return float(yf.Ticker(ticker).history(period='1d')['Close'].iloc[-1])
 
     @staticmethod
-    def assign_date(work_date: Union[str, date],
-                    date_format: str) -> date:
+    def assign_date(work_date: Union[str, date], date_format: str) -> date:
         if isinstance(work_date, str):
             ret_date = datetime.strptime(work_date, date_format).date()
         else:
@@ -180,14 +210,20 @@ class MarketDataYahoo(MarketData):
     def formulate_history(self) -> None:
         for ticker in self.tickers:
             yf_ticker = yf.Ticker(ticker)
-            history_data_frame = yf_ticker.history(start=self.start_date,
-                                                    end=self.end_date,
-                                                    interval=self.interval)
+            history_data_frame = yf_ticker.history(
+                start=self.start_date, end=self.end_date, interval=self.interval
+            )
             if self.interval == Interval.DAILY:
-                self.history[ticker] = {date.strftime(self.date_format): float(row['Close']) for date, row in history_data_frame.iterrows()}
+                self.history[ticker] = {
+                    date.strftime(self.date_format): float(row['Close'])
+                    for date, row in history_data_frame.iterrows()
+                }
             else:
-                self.history[ticker] = {MarketData.convert_date_to_short_str(date=dater.date()): float(row['Close']) for dater, row in history_data_frame.iterrows()}
-            self.currency[ticker] = yf_ticker.info.get("currency", 'NA')
+                self.history[ticker] = {
+                    MarketData.convert_date_to_short_str(date=dater.date()): float(row['Close'])
+                    for dater, row in history_data_frame.iterrows()
+                }
+            self.currency[ticker] = yf_ticker.info.get('currency', 'NA')
             self.current_price[ticker] = self.get_current_price_ticker(ticker)
 
     def convert_currencies(self, req_currency: str) -> None:
@@ -198,42 +234,41 @@ class MarketDataYahoo(MarketData):
                 self.current_price[ticker] *= self.current_price[self.currency_key]
                 self.currency[ticker] = req_currency.upper()
                 for d in self.history[ticker]:
-                        try:
-                            self.history[ticker][d] *= self.history[self.currency_key][d]
-                        except KeyError:
-                            self.history[ticker][d] *= self.current_price[self.currency_key]
+                    try:
+                        self.history[ticker][d] *= self.history[self.currency_key][d]
+                    except KeyError:
+                        self.history[ticker][d] *= self.current_price[self.currency_key]
 
     def fetch_history(self) -> dict:
         return self.history
 
-class MarketHistory:
 
+class MarketHistory:
     def __init__(self, market_data: MarketData) -> None:
         self.history = market_data.get_market_history()
 
-class MarketSymbol:
 
-    def __init__(self, symbol: str, history: dict, price: float,
-                 currency: str) -> None:
+class MarketSymbol:
+    def __init__(self, symbol: str, history: dict, price: float, currency: str) -> None:
         self.symbol = symbol
         self.history = history
         self.currency = currency
         self.price = price
 
     def print(self) -> None:
-        print("Symbol:", self.symbol)
-        print("Currency:", self.currency)
-        print("Price:", self.price)
-        print("History:")
+        print('Symbol:', self.symbol)
+        print('Currency:', self.currency)
+        print('Price:', self.price)
+        print('History:')
         for h in self.history:
-            print("\t", h, self.history[h])
+            print('\t', h, self.history[h])
 
     def __str__(self) -> str:
         return f'Symbol: {self.symbol}, Currency: {self.currency}, Price: {self.price}, History: {self.history}'
 
+
 class MarketReader:
-    def __init__(self, file: os.PathLike,
-                 symbols_of_interest: list[str]) -> None:
+    def __init__(self, file: os.PathLike, symbols_of_interest: list[str]) -> None:
         self.csv_file = file
         self.market_data = MarketDataGoogle.load_market_data_csv()
         self.missing_symbols = []
@@ -268,14 +303,18 @@ class MarketReader:
         data_aligned = {}
         for entry in self.market_data:
             try:
-                data_aligned[entry['symbol']] = {'price' : float(entry['price']),
-                                                'currency' : entry['currency']}
+                data_aligned[entry['symbol']] = {
+                    'price': float(entry['price']),
+                    'currency': entry['currency'],
+                }
             except ValueError as verr:
                 if not is_quiet:
-                    raise ValueError(f"Exception raised!\n\t--> {verr}.\n" +
-                                     "In other words,\n\t" +
-                                     f'GOOGLEFINANCE is down for {entry["symbol"]}.' +
-                                     '\n\tPossibly more') from verr
+                    raise ValueError(
+                        f'Exception raised!\n\t--> {verr}.\n'
+                        + 'In other words,\n\t'
+                        + f'GOOGLEFINANCE is down for {entry["symbol"]}.'
+                        + '\n\tPossibly more'
+                    ) from verr
                 raise verr
         for entry in data_aligned.keys():
             if def_currency == 'EUR':
@@ -287,18 +326,23 @@ class MarketReader:
                     data_aligned[entry]['price'] /= self.get_usd_conversion_rate()
                     data_aligned[entry]['currency'] = 'USD'
             if not is_quiet:
-                print(f'{entry}: {data_aligned[entry]["price"]}, ' +
-                      f'currency: {data_aligned[entry]["currency"]}')
+                print(
+                    f'{entry}: {data_aligned[entry]["price"]}, '
+                    + f'currency: {data_aligned[entry]["currency"]}'
+                )
         return data_aligned
 
-def fetch_histories(addresses: dict, suffix: str, destination: str,
-                    symbols_of_interest: list[str],
-                    is_quiet: bool) -> Tuple[bool, Union[dict, list[str]]]:
+
+def fetch_histories(
+    addresses: dict, suffix: str, destination: str, symbols_of_interest: list[str], is_quiet: bool
+) -> Tuple[bool, Union[dict, list[str]]]:
     history_files = {}
     history_symbols = []
     missing_history_symbols = []
     for elm in addresses[f'history-{suffix}']:
-        history_files[elm] = get_google_sheet(addresses[f'history-{suffix}'][elm], f'{destination + suffix + "/"}', f'{elm}.csv')
+        history_files[elm] = get_google_sheet(
+            addresses[f'history-{suffix}'][elm], f'{destination + suffix + "/"}', f'{elm}.csv'
+        )
         if not is_quiet:
             print(f'CSV history of {elm} saved to file {history_files[elm]}')
         if elm.upper() not in history_symbols:
@@ -312,6 +356,7 @@ def fetch_histories(addresses: dict, suffix: str, destination: str,
     else:
         return True, history_files
 
+
 def convertSymbListToDicts(symbols: list[MarketSymbol]) -> Tuple[dict, dict]:
     price_dict = {}
     history_dict = {}
@@ -319,40 +364,55 @@ def convertSymbListToDicts(symbols: list[MarketSymbol]) -> Tuple[dict, dict]:
         price_dict[symbol.symbol] = {'price': symbol.price}
         history_dict[symbol.symbol] = {}
         for dater in symbol.history:
-            history_dict[symbol.symbol][dater] = {'price' : symbol.history[dater]}
+            history_dict[symbol.symbol][dater] = {'price': symbol.history[dater]}
     return price_dict, history_dict
 
-def get_yfinance_map(sheet_address: str, directory: os.PathLike,
-                     file_name: str='yfinance-map.csv') -> YFinanceSymbMap:
+
+def get_yfinance_map(
+    sheet_address: str, directory: os.PathLike, file_name: str = 'yfinance-map.csv'
+) -> YFinanceSymbMap:
     return YFinanceSymbMap(
-            CsvMngr.convert_read_list_to_dict(
-                CsvMngr(
-                    pathlib.Path(
-                        get_google_sheet(sheet_address,
-                                         directory,
-                                         file_name)),
-                    ["symbol", "ticker"]).read()))
+        CsvMngr.convert_read_list_to_dict(
+            CsvMngr(
+                pathlib.Path(get_google_sheet(sheet_address, directory, file_name)),
+                ['symbol', 'ticker'],
+            ).read()
+        )
+    )
+
 
 def get_yfinance_map_local(sheet_location: str) -> YFinanceSymbMap:
     return YFinanceSymbMap(
-            CsvMngr.convert_read_list_to_dict(
-                CsvMngr(
-                    pathlib.Path(sheet_location),
-                    ["symbol", "ticker"]).read()))
+        CsvMngr.convert_read_list_to_dict(
+            CsvMngr(pathlib.Path(sheet_location), ['symbol', 'ticker']).read()
+        )
+    )
+
 
 def use_market_google():
     market = MarketDataGoogleLite({}, 'SSSS')
     history_obj = MarketHistory(market, '2023-01-01')
     symbol = MarketSymbol('sss', history_obj.history, 1212, 'ssss')  # noqa: F841 -- dead code, removed in Phase 2
 
+
 def execute_yahoo_finance():
-    symbols_of_interest = ['META', 'NVDA', 'btceur', 'pfe', 'usd', 'iwda', 'vwce', "VEUR", 'vusa']
-    market = MarketDataYahoo(tickers=symbols_of_interest, start_date='2023-12-01', interval=Interval.WEEKLY)
+    symbols_of_interest = ['META', 'NVDA', 'btceur', 'pfe', 'usd', 'iwda', 'vwce', 'VEUR', 'vusa']
+    market = MarketDataYahoo(
+        tickers=symbols_of_interest, start_date='2023-12-01', interval=Interval.WEEKLY
+    )
     symbols_obj_list = []
     for symbol in symbols_of_interest:
         symbol_key = YFinanceSymbMap.tickerMap.get(symbol.lower())
-        symbols_obj_list.append(MarketSymbol(symbol, market.history[symbol_key], market.current_price[symbol_key],market.currency[symbol_key]))
+        symbols_obj_list.append(
+            MarketSymbol(
+                symbol,
+                market.history[symbol_key],
+                market.current_price[symbol_key],
+                market.currency[symbol_key],
+            )
+        )
     for symbol in symbols_obj_list:
         symbol.print()
+
 
 # execute_yahoo_finance()

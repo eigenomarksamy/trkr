@@ -1,6 +1,8 @@
-from datetime import date
-import yfinance as yf
 import sys
+from datetime import date
+
+import yfinance as yf
+
 
 def get_iwda(ticker, interval):
 
@@ -9,15 +11,18 @@ def get_iwda(ticker, interval):
     print(ticker)
     print(type(ticker_n))
     obj = yf.Ticker(ticker_n)
-    current_price = obj.history(period="1d")['Close'].iloc[-1]
+    current_price = obj.history(period='1d')['Close'].iloc[-1]
     print(current_price)
-    print("Current Price:", current_price)
-    history = obj.history(start="2023-01-01", end=date.today(), interval=interval)
+    print('Current Price:', current_price)
+    history = obj.history(start='2023-01-01', end=date.today(), interval=interval)
     print(history)
     history_dict = {}
-    history_dict[ticker_n] = {date.strftime('%Y-%m-%d'): float(row['Close']) for date, row in history.iterrows()}
+    history_dict[ticker_n] = {
+        date.strftime('%Y-%m-%d'): float(row['Close']) for date, row in history.iterrows()
+    }
     print(history_dict)
     sys.exit(0)
+
 
 # currency = etf.info.get("currency", "Currency information not available")
 # print(f"Currency: {currency}")
@@ -67,23 +72,26 @@ def get_iwda(ticker, interval):
 
 def get_stats(ticker):
     obj = yf.Ticker(ticker)
-    rate = obj.history(period="1d")['Close'].iloc[-1]
-    history = obj.history(start="2023-01-01", end=date.today(), interval="1wk")
+    rate = obj.history(period='1d')['Close'].iloc[-1]
+    history = obj.history(start='2023-01-01', end=date.today(), interval='1wk')
     history_dict = {}
-    history_dict[ticker] = {date.strftime('%Y-%m-%d'): float(row['Close']) for date, row in history.iterrows()}
-    currency = obj.info.get("currency", "")
+    history_dict[ticker] = {
+        date.strftime('%Y-%m-%d'): float(row['Close']) for date, row in history.iterrows()
+    }
+    currency = obj.info.get('currency', '')
     print('ticker', ticker)
-    print(" ")
+    print(' ')
     print('rate', rate)
-    print(" ")
+    print(' ')
     print('history', history)
-    print(" ")
+    print(' ')
     print('history_dict', history_dict)
-    print(" ")
+    print(' ')
     print('currency', currency)
-    print(" ")
+    print(' ')
 
-get_iwda("VUSA.AS", '1wk')
+
+get_iwda('VUSA.AS', '1wk')
 # get_stats('IWDA.AMS')
 # get_stats('VEUR.AMS')
 get_stats('NVDA')
