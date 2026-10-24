@@ -1,105 +1,78 @@
-# Tracker
+# trkr
 
-## Description
+A personal investment-portfolio tracker. It reads your transactions from a CSV file or a public Google Sheet, prices them with Yahoo Finance, and computes profit and loss per investment and in total. The results are written as CSV and Markdown tables, charts, and an HTML report.
 
-### YAML Files
+## Setup
 
-- *cfg.yml*: includes the configurations.
+Python 3.11 or newer. From the project's home directory:
 
-## Usage
+``$ python -m venv .venv``
 
-To use the program there are a few required steps.
+``$ .venv/Scripts/python.exe -m pip install -r requirements.txt``
 
-### Sheets
+`requirements.txt` pins the versions locked in `uv.lock`. Then run:
 
-There are some google sheets required to be used as source of data.
+``$ .venv/Scripts/python.exe run.py --cfg config/cfg.yml``
 
-#### Transactions
+`--cfg` defaults to `config/cfg.yml`. The `--quiet` and `--log-level` flags are accepted but ignored; set `quiet` and `log-level` in the config instead. `config/*.yml` is gitignored except the demo, so your own configs stay local. To try the tool on made-up data first, see [Demo](#demo).
 
-1. Please create a google sheet that has the transactions to be used by the tool.
+## Configuration
 
-    With the following headers:
+One YAML file holds everything. The required part:
 
-    - type
-    - date *(Written in YYYY-MM-DD fashion)*
-    - quantity
-    - fees
-    - price
-    - currency
-    - symbol
-    - exchange
-    - platform
-    - ex_rate
-    - ex_fees
+```yaml
+market-data-origin: yahoo        # the only supported source
+comp:
+  default-currency: EUR          # EUR or USD: every value is reported in it
+  history-variant: lite          # lite (weekly prices); full (daily) currently crashes
+directories:                     # every directory must end with '/'
+  generation-dir: data/me/       # where the outputs go
+  log-dir: log/me/
+  transactions-dir: data/transactions.csv   # only for transactions source: local
+  symbols-map-dir: data/symbols.csv         # only for symbols-map source: local
+transactions:
+  source: cloud                  # local (a CSV file) or cloud (a Google Sheet)
+  shareable-address: <sheet id>  # only for source: cloud
+  symbols-standard: custom       # custom: use the symbol map below
+symbols-map:
+  source: cloud                  # local or cloud
+  shareable-address: <sheet id>  # only for source: cloud
+cli-exec:
+  quiet: false                   # true hides the detailed console output
+  log-level: info                # debug, info, warning, error, critical or notset
+```
 
-    **Example:**
+The optional `positions`, `imaginary-portfolios` and `projection` blocks are described below.
 
-    | type | date | quantity | fees | price | currency | symbol | exchange | platform | ex_rate | ex_fees |
-    |--------|-------|--------|-------|--------|-------|--------|-------|--------|-------|--------|
-    | buy | 2023-12-04 | 5 | 1 | 36.02 | EUR | VEUR | AMS | Degiro | 1 | 0 |
-    | buy | 2023-12-02 | 0.00269324 | 2.99 | 36019.81 | EUR | BTCEUR | NA | Coinbase | 1 | 0 |
-    | buy | 2024-06-25 | 0.5 | 0 | 124.21 | USD | NVDA | NASDAQ | IBKR | 1.07055 | 2 |
-    | sell | 2024-12-27 | 21 | 1 | 39.1809524 | EUR | VEUR | AMS | Degiro | 1 | 0 |
+For a Google Sheet, set its sharing to "Anyone with the link". Then put the sheet ID in `shareable-address`: that's the part of the link between `/d/` and `/edit`. The sheet is downloaded as CSV into `<generation-dir>sheets/` on every run.
 
-2. Share the sheet and copy the link, don't forget to change the sharing settings to 'Anyone with link'.
+### Transactions
 
-3. Paste the link in *config/sheets.yml*, then strip everything in the sheet to just the ID.
+One row per trade. The columns are read **by position**, so keep them in this order. The first row is always skipped as the header.
 
-    Example:
-    <https://docs.google.com/spreadsheets/d/1Hgk5htL_6VlO8byEGJjLkD2a0XZoVXjWdoWRbWJyxVI/edit?usp=drive_link> --> `1Hgk5htL_6VlO8byEGJjLkD2a0XZoVXjWdoWRbWJyxVI`
+| type | date       | quantity | fees | price  | currency | symbol | exchange | platform | ex_rate | ex_fees |
+|------|------------|----------|------|--------|----------|--------|----------|----------|---------|---------|
+| buy  | 2024-01-08 | 10       | 1    | 105.20 | EUR      | vwce   | XETRA    | broker-a | 1       | 0       |
+| buy  | 2024-03-04 | 2        | 1    | 175.10 | USD      | aapl   | NASDAQ   | broker-b | 1.08    | 2       |
 
-    sheets.yml:
-    `transactions: 1Hgk5htL_6VlO8byEGJjLkD2a0XZoVXjWdoWRbWJyxVI`
+- `type` is `buy` or `sell`. `date` is YYYY-MM-DD.
+- `price`, `fees` and `ex_fees` (currency exchange fees) are in the trade's own currency.
+- `ex_rate` is how many units of the trade's currency one unit of the default currency buys, so 1 when they are the same. The cost in the default currency is `(price × quantity + fees + ex_fees) / ex_rate`.
+- `currency`, `exchange` and `platform` are only shown.
 
-    ***Please note that this is just an example and not an actual sheet.***
+Most brokers (IBKR, Degiro, Coinbase, …) can export trades as CSV, which you can rearrange into these columns.
 
-***Pro-tip: you can import your transactions as a CSV file from any platform you use (IBKR, CoinBase, Degiro, etc.).***
+### Symbol map
 
-#### Symbol Map
+Maps the symbols in your transactions to Yahoo Finance tickers. Two columns, `symbol` then `ticker`, with the first row skipped as the header. Symbols are matched case-insensitively. A symbol missing from the map goes to Yahoo as it is, in lower case.
 
-Since we migrated from `GOOGLEFINANCE` to `YFinance` we need to add symbols' map for the symbols of interest.
+| symbol | ticker   |
+|--------|----------|
+| vwce   | VWCE.DE  |
+| aapl   | AAPL     |
+| eur    | USDEUR=X |
 
-1. Create a sheet similar to the  `transactions` sheet created in the previous step
-with a map between the symbols of interest and how they're represented on yahoo-finance.
-
-    With the following headers:
-
-    - symbol
-    - ticker
-
-    **Example:**
-
-    | symbol | ticker |
-    |--------|-------|
-    | btceur | BTC-EUR |
-    | meta | META |
-    | usd | EURUSD=X |
-    | vwce | VWCE.AS |
-
-2. Share the sheet and copy the link, don't forget to change the sharing settings to 'Anyone with link'.
-
-3. Paste the link in *config/sheets.yml*, then strip everything in the sheet to just the ID.
-
-    Example:
-    <https://docs.google.com/spreadsheets/d/1RZ_NBdxaFfT-ElmmaaQdouxoeVKLuT2r0inuvxFX8n4/edit?usp=drive_link> --> `1RZ_NBdxaFfT-ElmmaaQdouxoeVKLuT2r0inuvxFX8n4`
-
-    sheets.yml:
-
-    ``
-`yfinance-map: 1RZ_NBdxaFfT-ElmmaaQdouxoeVKLuT2r0inuvxFX8n4`
-    ``
-
-    ***Please note that this is just an example and not an actual sheet.***
-
-### Settings
-
-The settings are fairly simple.
-
-`default-currency:` That's either 'EUR' or 'USD' without the quotes.
-
-`history-variant:` That's either 'full' or 'lite' without the quotes.
-
-`generation-dir:` That's the directory that will have the output of the program, for example: 'data/user/' without the quotes.
+The map must also contain the default currency, lower-cased, mapped to the exchange-rate ticker for the other currency: `eur → USDEUR=X` with EUR as default, `usd → EURUSD=X` with USD. Every price that isn't in the default currency is multiplied by that rate, so only two currencies are supported.
 
 ### Positions (opening balances)
 
@@ -156,24 +129,37 @@ projection:
 
 Each row is one year from the day of the run, so the first row is next calendar year. Contributions and deposits arrive through the year and earn half a year's return.
 
+## Output
+
+Everything goes under `generation-dir`:
+
+- `report.html`: the report. It links its charts and pages with absolute paths, so it only works on the machine that generated it.
+- `generated/portfolio.csv`, `generated/total.md`, `generated/entries.md`: per-investment figures, totals, and the month of each first buy.
+- `generated/plots/`: the charts.
+- `imaginary/<name>/`: one report per imaginary portfolio.
+
+Known bugs, including wrong totals after a partial sell, are listed in [docs/MODERNIZATION.md](docs/MODERNIZATION.md).
+
 ## Demo
 
-`config/demo-cfg.yml` runs on the made-up transactions in `examples/`, with live prices from Yahoo. **To run it, execute the following commands in the project's home directory:**
+`config/demo-cfg.yml` runs on the made-up transactions in `examples/`, with live prices from Yahoo. After [Setup](#setup):
 
-``$ python -m venv .venv``
-
-``$ .venv/Scripts/activate``
-
-``$ python -m pip install --upgrade pip``
-
-``$ pip install -r requirements.txt``
-
-``$ python run.py --cfg config/demo-cfg.yml``
+``$ .venv/Scripts/python.exe run.py --cfg config/demo-cfg.yml``
 
 Then open `data/demo-run/report.html`.
 
-## Tests
+## Development
+
+``$ .venv/Scripts/python.exe -m pip install pytest ruff pandas`` (or ``uv sync --inexact``)
 
 ``$ .venv/Scripts/python.exe -m pytest``
 
+``$ .venv/Scripts/python.exe -m ruff check .``
+
+``$ .venv/Scripts/python.exe -m ruff format .``
+
 The tests run offline. When a change to the output is intended, regenerate the golden files in `tests/golden/` with `TRKR_UPDATE_GOLDEN=1` and review the diff.
+
+Dependencies are declared in `pyproject.toml` and locked in `uv.lock`. After changing them, run `uv lock`, then regenerate `requirements.txt` with:
+
+``$ uv export --no-dev --no-hashes --no-emit-project -o requirements.txt``
