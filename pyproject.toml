@@ -1,0 +1,23 @@
+[project]
+name = "trkr"
+version = "0.1.0"
+description = "Personal investment-portfolio tracker: P&L from a transactions CSV and Yahoo Finance prices, written as CSV, Markdown, PNG and HTML reports."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "jinja2>=3.1",
+    "matplotlib>=3.10",
+    "numpy>=2.1",
+    "python-dateutil>=2.9",
+    "pyyaml>=6.0",
+    "requests>=2.32",
+    "yfinance>=0.2.59",
+]
+
+[dependency-groups]
+dev = [
+    # The tests build fake yfinance DataFrames.
+    "pandas>=2.2",
+    "pytest>=7.4",
+    "ruff>=0.17",
+]
