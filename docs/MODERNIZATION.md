@@ -12,6 +12,24 @@ State as of 2026-10-22: the last code change was 2025-03; the scheduled job ran 
 
 2026-10-28: the owner asked for less admin when adding past investments and picked a holdings snapshot: list what you hold now and skip the trade history. It extends opening positions ("Feature: opening positions and holdings snapshot"). Building it turned up bug 13. The owner also asked to plan three more things: a web page for the snapshot, an importer for broker exports, and a sheet generator. They are planned below as "Feature: broker import", "Feature: sheet generator" and web app milestones W7-W9. None of the three is built.
 
+## Status (2026-10-28)
+
+| Area | State |
+|---|---|
+| Phase 0 | Done and committed (last: `88b87d4`). |
+| Projection, imaginary portfolios, opening positions | Done and committed (`49af3d4`). |
+| Holdings snapshot, bug 13, sheet tab links | Done and committed (`c45f7c3`). 106 tests pass. The demo run and a live run with a snapshot dated today both exit 0. |
+| Phase 1, bugs 1-12 | Open. Bug 1 matters most: a partial sell corrupts the totals, after a position too. |
+| Phases 2-4 | Not started. |
+| Web app, W0-W9 | Not started. W1 and later wait on Phase 2 items and the Phase 3 package. |
+| Broker import, sheet generator | Planned only. The importer waits on sample exports from the owner. |
+
+Waiting on the owner:
+
+- a holdings tab in the transactions sheet, and the `positions:` block in `cfg.yml` and `cfg_bat.yml`;
+- one export per broker, for the importer;
+- the new defaults in the decisions table: web editing of holdings, Google Sheets for the generator, and what "prompts" means.
+
 ## Decisions for the owner
 
 Claude assumes the defaults below unless told otherwise.
@@ -49,7 +67,7 @@ Claude assumes the defaults below unless told otherwise.
 - [x] `pyproject.toml` with project metadata and runtime deps with lower bounds: pyyaml, requests, matplotlib, numpy, yfinance, jinja2, **python-dateutil** (imported in `portfolio_mngr.py` but undeclared; it arrives transitively via pandas). Drop **markdown2** (never imported). Dev deps: pytest, ruff, and pandas (the tests import it). (`977d6d4`)
 - [x] Lock file, with `requirements.txt` regenerated from it so `run_script.bat` installs the same versions. `uv.lock` pins the versions that were already in the venv, so the scheduled job's next `pip install` changes nothing. (`977d6d4`)
 - [x] Ruff lint + format config. Do the first format pass as its own commit. The rules are listed explicitly (`E4, E7, E9, F, I, B`), because ruff 0.17's default set is much wider and moves with upgrades. Line length is 100, with single quotes. Config and lint fixes: `1ae21ea`. Format pass: `e09c62a`, skipped by `git blame` via `.git-blame-ignore-revs` (`4b87973`).
-- [x] `tests/` with offline fixtures: synthetic transactions CSV, symbol-map CSV, and a stubbed `yfinance.Ticker` returning fixed DataFrames. Also freezes `datetime.today()` in `portfolio_mngr`. pytest is configured in `pytest.ini`. (`49af3d4`)
+- [x] `tests/` with offline fixtures: synthetic transactions CSV, symbol-map CSV, and a stubbed `yfinance.Ticker` returning fixed DataFrames. Also freezes `datetime.today()` in `portfolio_mngr`, and, since 2026-10-28, `date.today()` in `market_mngr`. pytest is configured in `pytest.ini`. (`49af3d4`)
 - [x] Characterization tests: `Portfolio.calculate` (buys only, several symbols), `compute_spending_history`, `get_entry_points_months`, `convert_date_to_short_str`, `create_cfg` for each source combination, `CsvMngr.read`, and `get_google_sheet` URL building. (`f9910cc`; `tests/test_portfolio.py`, `test_month_key.py`, `test_csv_mngr.py`, `test_sheets.py`, `test_cfg.py`)
 - [x] Golden end-to-end test: `exec()` against a fixture config with the network stubbed. Snapshot `portfolio.csv`, `total.md` and `entries.md`; for PNG/HTML, only assert that they exist. (`tests/test_exec.py`; `TRKR_UPDATE_GOLDEN=1` rewrites the snapshots.) (`49af3d4`)
 - [x] Fill in `config/demo-cfg.yml` (currently empty) to point at tracked sample CSVs in `examples/` (`trans-src: local`, `sym-map-src: local`), so a fresh clone can run the tool. It also shows an imaginary portfolio and a projection. (`49af3d4`)
@@ -63,7 +81,7 @@ Ordered by impact. Line numbers are as of commit `c1d28fe`.
 1. [ ] **Partial sells corrupt totals.** `src/portfolio_mngr.py:51-54`: a sell subtracts the symbol's *entire* spending from the total but leaves the symbol's own spending unchanged. No sale proceeds are recorded either, so realized P&L is lost.
    Reproduced: buy 10 @ 10 of A and of B, then sell 5 of A. Reported: total spending 100 and profit +60%. Correct: remaining cost basis 150, unrealized +6.7%, realized +10. With a single symbol, a partial sell raises `ZeroDivisionError`.
    Related: `amount == 0` float equality (`:57`) keeps dust positions after crypto sells, and a sell seen before any buy of that symbol uses `current_price` 0.
-2. [ ] **`history-variant: full` crashes.** Daily history is keyed `YYYY-MM-DD`, but `compute_historical_valuation` looks up month keys like `jan24`, which raises `KeyError`. That error then turns into bug 4.
+2. [ ] **`history-variant: full` crashes.** Daily history is keyed `YYYY-MM-DD`, but `compute_historical_valuation` looks up month keys like `jan24`, which raises `KeyError`. That error then turns into bug 4. The fix must also cover bug 13 for daily bars: today has no bar until the close, and weekends have none. Bug 13's fix only fills the current month for `lite`.
 3. [ ] **`symbols-standard: yahoo` crashes.** `run.py:69,76,177` dereference `yfinance_map_obj.tickerMap` unconditionally, and `MarketDataYahoo` requires a ticker map for currency conversion (`src/market_mngr.py:161`).
 4. [ ] **Error handler crashes on ordinary exceptions.** `run.py:195,202` do `int(str(e))`, so any exception without a numeric message raises `ValueError` inside `except`: a traceback, and exit code 1 only by accident.
 5. [ ] **`check_internet` sets a global 3 s socket timeout** (`src/utils.py:20`) for the rest of the process, including every yfinance/requests call after it. It also leaks the socket. Likely source of flaky runs on slow networks.
@@ -74,11 +92,11 @@ Ordered by impact. Line numbers are as of commit `c1d28fe`.
 10. [ ] `plot_monthly_stocks` locates the entry point with the `names` list from the *previous* symbol (`src/plot_mngr.py:49`). Wrong x position when two series have different dates.
 11. [ ] File I/O has no `encoding=`, so on Windows a non-ASCII character in a sheet (e.g. `€`) breaks reads under cp1252.
 12. [ ] **Monthly loops drop the last month.** `compute_spending_history` and `compute_historical_valuation` step one month at a time from the *first* transaction's date and stop once past the *last* transaction's date. When the last transaction falls on an earlier day of the month than the first (first 2024-01-20, last 2024-03-05), the final month is never visited, so its buys are missing. This affects the spending chart, the valuation chart and the projection's "invested in the last 12 months". The golden fixture (2024-01-15 → 2024-04-08) and the demo (2024-01-08 → 2025-02-03) both hit it. Found 2026-10-24; pinned by `test_spending_history_drops_the_last_month_when_its_day_is_earlier`. Iterate over month starts instead.
-13. [x] **A buy in the current month crashes the run when the month has no weekly bar yet.** `lite` history labels each weekly bar with its Monday. So on the 1st-6th of a month, the month can have no bar yet. A window that starts today has no bars at all, and Yahoo prints "possibly delisted". `compute_historical_valuation` then raises `KeyError`, which becomes bug 4. A snapshot dated today always hit it. Found 2026-10-28 by probing Yahoo with AAPL. Fix: skip the Yahoo call when the window is empty, and give the current month today's price when it has no bar. (`tests/test_market.py`; not committed yet)
+13. [x] **A buy in the current month crashes the run when the month has no weekly bar yet.** `lite` history labels each weekly bar with its Monday. So on the 1st-6th of a month, the month can have no bar yet. A window that starts today has no bars at all, and Yahoo prints "possibly delisted". `compute_historical_valuation` then raises `KeyError`, which becomes bug 4. A snapshot dated today always hit it. Found 2026-10-28 by probing Yahoo with AAPL. Fix: skip the Yahoo call when the window is empty, and give the current month today's price when it has no bar. (`tests/test_market.py`; `c45f7c3`)
 
 ## Phase 2: Structure and cleanup (behaviour-preserving, guarded by Phase 0 tests)
 
-- [ ] Delete dead code: `MarketDataGoogle*`, `MarketReader`, `fetch_histories`, `use_market_google`, `execute_yahoo_finance`, unused parts of `Sheets`, `src/market_tester.py`, unused `TransType`.
+- [ ] Delete dead code: `MarketDataGoogle*`, `MarketReader`, `fetch_histories`, `use_market_google`, `execute_yahoo_finance`, unused parts of `Sheets`, `src/market_tester.py`, unused `TransType`, and `Transactions.prepend` (only tests use it since `merge_positions`).
 - [ ] A single month-key helper instead of two copies of `convert_date_to_short_str`. They already differ when called with no arguments: the `portfolio_mngr` copy returns `None`, the `market_mngr` copy `''` (`tests/test_month_key.py`).
 - [ ] `Transaction` becomes a `@dataclass`; remove the `__dict__` method; `Transactions.get()` stops exposing the mutable internal list.
 - [ ] Config becomes typed dataclasses with validation and clear error messages (same YAML schema). Use `pathlib.Path` for every directory, which removes the trailing-slash requirement.
@@ -91,7 +109,7 @@ Ordered by impact. Line numbers are as of commit `c1d28fe`.
 ## Phase 3: Packaging and performance
 
 - [ ] `src/trkr/` package with a `trkr` console script (`python -m trkr --cfg …`). Keep `run.py` as a thin shim. Point `run_script.bat` at it and stop reinstalling dependencies on every scheduled run.
-- [ ] Fetch prices in one batched `yf.download(tickers, …)` call. Today each ticker costs three requests (`history`, `.info`, `history(period="1d")`), and `.info` is the slowest and flakiest. Get currency from `fast_info`.
+- [ ] Fetch prices in one batched `yf.download(tickers, …)` call. Today each ticker costs three requests (`history`, `.info`, `history(period="1d")`), and `.info` is the slowest and flakiest. Get currency from `fast_info`. Keep bug 13's behaviour, which `tests/test_market.py` pins: no request for a window that starts today, and the current month filled from the current price.
 - [ ] Optional on-disk cache of history, so same-day re-runs need little network.
 - [ ] Relative paths in the HTML report, so a `data/<run>/` folder can be moved or zipped.
 - [ ] GitHub Actions (`origin` is GitHub): ruff + pytest on push and PRs.
@@ -166,19 +184,19 @@ For holdings without a full trade history: one row per investment with a quantit
 - **Opening balance.** The date is the first buy, and trades after it adjust the position.
 - **Snapshot.** The date is the day the numbers were copied from the broker apps, and no trade history is needed.
 
-- [x] `build_positions` (`src/transactions.py`) reads the file by column name (`symbol`, `quantity`, `average_price`, `date` required; `currency`, `ex_rate`, `exchange` optional). It validates each row and exits with 400 `InvalidInputData` on bad data. Each row becomes a `buy` at the average price, on its date, with platform `positions file`.
-- [x] Optional `positions:` block (`source: local` with `positions-dir`, or `cloud` with `shareable-address`). Positions are prepended to the transactions, because `Portfolio.calculate` processes the list in order.
+- [x] `build_positions` (`src/transactions.py`) reads the file by column name. `symbol`, `quantity` and `date` are required, plus `average_price` or `cost` (since 2026-10-28; before that, `average_price`). `currency`, `ex_rate` and `exchange` are optional. It validates each row and exits with 400 `InvalidInputData` on bad data. Each row becomes a `buy` on its date, with platform `positions file`, priced at the average price or at `cost / quantity`.
+- [x] Optional `positions:` block (`source: local` with `positions-dir`, or `cloud` with `shareable-address`). Positions go before the transactions, because `Portfolio.calculate` processes the list in order. Since 2026-10-28 that is done by `merge_positions`, which also drops the trades a position already includes (below).
 - [x] Tests: reader and validation, config, and an end-to-end run combining positions with trades. The demo config uses `examples/positions.csv`.
 - [ ] Positions for imaginary portfolios, which would make "I hold N at price P" what-ifs possible without a transactions file.
 - [ ] A position followed by a partial sell inherits bug 1 (totals). Fixing bug 1 fixes this too.
 
 ### Holdings snapshot (owner, 2026-10-28)
 
-- [x] Bug 13 fixed, so a position dated today doesn't crash the run. Checked live on 2026-10-28 with a snapshot of the demo holdings dated that day: the run starts its history that day and exits 0. (not committed yet)
-- [x] `shareable-address` takes a link copied from the browser, including a link to one tab (`#gid=`), so the snapshot can live as a tab in the transactions sheet. Plain IDs, export links and publish-to-web links behave as before. (`sheet_export_url`; `tests/test_sheets.py`; not committed yet)
-- [x] `merge_positions` (`src/transactions.py`): positions go first. A trade in a symbol that has a position is dropped when it is dated on or before that position (the latest one, if the symbol has several rows). The run prints how many trades were dropped. Trades in other symbols are untouched. (`tests/test_positions.py`, `test_exec_with_a_holdings_snapshot`; not committed yet)
-- [x] A `cost` column (total paid, in the default currency) as an alternative to `average_price`, one or the other per row. The synthetic buy is priced at `cost / quantity`, with `ex_rate` 1. A row with `average_price` in another currency and no `ex_rate` is rejected. (`tests/test_positions.py`; not committed yet)
-- [x] README, `examples/positions.csv` (one row with `cost`, same numbers) and CLAUDE.md. (not committed yet)
+- [x] Bug 13 fixed, so a position dated today doesn't crash the run. Checked live on 2026-10-28 with a snapshot of the demo holdings dated that day: the run starts its history that day and exits 0. (`c45f7c3`)
+- [x] `shareable-address` takes a link copied from the browser, including a link to one tab (`#gid=`), so the snapshot can live as a tab in the transactions sheet. Plain IDs, export links and publish-to-web links behave as before. (`sheet_export_url`; `tests/test_sheets.py`; `c45f7c3`)
+- [x] `merge_positions` (`src/transactions.py`): positions go first. A trade in a symbol that has a position is dropped when it is dated on or before that position (the latest one, if the symbol has several rows). The run prints how many trades were dropped. Trades in other symbols are untouched. (`tests/test_positions.py`, `test_exec_with_a_holdings_snapshot`; `c45f7c3`)
+- [x] A `cost` column (total paid, in the default currency) as an alternative to `average_price`, one or the other per row. The synthetic buy is priced at `cost / quantity`, with `ex_rate` 1. A row with `average_price` in another currency and no `ex_rate` is rejected. (`tests/test_positions.py`; `c45f7c3`)
+- [x] README, `examples/positions.csv` (one row with `cost`, same numbers) and CLAUDE.md. (`c45f7c3`)
 - [ ] Owner: add a holdings tab to the transactions sheet and a `positions:` block to `cfg.yml` and `cfg_bat.yml`. Keep transactions as the sheet's first tab, or link to that tab as well. Claude doesn't edit those configs without asking.
 - [ ] Later, owner's call: a symbol with no older trades has a price chart that starts at the snapshot. An optional `since` column (first-buy date) could start its history earlier without changing the cost.
 
@@ -191,7 +209,7 @@ Reads the trade exports from the owner's brokers (Degiro, IBKR and Coinbase) and
 - [ ] Fees, `ex_rate` and `ex_fees` come from the export when it has them. A row whose export lacks one is flagged in the output, not guessed.
 - [ ] Symbols: Degiro names products by name and ISIN, not by ticker. The symbol map gets an optional `isin` column. ISINs the map doesn't know are listed at the end for the owner to map, with Yahoo search results (`yf.Search`) as suggestions.
 - [ ] Duplicates: rows already in the transactions sheet are skipped. Two rows match on date, symbol, type, quantity and rounded price, so a second import of the same file adds nothing.
-- [ ] CLI: `trkr import <export>... --cfg <file>` (`run.py import` until the Phase 3 package). It writes `<gen-dir>import/new_trades.csv` in the sheet's column order, ready to paste, and prints a summary per broker. With `--holdings` it reads portfolio exports and writes snapshot rows instead. A portfolio export without a cost basis gives quantities only, and the owner fills in `cost`.
+- [ ] CLI: `trkr import <export>... --cfg <file>` (`run.py import` until the Phase 3 package). It writes `<gen-dir>/import/new_trades.csv` in the sheet's column order, ready to paste, and prints a summary per broker. With `--holdings` it reads portfolio exports and writes snapshot rows instead. A portfolio export without a cost basis gives quantities only, and the owner fills in `cost`.
 - [ ] Prerequisites: bug 11 (exports contain `€` and non-ASCII product names) and the `csv.DictReader` item in Phase 2.
 - [ ] Tests: each broker on its made-up fixture, header detection, duplicates against an existing sheet, and unmapped ISINs.
 
@@ -201,7 +219,7 @@ A setup tool that asks a few questions and writes every file trkr reads, so star
 
 - [ ] Questions: the default currency and which brokers are used. For each holding, a name or ticker, the quantity, the total cost and the as-of date, or "import from exports" through the broker importer. Last, whether to keep a trade history from now on.
 - [ ] Tickers: names are looked up with `yf.Search` (in the locked yfinance 0.2.59), and the owner confirms each match. The exchange-rate row for the default currency goes into the symbol map automatically.
-- [ ] Output in `<gen-dir>setup/`:
+- [ ] Output in `<gen-dir>/setup/`:
   - `transactions.csv`: the header only, or imported rows;
   - `symbols.csv`;
   - `holdings.csv`;
@@ -231,7 +249,7 @@ Each feature of the CLI, and where it ends up in the app:
 
 | Feature | Today | Web app | Milestone |
 | --- | --- | --- | --- |
-| Transactions from a local CSV or a public Google Sheet, symbol map, opening positions | YAML config, read by `run.py` | Same config, run by the CLI subprocess | W2 |
+| Transactions from a local CSV or a public Google Sheet (or one of its tabs), symbol map, positions | YAML config, read by `run.py` | Same config, run by the CLI subprocess | W2 |
 | Totals: spending, value, profit, profit %, cash-out, holding period, average ROI | `report.html`, Total | Overview | W1 |
 | Per-symbol table with price targets | `report.html`, Portfolio | Holdings (sortable), plus a page per symbol | W1 |
 | Stats charts: spending %, profit %, spending per month, valuation % | `plots/gen_stats.png` | Overview: PNGs first, then interactive | W1, W3 |
@@ -255,7 +273,7 @@ Each feature of the CLI, and where it ends up in the app:
   - run time and a config summary: default currency, history variant, and `local`/`cloud` for each source, but never addresses or sheet IDs;
   - the ticker map, per-symbol rows, totals, monthly spending, entry points and historical valuation;
   - price history per ticker, in the default currency;
-  - transactions, with positions marked;
+  - transactions, with positions marked, and the trades that positions replaced (W7 shows them);
   - each imaginary portfolio, in the same shape;
   - projection inputs, start value and rows.
 
@@ -325,7 +343,7 @@ Each feature of the CLI, and where it ends up in the app:
 
 ### W7: Holdings snapshot from the browser
 
-- [ ] A Holdings page lists the snapshot rows with their current value and P&L, and flags rows more than three months old.
+- [ ] A Holdings page lists the snapshot rows with their current value and P&L, and flags rows more than three months old. Each row shows the trades it replaced, from the run snapshot.
 - [ ] With a local positions file, rows can be edited, added and deleted in place:
   - every save goes through `build_positions` before it is written;
   - the previous file is kept as `<file>.bak`;
