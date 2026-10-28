@@ -39,6 +39,46 @@ def test_https_address_is_used_as_is(tmp_path, requested_urls):
     assert requested_urls == ['https://example.com/made-up.csv']
 
 
+@pytest.mark.parametrize(
+    'link, export',
+    [
+        (
+            'https://docs.google.com/spreadsheets/d/made-up-id/edit?gid=123#gid=123',
+            'https://docs.google.com/spreadsheets/d/made-up-id/export?format=csv&gid=123',
+        ),
+        (
+            'https://docs.google.com/spreadsheets/d/made-up-id/edit#gid=45',
+            'https://docs.google.com/spreadsheets/d/made-up-id/export?format=csv&gid=45',
+        ),
+        (
+            'https://docs.google.com/spreadsheets/u/0/d/made-up-id/edit?usp=sharing',
+            'https://docs.google.com/spreadsheets/d/made-up-id/export?format=csv',
+        ),
+        (
+            'https://docs.google.com/spreadsheets/d/made-up-id/',
+            'https://docs.google.com/spreadsheets/d/made-up-id/export?format=csv',
+        ),
+    ],
+)
+def test_browser_link_to_a_sheet_or_tab_becomes_its_csv_export(
+    tmp_path, requested_urls, link, export
+):
+    get_google_sheet(link, str(tmp_path), 'positions.csv')
+    assert requested_urls == [export]
+
+
+@pytest.mark.parametrize(
+    'link',
+    [
+        'https://docs.google.com/spreadsheets/d/made-up-id/export?format=csv&gid=7&range=A1:D9',
+        'https://docs.google.com/spreadsheets/d/e/2PACX-made-up/pub?gid=0&single=true&output=csv',
+    ],
+)
+def test_export_and_publish_links_are_used_as_is(tmp_path, requested_urls, link):
+    get_google_sheet(link, str(tmp_path), 'positions.csv')
+    assert requested_urls == [link]
+
+
 def test_http_address_is_treated_as_a_sheet_id(tmp_path, requested_urls):
     get_google_sheet('http://example.com/made-up.csv', str(tmp_path), 'symbols.csv')
     assert requested_urls == [

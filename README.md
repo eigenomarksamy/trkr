@@ -44,7 +44,7 @@ cli-exec:
 
 The optional `positions`, `imaginary-portfolios` and `projection` blocks are described below.
 
-For a Google Sheet, set its sharing to "Anyone with the link". Then put the sheet ID in `shareable-address`: that's the part of the link between `/d/` and `/edit`. The sheet is downloaded as CSV into `<generation-dir>sheets/` on every run.
+For a Google Sheet, set its sharing to "Anyone with the link". Then put the sheet ID in `shareable-address`: that's the part of the link between `/d/` and `/edit`. A sheet ID reads the first tab. To read another tab, paste the link to that tab from the address bar instead (it ends in `#gid=<number>`). The sheet is downloaded as CSV into `<generation-dir>sheets/` on every run.
 
 ### Transactions
 
@@ -74,24 +74,38 @@ Maps the symbols in your transactions to Yahoo Finance tickers. Two columns, `sy
 
 The map must also contain the default currency, lower-cased, mapped to the exchange-rate ticker for the other currency: `eur → USDEUR=X` with EUR as default, `usd → EURUSD=X` with USD. Every price that isn't in the default currency is multiplied by that rate, so only two currencies are supported.
 
-### Positions (opening balances)
+### Positions (holdings snapshot or opening balances)
 
-Optional. When you don't have every past trade, list what you hold instead: one row per investment with the quantity, your average buy price and a date (e.g. when you first bought it). Each row counts as a single buy on that date, before the trades in the transactions sheet, so later buys and sells adjust it. Charts and monthly spending start at that date.
+Optional. You don't have to enter every past trade. List what you hold instead: one row per investment with the quantity, what you paid and a date. A position is what you held **on its date**. Trades in that symbol up to and including the date are already in it, so they are skipped. Later trades in the transactions sheet add on top.
+
+There are two ways to use it:
+
+- **Snapshot.** Copy each holding's quantity and total cost from your broker apps, and date every row today. No trade history is needed. To update it later, change the rows and their date, or enter new trades in the transactions sheet.
+- **Opening balance.** Date each row with your first buy, and enter the trades after it in the transactions sheet.
+
+Charts and monthly spending for a symbol start at its earliest row or trade.
 
 ```yaml
 positions:
   source: local                 # a local CSV file...
   positions-dir: data/positions.csv
-  # source: cloud               # ...or a shared Google Sheet
-  # shareable-address: <sheet id>
+  # source: cloud               # ...or a Google Sheet: its ID, or a link to one tab
+  # shareable-address: https://docs.google.com/spreadsheets/d/<sheet id>/edit#gid=<tab id>
 ```
 
-| symbol | quantity | average_price | date       | currency | ex_rate | exchange |
-|--------|----------|---------------|------------|----------|---------|----------|
-| vwce   | 12       | 92.40         | 2023-03-06 | EUR      | 1       | XETRA    |
-| aapl   | 4        | 150.20        | 2023-05-08 | USD      | 1.09    | NASDAQ   |
+| symbol | quantity | average_price | cost   | date       | currency | ex_rate | exchange |
+|--------|----------|---------------|--------|------------|----------|---------|----------|
+| vwce   | 12       | 92.40         |        | 2023-03-06 | EUR      | 1       | XETRA    |
+| aapl   | 4        |               | 551.19 | 2023-05-08 | USD      |         | NASDAQ   |
 
-`symbol`, `quantity`, `average_price` and `date` (YYYY-MM-DD) are required. The average price is in the investment's own currency, and `ex_rate` converts it to the default currency the same way as in transactions (default 1). `currency` and `exchange` are only shown. Symbols go through the symbol map like transactions.
+- Required: `symbol`, `quantity`, `date` (YYYY-MM-DD), and either `average_price` or `cost` on each row.
+- `cost` is the total you paid, in the default currency. Broker apps show it as cost basis or amount invested. This is the simplest choice, because it needs no exchange rate.
+- `average_price` is per unit, in the investment's own currency. `ex_rate` converts it the same way as in transactions. It defaults to 1, and it is required when `currency` isn't the default currency.
+- Fill in `date` on every row. In Sheets, fill the column down. It can't default to the day of the run, or every trade made after the snapshot would be skipped as already counted.
+- `currency` and `exchange` are only shown. Symbols go through the symbol map like transactions.
+- In Google Sheets, the positions can be a tab of the transactions sheet. Link `shareable-address` to that tab, and keep the transactions on the first tab, or link to their tab too.
+
+The run prints how many trades the positions skipped.
 
 ### Imaginary portfolios
 

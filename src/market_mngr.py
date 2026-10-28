@@ -210,21 +210,31 @@ class MarketDataYahoo(MarketData):
     def formulate_history(self) -> None:
         for ticker in self.tickers:
             yf_ticker = yf.Ticker(ticker)
-            history_data_frame = yf_ticker.history(
-                start=self.start_date, end=self.end_date, interval=self.interval
-            )
-            if self.interval == Interval.DAILY:
-                self.history[ticker] = {
-                    date.strftime(self.date_format): float(row['Close'])
-                    for date, row in history_data_frame.iterrows()
-                }
-            else:
-                self.history[ticker] = {
-                    MarketData.convert_date_to_short_str(date=dater.date()): float(row['Close'])
-                    for dater, row in history_data_frame.iterrows()
-                }
+            self.history[ticker] = {}
+            # A window that starts today has no bars, and Yahoo warns the ticker may be delisted.
+            if self.start_date < self.end_date:
+                history_data_frame = yf_ticker.history(
+                    start=self.start_date, end=self.end_date, interval=self.interval
+                )
+                if self.interval == Interval.DAILY:
+                    self.history[ticker] = {
+                        date.strftime(self.date_format): float(row['Close'])
+                        for date, row in history_data_frame.iterrows()
+                    }
+                else:
+                    self.history[ticker] = {
+                        MarketData.convert_date_to_short_str(date=dater.date()): float(row['Close'])
+                        for dater, row in history_data_frame.iterrows()
+                    }
             self.currency[ticker] = yf_ticker.info.get('currency', 'NA')
             self.current_price[ticker] = self.get_current_price_ticker(ticker)
+            if self.interval != Interval.DAILY and self.end_date >= date.today():
+                # Weekly bars are labelled with their Monday, so a month has none until its first
+                # Monday, but buys in it are looked up by month. Its last close so far is today's.
+                self.history[ticker].setdefault(
+                    MarketData.convert_date_to_short_str(date=date.today()),
+                    self.current_price[ticker],
+                )
 
     def convert_currencies(self, req_currency: str) -> None:
         for ticker in self.tickers:

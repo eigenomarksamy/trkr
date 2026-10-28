@@ -29,7 +29,12 @@ from src.projection import (
     resolve_start_value,
 )
 from src.report_mngr import generate_html_report
-from src.transactions import Transactions, build_positions, build_transactions_object
+from src.transactions import (
+    Transactions,
+    build_positions,
+    build_transactions_object,
+    merge_positions,
+)
 from src.utils import check_internet, get_exception, parse_arguments
 
 
@@ -254,18 +259,21 @@ def process_portfolio(
         is_local, trans_sheets, f'{directories.sheets_dir}', is_quiet, yfinance_map_obj.tickerMap
     )
     if positions:
-        # Opening balances go first: Portfolio.calculate walks the list in order.
-        transactions_obj.prepend(
+        dropped = merge_positions(
+            transactions_obj,
             build_positions(
                 positions.is_local,
                 positions.location,
                 f'{directories.sheets_dir}',
                 is_quiet,
                 yfinance_map_obj.tickerMap,
-            )
+                cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY),
+            ),
         )
+        if not is_quiet and dropped:
+            print(f'Positions already include {len(dropped)} earlier trades, which are skipped.')
         if logger:
-            logger.info('Positions retrieved.')
+            logger.info(f'Positions retrieved. They include {len(dropped)} earlier trades.')
     if not is_quiet:
         transactions_obj.print()
     if logger:

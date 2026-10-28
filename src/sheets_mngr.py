@@ -1,13 +1,34 @@
 import os
+import re
 
 import requests
+
+# A link copied from the browser's address bar, to a sheet or to one of its tabs (gid).
+SHEET_LINK = re.compile(
+    r'https://docs\.google\.com/spreadsheets/(?:u/\d+/)?d/([\w-]+)'
+    r'(?:/(?:edit|view|htmlview)?)?(?:\?[^#]*)?(?:#.*)?'
+)
+TAB_ID = re.compile(r'[?&#]gid=(\d+)')
+
+
+def sheet_export_url(address: str) -> str:
+    """The CSV export URL for a sheet ID, or for a browser link to a sheet or one of its tabs.
+
+    Any other https address, such as an export or publish-to-web link, is used as it is.
+    """
+    if not Sheets.is_url(address):
+        return f'https://docs.google.com/spreadsheets/d/{address}/export?format=csv'
+    link = SHEET_LINK.fullmatch(address)
+    if not link:
+        return address
+    url = f'https://docs.google.com/spreadsheets/d/{link.group(1)}/export?format=csv'
+    tab = TAB_ID.search(address)
+    return f'{url}&gid={tab.group(1)}' if tab else url
 
 
 def get_google_sheet(spreadsheet_id: str, outDir: str, outFile: str) -> os.PathLike:
     os.makedirs(outDir, exist_ok=True)
-    url = f'https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv'
-    if Sheets.is_url(spreadsheet_id):
-        url = f'{spreadsheet_id}'
+    url = sheet_export_url(spreadsheet_id)
     response = requests.get(url)
     if response.status_code == 200:
         filepath = os.path.join(outDir, outFile)

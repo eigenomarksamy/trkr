@@ -111,3 +111,29 @@ positions:
     assert float(holdings['BBB']['amount']) == 8
     assert float(holdings['BBB']['spending']) == pytest.approx(225 + 501.5 / 1.1)
     assert 'positions file' in (generated / 'transactions.html').read_text()
+
+
+def test_exec_with_a_holdings_snapshot(offline):
+    snapshot = offline / 'holdings.csv'
+    snapshot.write_text('symbol,quantity,cost,date\naaa,30,1600,2024-06-28\n', encoding='utf-8')
+    run.exec(
+        make_cfg(
+            offline,
+            f"""
+positions:
+  source: local
+  positions-dir: {snapshot.as_posix()}
+""",
+        )
+    )
+    generated = offline / 'out' / 'generated'
+    with open(generated / 'portfolio.csv', newline='') as file:
+        holdings = {row['symbol']: row for row in csv.DictReader(file)}
+    # The snapshot replaces both earlier aaa trades; bbb has no position, so its trade counts.
+    assert float(holdings['AAA.AS']['amount']) == 30
+    assert float(holdings['AAA.AS']['spending']) == pytest.approx(1600)
+    assert float(holdings['BBB']['amount']) == 5
+    assert float(holdings['BBB']['spending']) == pytest.approx(501.5 / 1.1)
+    transactions_page = (generated / 'transactions.html').read_text()
+    assert 'positions file' in transactions_page
+    assert 'broker-y' not in transactions_page

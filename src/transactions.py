@@ -1,7 +1,7 @@
 import csv
 import os
 import pathlib
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 
 from src.csv_mngr import CsvMngr
@@ -160,7 +160,8 @@ def build_transactions_object(
     return transactions_obj
 
 
-POSITION_COLUMNS = ['symbol', 'quantity', 'average_price', 'date']
+POSITION_COLUMNS = ['symbol', 'quantity', 'date']
+PRICE_COLUMNS = ['average_price', 'cost']
 
 
 def input_error(message: str) -> Exception:
@@ -174,11 +175,14 @@ def build_positions(
     directory: Optional[os.PathLike],
     is_quiet: bool,
     std_map: Optional[dict],
+    default_currency: str = '',
 ) -> List[Transaction]:
-    """Reads opening positions, one row per investment, as buys at the average price.
+    """Reads positions, one row per investment held as of its date, as buys on that date.
 
-    Required columns: symbol, quantity, average_price, date (YYYY-MM-DD).
-    Optional: currency, ex_rate (default 1, same meaning as in transactions), exchange.
+    Required columns: symbol, quantity, date (YYYY-MM-DD), and average_price or cost.
+    average_price is in the investment's currency and is converted with ex_rate (default 1,
+    same meaning as in transactions). cost is the total paid, already in the default currency.
+    Optional: currency, ex_rate, exchange.
     """
     if is_local:
         positions_file = address
@@ -190,6 +194,8 @@ def build_positions(
         reader = csv.DictReader(file)
         reader.fieldnames = [name.strip().lower() for name in reader.fieldnames or []]
         missing = [column for column in POSITION_COLUMNS if column not in reader.fieldnames]
+        if not any(column in reader.fieldnames for column in PRICE_COLUMNS):
+            missing.append(' or '.join(PRICE_COLUMNS))
         if missing:
             raise input_error(f'{positions_file}: missing columns: {", ".join(missing)}.')
         rows = list(reader)
@@ -198,13 +204,22 @@ def build_positions(
         if not any(isinstance(value, str) and value.strip() for value in row.values()):
             continue
         where = f'{positions_file} line {line}'
+        average_price_text = (row.get('average_price') or '').strip()
+        cost_text = (row.get('cost') or '').strip()
+        ex_rate_text = (row.get('ex_rate') or '').strip()
+        currency = (row.get('currency') or '').strip()
+        if average_price_text and cost_text:
+            raise input_error(f'{where}: give average_price or cost, not both.')
+        if not average_price_text and not cost_text:
+            raise input_error(f'{where}: average_price or cost is required.')
+        price_column = 'cost' if cost_text else 'average_price'
         try:
             quantity = float(row['quantity'])
-            average_price = float(row['average_price'])
-            ex_rate = float(row.get('ex_rate') or 1)
+            price = float(cost_text or average_price_text)
+            ex_rate = float(ex_rate_text or 1)
         except ValueError:
             raise input_error(
-                f'{where}: quantity, average_price and ex_rate must be numbers.'
+                f'{where}: quantity, {price_column} and ex_rate must be numbers.'
             ) from None
         try:
             datetime.strptime(row['date'].strip(), '%Y-%m-%d')
@@ -214,10 +229,28 @@ def build_positions(
             raise input_error(f'{where}: symbol is empty.')
         if quantity <= 0:
             raise input_error(f'{where}: quantity must be positive.')
-        if average_price < 0:
-            raise input_error(f'{where}: average_price must not be negative.')
+        if price < 0:
+            raise input_error(f'{where}: {price_column} must not be negative.')
         if ex_rate <= 0:
             raise input_error(f'{where}: ex_rate must be positive.')
+        if cost_text:
+            if ex_rate_text:
+                in_currency = default_currency or 'the default currency'
+                raise input_error(
+                    f'{where}: cost is already in {in_currency}, so leave ex_rate empty.'
+                )
+            price /= quantity
+            currency = default_currency or currency
+        elif (
+            not ex_rate_text
+            and currency
+            and default_currency
+            and currency.upper() != default_currency.upper()
+        ):
+            raise input_error(
+                f'{where}: average_price is in {currency}, so ex_rate is required. '
+                + f'Or give the total cost in {default_currency} instead.'
+            )
         positions.add(
             Transaction(
                 {
@@ -225,8 +258,8 @@ def build_positions(
                     'date': row['date'].strip(),
                     'quantity': quantity,
                     'fees': 0,
-                    'price': average_price,
-                    'currency': (row.get('currency') or '').strip(),
+                    'price': price,
+                    'currency': currency,
                     'symbol': row['symbol'].strip(),
                     'exchange': (row.get('exchange') or '').strip(),
                     'platform': 'positions file',
@@ -238,3 +271,34 @@ def build_positions(
     if std_map:
         positions.match_symbols_standard(std_map)
     return positions.get()
+
+
+def merge_positions(transactions: Transactions, positions: List[Transaction]) -> List[Transaction]:
+    """Puts the positions first and drops the trades they already include.
+
+    A position is what was held as of its date, so it includes every trade in its symbol up to
+    and including that date. Positions go first because Portfolio.calculate walks the list in
+    order and later sells must see them. Returns the dropped trades.
+    """
+
+    def day(transaction: Transaction) -> date:
+        return datetime.strptime(transaction.date, '%Y-%m-%d').date()
+
+    covered_until = {}
+    for position in positions:
+        covered_until[position.symbol] = max(
+            day(position), covered_until.get(position.symbol, date.min)
+        )
+    kept, dropped = [], []
+    for transaction in transactions.get():
+        if (
+            transaction.symbol in covered_until
+            and day(transaction) <= covered_until[transaction.symbol]
+        ):
+            dropped.append(transaction)
+        else:
+            kept.append(transaction)
+    transactions.clear()
+    for transaction in positions + kept:
+        transactions.add(transaction)
+    return dropped

@@ -10,6 +10,8 @@ State as of 2026-10-22: the last code change was 2025-03; the scheduled job ran 
 
 2026-10-24: Phase 0 is done. The work from 2026-10-23 was committed first (`49af3d4`, `e18cdee`). Writing the characterization tests turned up a new bug, added to Phase 1 as bug 12.
 
+2026-10-28: the owner asked for less admin when adding past investments and picked a holdings snapshot: list what you hold now and skip the trade history. It extends opening positions ("Feature: opening positions and holdings snapshot"). Building it turned up bug 13. The owner also asked to plan three more things: a web page for the snapshot, an importer for broker exports, and a sheet generator. They are planned below as "Feature: broker import", "Feature: sheet generator" and web app milestones W7-W9. None of the three is built.
+
 ## Decisions for the owner
 
 Claude assumes the defaults below unless told otherwise.
@@ -27,7 +29,7 @@ Claude assumes the defaults below unless told otherwise.
 | Imaginary portfolios | Transactions files in the same format as the real one, priced live from Yahoo through the same pipeline. The C++ model (holdings valued at their purchase price) is not ported. |
 | Mortgage calculator in `networth_projection` | Not ported. |
 | First projection row | One year after the run (owner, 2026-10-23). A run in October 2026 labels row 1 as 2027, so no year is credited with a full year it hasn't had. |
-| Opening positions | One row per investment (quantity, average price, a date per row) in a separate optional file, local or cloud. Positions are an opening balance that later trades in the transactions sheet adjust (owner, 2026-10-23). Real portfolio only for now. |
+| Opening positions | One row per investment (quantity, average price or total cost, and a date per row) in a separate optional file or sheet tab, local or cloud. A position is what was held *as of* its date. Trades in that symbol up to and including the date are already in it and are dropped; later trades adjust it (owner, 2026-10-23; as-of rule 2026-10-28). Real portfolio only for now. |
 | Web app: where it runs | On the owner's PC only, bound to `127.0.0.1`, with no login. The pages show holdings, and the config holds sheet IDs that anyone with the link can read. Opening it to the LAN or the internet needs auth and HTTPS first, and is a separate decision. |
 | Web app: stack | FastAPI + Jinja2 + htmx, rendered on the server, with no Node build step. htmx and `plotly.min.js` are vendored at pinned versions, so the pages work offline. Alternative: Streamlit gets to a first page faster, but it can't share templates or tests with the static report. |
 | Web app: charts | Plotly. Figures are built in Python from the run snapshot and drawn in the browser. |
@@ -35,6 +37,12 @@ Claude assumes the defaults below unless told otherwise.
 | Web app: data contract | Every CLI run writes a versioned `snapshot.json`, the scheduled run included. The server reads snapshots. The only thing it computes itself is projections. |
 | Web app: config | Read-only. The server never writes `cfg.yml` or `cfg_bat.yml`. What-ifs live in the URL or under `<gen-dir>/web/`. `run_web.bat` points at `cfg_bat.yml`, so the app opens on the scheduled job's latest run. |
 | Web app: dependencies | An optional `web` extra in `pyproject.toml`, so the scheduled job doesn't install FastAPI. |
+| Snapshot date | Required on every row. Defaulting it to the run date would move the date every day, and each later trade would be dropped as already counted. In Sheets, fill the column down. |
+| Snapshot cost | `cost` is the total paid in the default currency, as broker apps show it, so it needs no `ex_rate`. A row with `average_price` in another currency now requires `ex_rate`, which used to default to 1 without a warning. |
+| Web app: editing holdings | The holdings snapshot is the one thing the app edits, and only in a local file (`positions: source: local`). With a Google Sheet source the page shows the rows read-only and links to the sheet. Transactions stay read-only, and the app still never writes the config. |
+| Broker import: output | A CSV of new rows in the sheet's column order, to paste into the sheet or append to a local file. The importer never writes to Google. |
+| Sheet generator: Google Sheets | It writes one CSV per tab, to import into a new Google Sheet (File > Import), and the matching config blocks. Creating the sheet directly through the Google Sheets API needs a Google Cloud project, OAuth consent on the owner's account and a stored token, so it is a separate decision. |
+| Sheet generator: "prompts" | Questions the tool asks, in the terminal and in the web app. Turning free text into rows with an LLM is a different feature: it needs an API key and sends holdings to a third party. Not planned unless the owner asks. |
 
 ## Phase 0: Safety net (no behaviour changes)
 
@@ -66,6 +74,7 @@ Ordered by impact. Line numbers are as of commit `c1d28fe`.
 10. [ ] `plot_monthly_stocks` locates the entry point with the `names` list from the *previous* symbol (`src/plot_mngr.py:49`). Wrong x position when two series have different dates.
 11. [ ] File I/O has no `encoding=`, so on Windows a non-ASCII character in a sheet (e.g. `€`) breaks reads under cp1252.
 12. [ ] **Monthly loops drop the last month.** `compute_spending_history` and `compute_historical_valuation` step one month at a time from the *first* transaction's date and stop once past the *last* transaction's date. When the last transaction falls on an earlier day of the month than the first (first 2024-01-20, last 2024-03-05), the final month is never visited, so its buys are missing. This affects the spending chart, the valuation chart and the projection's "invested in the last 12 months". The golden fixture (2024-01-15 → 2024-04-08) and the demo (2024-01-08 → 2025-02-03) both hit it. Found 2026-10-24; pinned by `test_spending_history_drops_the_last_month_when_its_day_is_earlier`. Iterate over month starts instead.
+13. [x] **A buy in the current month crashes the run when the month has no weekly bar yet.** `lite` history labels each weekly bar with its Monday. So on the 1st-6th of a month, the month can have no bar yet. A window that starts today has no bars at all, and Yahoo prints "possibly delisted". `compute_historical_valuation` then raises `KeyError`, which becomes bug 4. A snapshot dated today always hit it. Found 2026-10-28 by probing Yahoo with AAPL. Fix: skip the Yahoo call when the window is empty, and give the current month today's price when it has no bar. (`tests/test_market.py`; not committed yet)
 
 ## Phase 2: Structure and cleanup (behaviour-preserving, guarded by Phase 0 tests)
 
@@ -150,15 +159,59 @@ C++ defects not to carry over:
 - [ ] Scenarios: several named return/fee sets (e.g. pessimistic, base, optimistic) on one chart.
 - [ ] Drawdown after retirement: a withdrawal rate, and how long the money lasts.
 
-## Feature: opening positions
+## Feature: opening positions and holdings snapshot
 
-For holdings without a full trade history: one row per investment with quantity, average buy price and a date.
+For holdings without a full trade history: one row per investment with a quantity, an average buy price or total cost, and a date. It works two ways:
+
+- **Opening balance.** The date is the first buy, and trades after it adjust the position.
+- **Snapshot.** The date is the day the numbers were copied from the broker apps, and no trade history is needed.
 
 - [x] `build_positions` (`src/transactions.py`) reads the file by column name (`symbol`, `quantity`, `average_price`, `date` required; `currency`, `ex_rate`, `exchange` optional). It validates each row and exits with 400 `InvalidInputData` on bad data. Each row becomes a `buy` at the average price, on its date, with platform `positions file`.
 - [x] Optional `positions:` block (`source: local` with `positions-dir`, or `cloud` with `shareable-address`). Positions are prepended to the transactions, because `Portfolio.calculate` processes the list in order.
 - [x] Tests: reader and validation, config, and an end-to-end run combining positions with trades. The demo config uses `examples/positions.csv`.
 - [ ] Positions for imaginary portfolios, which would make "I hold N at price P" what-ifs possible without a transactions file.
 - [ ] A position followed by a partial sell inherits bug 1 (totals). Fixing bug 1 fixes this too.
+
+### Holdings snapshot (owner, 2026-10-28)
+
+- [x] Bug 13 fixed, so a position dated today doesn't crash the run. Checked live on 2026-10-28 with a snapshot of the demo holdings dated that day: the run starts its history that day and exits 0. (not committed yet)
+- [x] `shareable-address` takes a link copied from the browser, including a link to one tab (`#gid=`), so the snapshot can live as a tab in the transactions sheet. Plain IDs, export links and publish-to-web links behave as before. (`sheet_export_url`; `tests/test_sheets.py`; not committed yet)
+- [x] `merge_positions` (`src/transactions.py`): positions go first. A trade in a symbol that has a position is dropped when it is dated on or before that position (the latest one, if the symbol has several rows). The run prints how many trades were dropped. Trades in other symbols are untouched. (`tests/test_positions.py`, `test_exec_with_a_holdings_snapshot`; not committed yet)
+- [x] A `cost` column (total paid, in the default currency) as an alternative to `average_price`, one or the other per row. The synthetic buy is priced at `cost / quantity`, with `ex_rate` 1. A row with `average_price` in another currency and no `ex_rate` is rejected. (`tests/test_positions.py`; not committed yet)
+- [x] README, `examples/positions.csv` (one row with `cost`, same numbers) and CLAUDE.md. (not committed yet)
+- [ ] Owner: add a holdings tab to the transactions sheet and a `positions:` block to `cfg.yml` and `cfg_bat.yml`. Keep transactions as the sheet's first tab, or link to that tab as well. Claude doesn't edit those configs without asking.
+- [ ] Later, owner's call: a symbol with no older trades has a price chart that starts at the snapshot. An optional `since` column (first-buy date) could start its history earlier without changing the cost.
+
+## Feature: broker import (planned, owner 2026-10-28)
+
+Reads the trade exports from the owner's brokers (Degiro, IBKR and Coinbase) and turns them into trkr transaction rows. The sheet can then be caught up without typing. The same parsers can produce holdings-snapshot rows from each broker's portfolio export.
+
+- [ ] Samples first: the owner provides one real export per broker, kept in `data/` (gitignored). Each parser is written against that file and tested on a made-up file in the same format, in `tests/fixtures/brokers/`. Real rows never go into fixtures.
+- [ ] `src/importers/`: one module per broker, each with `detect(header) -> bool` and `parse(path) -> list[Transaction]`. The importer picks the parser from the header row, so the owner doesn't have to name the broker. Check each sample for localized headers, decimal commas, multi-section files (IBKR activity statements) and lines before the header.
+- [ ] Fees, `ex_rate` and `ex_fees` come from the export when it has them. A row whose export lacks one is flagged in the output, not guessed.
+- [ ] Symbols: Degiro names products by name and ISIN, not by ticker. The symbol map gets an optional `isin` column. ISINs the map doesn't know are listed at the end for the owner to map, with Yahoo search results (`yf.Search`) as suggestions.
+- [ ] Duplicates: rows already in the transactions sheet are skipped. Two rows match on date, symbol, type, quantity and rounded price, so a second import of the same file adds nothing.
+- [ ] CLI: `trkr import <export>... --cfg <file>` (`run.py import` until the Phase 3 package). It writes `<gen-dir>import/new_trades.csv` in the sheet's column order, ready to paste, and prints a summary per broker. With `--holdings` it reads portfolio exports and writes snapshot rows instead. A portfolio export without a cost basis gives quantities only, and the owner fills in `cost`.
+- [ ] Prerequisites: bug 11 (exports contain `€` and non-ASCII product names) and the `csv.DictReader` item in Phase 2.
+- [ ] Tests: each broker on its made-up fixture, header detection, duplicates against an existing sheet, and unmapped ISINs.
+
+## Feature: sheet generator (planned, owner 2026-10-28)
+
+A setup tool that asks a few questions and writes every file trkr reads, so starting or restarting needs no knowledge of the column formats. It is mainly for the web app (W9). A terminal version comes first, and the web wizard reuses its functions.
+
+- [ ] Questions: the default currency and which brokers are used. For each holding, a name or ticker, the quantity, the total cost and the as-of date, or "import from exports" through the broker importer. Last, whether to keep a trade history from now on.
+- [ ] Tickers: names are looked up with `yf.Search` (in the locked yfinance 0.2.59), and the owner confirms each match. The exchange-rate row for the default currency goes into the symbol map automatically.
+- [ ] Output in `<gen-dir>setup/`:
+  - `transactions.csv`: the header only, or imported rows;
+  - `symbols.csv`;
+  - `holdings.csv`;
+  - `config.yml` with the matching `transactions`, `symbols-map` and `positions` blocks.
+
+  Each CSV has the exact columns trkr reads. The tool never overwrites an existing config.
+- [ ] Google Sheets: instructions are printed with the files: create a sheet, import each CSV as its own tab, share it as "Anyone with the link", and paste each tab's link into the config. Links to a tab already work (`sheet_export_url`).
+- [ ] CLI: `trkr init` (`run.py init` until Phase 3), with plain `input()` prompts on top of pure functions (answers to rows) that the web wizard calls too.
+- [ ] Tests: answers to files for a made-up portfolio, with `yf.Search` stubbed. The generated files then feed an `exec` run on the offline fixture.
+- [ ] Owner's call: create the Google Sheet directly through the Sheets API (see the decisions table).
 
 ## Feature: web app
 
@@ -170,6 +223,7 @@ Prerequisites:
 - W1 onward needs these Phase 2 items: the exception hierarchy (the server shows error names, which also retires bug 4), `logging` instead of `print`, tracked templates with autoescape (transactions come from a sheet and are now rendered in a browser), and typed config with `pathlib`. It also needs the Phase 3 package item, so the server can live in `trkr.web`.
 - Fix bug 1 before using the app day to day, so the new UI doesn't show wrong totals.
 - The Phase 3 batched download and history cache make "Run now" much faster. They are not required.
+- W7-W9 (owner, 2026-10-28) need W1. W8 also needs the broker import feature, and W9 the sheet generator.
 
 ### Feature parity
 
@@ -190,6 +244,9 @@ Each feature of the CLI, and where it ends up in the app:
 | Scheduled run | `run_script.bat` | Unchanged; its snapshots show up in the app | W0 |
 | Logs and exit codes | `log/`, console | Run status with the error name and the log tail | W2 |
 | Static HTML report | `report.html` | Still written by the CLI, and linked from Data | none |
+| Holdings snapshot | `positions:` file or sheet tab | Holdings page, editable for a local file | W7 |
+| Broker import | `trkr import` (planned) | Upload page | W8 |
+| Setup | `trkr init` (planned) | Wizard | W9 |
 
 ### W0: Core seam (CLI only, no web code)
 
@@ -266,10 +323,35 @@ Each feature of the CLI, and where it ends up in the app:
 - [ ] A "Web app" section in the README.
 - [ ] The GitHub Actions job runs the web tests along with the rest.
 
+### W7: Holdings snapshot from the browser
+
+- [ ] A Holdings page lists the snapshot rows with their current value and P&L, and flags rows more than three months old.
+- [ ] With a local positions file, rows can be edited, added and deleted in place:
+  - every save goes through `build_positions` before it is written;
+  - the previous file is kept as `<file>.bak`;
+  - a change to a row's quantity or cost also sets its date to today, unless the owner picks one, because a position is what was held on its date.
+- [ ] With a Google Sheet source, the rows are read-only and the page links to the tab.
+- [ ] Tests: an edit round trip, a rejected invalid row, and a check that the file path comes only from the config.
+
+### W8: Broker import from the browser
+
+- [ ] Upload one or more exports. The page shows:
+  - the parsed rows, with the new ones marked;
+  - flagged rows;
+  - unmapped ISINs, with Yahoo suggestions.
+
+  It offers `new_trades.csv` for download. With a local transactions file it can also append the rows, after a confirmation.
+- [ ] Tests: upload, the preview and the duplicate check, on the made-up broker fixtures.
+
+### W9: Setup wizard
+
+- [ ] The sheet generator's questions as a multi-step form, with ticker search as you type. It ends with the files and the YAML as downloads.
+- [ ] Same functions as `trkr init`, so the two can't drift apart. Tests drive the form with the stubbed search.
+
 ### Not planned
 
 - Accounts, hosting or a database. There is one user on one machine, and snapshots are files.
-- Editing the real transactions. The Google Sheet or the CSV stays the source of truth.
+- Editing the real transactions. The Google Sheet or the CSV stays the source of truth. The holdings snapshot in a local file is the one exception (W7).
 - A separate JavaScript front end (React or similar). It would add a Node build and gain nothing at this size.
 
 ## Phase 4: Optional, owner's call
