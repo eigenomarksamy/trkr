@@ -9,8 +9,14 @@ import yaml
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Tracker info')
+    # Both default to None, so the config's cli-exec block applies unless they are given.
     parser.add_argument(
-        '--quiet', '-q', action='store_true', dest='is_quiet', help='Hide detailed output'
+        '--quiet',
+        '-q',
+        action='store_true',
+        default=None,
+        dest='is_quiet',
+        help='Hide detailed output (overrides cli-exec: quiet)',
     )
     parser.add_argument(
         '--cfg',
@@ -21,10 +27,11 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         '--log-level',
-        type=str,
+        type=str.upper,
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', 'NOTSET'],
         dest='log_level',
-        default='info',
-        help='Log level [DEBUG | INFO | WARNING | ERROR | CRITICAL]',
+        default=None,
+        help='Log level, NOTSET for no log file (overrides cli-exec: log-level)',
     )
     return parser.parse_args()
 

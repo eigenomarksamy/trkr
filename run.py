@@ -50,10 +50,15 @@ class PortfolioRun:
     figs_paths_stats: list
 
 
-def exec(cfg_file: os.PathLike) -> None:
+def exec(
+    cfg_file: os.PathLike, is_quiet: Optional[bool] = None, log_level: Optional[str] = None
+) -> None:
+    """is_quiet and log_level, from the command line, override the config's cli-exec block."""
     cfg = create_cfg(cfg_file)
-    is_quiet = cfg.get_param(ConfigMapUri.QUIET)
-    log_level = cfg.get_param(ConfigMapUri.LOG_LEVEL)
+    if is_quiet is None:
+        is_quiet = cfg.get_param(ConfigMapUri.QUIET)
+    if log_level is None:
+        log_level = cfg.get_param(ConfigMapUri.LOG_LEVEL)
     directories = Directories(
         base_dir=cfg.get_param(ConfigMapUri.GENERATION_DIRECTORY),
         log_dir=cfg.get_param(ConfigMapUri.LOG_DIRECTORY),
@@ -409,9 +414,8 @@ def process_portfolio(
 
 
 def run_cli(args: Namespace) -> Union[int, Tuple]:
-    cfg_file = args.cfg_file
     try:
-        exec(cfg_file)
+        exec(args.cfg_file, args.is_quiet, args.log_level)
     except Exception as error:
         return get_exit_status(error)
     return 0
