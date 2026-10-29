@@ -14,6 +14,8 @@ State as of 2026-10-22: the last code change was 2025-03; the scheduled job ran 
 
 2026-10-29: Phase 1 is done, on branch `phase-1-bugs` (not merged). Each bug is one commit, test first; a follow-up commit puts the monthly charts on a date axis. The fixes needed four decisions, now in the decisions table: what happens on a sell of more than is held, what the valuation chart shows, how currencies are converted, and how the CLI flags combine with the config. Selling the whole fixture turned up bug 14.
 
+Later on 2026-10-29: instead of a live run on the owner's sheets, Phase 1 was validated on a mirror: made-up sheets in the shape of the owner's cached sheet (`tests/test_mirror.py`, `tests/fixtures/mirror/`). Its one sell closes a whole position, and nothing is oversold, so the new 400 rule doesn't fire. Run through `main` and through this branch, the mirror gives the same spending, value and profit, apart from float noise in the last digits. What changes is the new `realized_profit` row, holdings listed in first-trade order instead of sheet order, and the valuation chart. The old chart stopped at the last trade and added the sold position back in; the new one runs to today.
+
 ## Status (2026-10-29)
 
 | Area | State |
@@ -21,7 +23,7 @@ State as of 2026-10-22: the last code change was 2025-03; the scheduled job ran 
 | Phase 0 | Done and committed (last: `88b87d4`). |
 | Projection, imaginary portfolios, opening positions | Done and committed (`49af3d4`). |
 | Holdings snapshot, bug 13, sheet tab links | Done and committed (`c45f7c3`). 106 tests pass. The demo run and a live run with a snapshot dated today both exit 0. |
-| Phase 1, bugs 1-12 | Done on branch `phase-1-bugs` (`bb62641`..`1138a49`), not merged. 163 tests pass, and the demo run exits 0. Bug 14 is open. |
+| Phase 1, bugs 1-12 | Done on branch `phase-1-bugs` (`bb62641`..`1138a49`), not merged. 167 tests pass, including the run on a mirror of the owner's sheet, and the demo run exits 0. Bug 14 is open. |
 | Phases 2-4 | Not started. |
 | Web app, W0-W9 | Not started. W1 and later wait on Phase 2 items and the Phase 3 package. |
 | Broker import, sheet generator | Planned only. The importer waits on sample exports from the owner. |
