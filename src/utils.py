@@ -1,6 +1,7 @@
 import argparse
 import pathlib
 import socket
+import traceback
 from typing import Optional, Union
 
 import yaml
@@ -53,6 +54,22 @@ def get_yaml_parameter(
     if not parameter:
         return param_dict
     return param_val
+
+
+def get_exit_status(error: Exception) -> tuple[int, str]:
+    """The exit code and name for an error raised as Exception('<code>').
+
+    Anything else is a crash: its traceback is printed and the exit code is 1.
+    """
+    if type(error) is Exception:
+        try:
+            code = int(str(error))
+        except ValueError:
+            pass
+        else:
+            return code, get_exception(code)
+    traceback.print_exception(error)
+    return 1, 'UnexpectedError'
 
 
 def get_exception(e_num: int) -> str:

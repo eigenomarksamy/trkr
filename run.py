@@ -35,7 +35,7 @@ from src.transactions import (
     build_transactions_object,
     merge_positions,
 )
-from src.utils import check_internet, get_exception, parse_arguments
+from src.utils import check_internet, get_exit_status, parse_arguments
 
 
 @dataclass
@@ -412,16 +412,16 @@ def run_cli(args: Namespace) -> Union[int, Tuple]:
     cfg_file = args.cfg_file
     try:
         exec(cfg_file)
-    except Exception as e_num:
-        return int(e_num.__str__()), get_exception(int(e_num.__str__()))
+    except Exception as error:
+        return get_exit_status(error)
     return 0
 
 
 def run_api(cfg_file: os.PathLike) -> Union[int, Tuple]:
     try:
         exec(cfg_file)
-    except Exception as e_num:
-        return int(e_num.__str__()), get_exception(int(e_num.__str__()))
+    except Exception as error:
+        return get_exit_status(error)
     return 0
 
 
