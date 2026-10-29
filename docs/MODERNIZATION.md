@@ -12,14 +12,16 @@ State as of 2026-10-22: the last code change was 2025-03; the scheduled job ran 
 
 2026-10-28: the owner asked for less admin when adding past investments and picked a holdings snapshot: list what you hold now and skip the trade history. It extends opening positions ("Feature: opening positions and holdings snapshot"). Building it turned up bug 13. The owner also asked to plan three more things: a web page for the snapshot, an importer for broker exports, and a sheet generator. They are planned below as "Feature: broker import", "Feature: sheet generator" and web app milestones W7-W9. None of the three is built.
 
-## Status (2026-10-28)
+2026-10-29: Phase 1 is done, on branch `phase-1-bugs` (not merged). Each bug is one commit, test first; a follow-up commit puts the monthly charts on a date axis. The fixes needed four decisions, now in the decisions table: what happens on a sell of more than is held, what the valuation chart shows, how currencies are converted, and how the CLI flags combine with the config. Selling the whole fixture turned up bug 14.
+
+## Status (2026-10-29)
 
 | Area | State |
 |---|---|
 | Phase 0 | Done and committed (last: `88b87d4`). |
 | Projection, imaginary portfolios, opening positions | Done and committed (`49af3d4`). |
 | Holdings snapshot, bug 13, sheet tab links | Done and committed (`c45f7c3`). 106 tests pass. The demo run and a live run with a snapshot dated today both exit 0. |
-| Phase 1, bugs 1-12 | Open. Bug 1 matters most: a partial sell corrupts the totals, after a position too. |
+| Phase 1, bugs 1-12 | Done on branch `phase-1-bugs` (`bb62641`..`1138a49`), not merged. 163 tests pass, and the demo run exits 0. Bug 14 is open. |
 | Phases 2-4 | Not started. |
 | Web app, W0-W9 | Not started. W1 and later wait on Phase 2 items and the Phase 3 package. |
 | Broker import, sheet generator | Planned only. The importer waits on sample exports from the owner. |
@@ -39,6 +41,10 @@ Claude assumes the defaults below unless told otherwise.
 | Environment/lock tool | `uv` (`pyproject.toml` + `uv.lock`), with `requirements.txt` exported from the lock until `run_script.bat` switches over. Needs `winget install astral-sh.uv`. Alternative: plain pip + `pip-compile`. |
 | Python floor | `>=3.11`, so the current venv keeps working. |
 | Cost basis for sells | Average cost (already implied by `break_even_price`). Realized and unrealized P&L reported separately. |
+| Selling more than is held | The run stops with 400 `InvalidInputData` and names the trade, as bad positions rows do. Every figure after such a sell would be wrong, and it usually means a missing buy. A sell within 1e-9 (relative) of the holding counts as selling all of it. |
+| "Valuation Percent" chart (bug 6) | The market value of the holdings at the end of each month, from the first trade's month through the current one, as a percentage of the current month's. A month without a close takes the previous close, or today's price. |
+| Currency conversion (bug 7) | Each currency with its own Yahoo pair, `<CUR><DEFAULT>=X`. Minor units (GBp, ZAc, ILA) are divided by 100. A ticker Yahoo gives no currency for stops the run with 503 instead of being treated as USD. The symbol map's default-currency row is no longer needed. |
+| CLI flags (bug 8) | `--quiet` and `--log-level` override the YAML `cli-exec` block when given, and leave it alone when not. |
 | Data sources | Keep Google Sheets (CSV export) and local CSV. Keep Yahoo via `yfinance`. |
 | Report format | Keep a static HTML report + PNGs, but make it portable (relative paths). Interactive charts are Phase 4. |
 | Projection starting point | The real portfolio's current market value plus a fixed `cash` amount from the config. Expected return and fees are explicit inputs, never derived from past performance. |
@@ -78,29 +84,42 @@ Claude assumes the defaults below unless told otherwise.
 
 Ordered by impact. Line numbers are as of commit `c1d28fe`.
 
-1. [ ] **Partial sells corrupt totals.** `src/portfolio_mngr.py:51-54`: a sell subtracts the symbol's *entire* spending from the total but leaves the symbol's own spending unchanged. No sale proceeds are recorded either, so realized P&L is lost.
+1. [x] **Partial sells corrupt totals.** `src/portfolio_mngr.py:51-54`: a sell subtracts the symbol's *entire* spending from the total but leaves the symbol's own spending unchanged. No sale proceeds are recorded either, so realized P&L is lost.
    Reproduced: buy 10 @ 10 of A and of B, then sell 5 of A. Reported: total spending 100 and profit +60%. Correct: remaining cost basis 150, unrealized +6.7%, realized +10. With a single symbol, a partial sell raises `ZeroDivisionError`.
    Related: `amount == 0` float equality (`:57`) keeps dust positions after crypto sells, and a sell seen before any buy of that symbol uses `current_price` 0.
-2. [ ] **`history-variant: full` crashes.** Daily history is keyed `YYYY-MM-DD`, but `compute_historical_valuation` looks up month keys like `jan24`, which raises `KeyError`. That error then turns into bug 4. The fix must also cover bug 13 for daily bars: today has no bar until the close, and weekends have none. Bug 13's fix only fills the current month for `lite`.
-3. [ ] **`symbols-standard: yahoo` crashes.** `run.py:69,76,177` dereference `yfinance_map_obj.tickerMap` unconditionally, and `MarketDataYahoo` requires a ticker map for currency conversion (`src/market_mngr.py:161`).
-4. [ ] **Error handler crashes on ordinary exceptions.** `run.py:195,202` do `int(str(e))`, so any exception without a numeric message raises `ValueError` inside `except`: a traceback, and exit code 1 only by accident.
-5. [ ] **`check_internet` sets a global 3 s socket timeout** (`src/utils.py:20`) for the rest of the process, including every yfinance/requests call after it. It also leaks the socket. Likely source of flaky runs on slow networks.
-6. [ ] **Historical valuation is not a valuation.** `compute_historical_valuation` *adds* sell quantities (`:136`). It also only prices each lot in the month it was bought and never revalues holdings, so the result is closer to cumulative money invested. Decide what the "Valuation Percent" chart should show, then fix it.
-7. [ ] **Currency conversion only supports two currencies.** Every non-default-currency asset is multiplied by the one FX ticker, so a GBP/GBp/CHF listing would be silently mispriced. Convert per currency pair.
-8. [ ] `--quiet` / `--log-level` CLI flags are ignored (`src/utils.py` parses them; `run.py` never reads them).
-9. [ ] Matplotlib figures are never closed (`src/plot_mngr.py`), which warns past ~20 figures and leaks memory in long runs.
-10. [ ] `plot_monthly_stocks` locates the entry point with the `names` list from the *previous* symbol (`src/plot_mngr.py:49`). Wrong x position when two series have different dates.
-11. [ ] File I/O has no `encoding=`, so on Windows a non-ASCII character in a sheet (e.g. `€`) breaks reads under cp1252.
-12. [ ] **Monthly loops drop the last month.** `compute_spending_history` and `compute_historical_valuation` step one month at a time from the *first* transaction's date and stop once past the *last* transaction's date. When the last transaction falls on an earlier day of the month than the first (first 2024-01-20, last 2024-03-05), the final month is never visited, so its buys are missing. This affects the spending chart, the valuation chart and the projection's "invested in the last 12 months". The golden fixture (2024-01-15 → 2024-04-08) and the demo (2024-01-08 → 2025-02-03) both hit it. Found 2026-10-24; pinned by `test_spending_history_drops_the_last_month_when_its_day_is_earlier`. Iterate over month starts instead.
+   Fixed: average cost, trades walked by date, `realized_profit` in the total and per symbol (a new last column in `portfolio.csv`), dust closes the position, and selling more than is held is a 400. Value, break-even and targets are derived once at the end. (`5468eef`; `tests/test_portfolio.py`, `test_exec_with_a_snapshot_and_a_later_partial_sell`)
+2. [x] **`history-variant: full` crashes.** Daily history is keyed `YYYY-MM-DD`, but `compute_historical_valuation` looks up month keys like `jan24`, which raises `KeyError`. That error then turns into bug 4. The fix must also cover bug 13 for daily bars: today has no bar until the close, and weekends have none. Bug 13's fix only fills the current month for `lite`.
+   Fixed: the valuation reduces either key format to month closes (`430586c`), entry markers match by month (`2b66398`), today's daily key gets the current price, and the per-ticker charts use a date axis (`904049a`; `test_exec_with_full_history`, `tests/test_market.py`).
+3. [x] **`symbols-standard: yahoo` crashes.** `run.py:69,76,177` dereference `yfinance_map_obj.tickerMap` unconditionally, and `MarketDataYahoo` requires a ticker map for currency conversion (`src/market_mngr.py:161`).
+   Fixed: no map means no mapping, and no bogus `'EUR'` or `'None'` ticker is fetched; the conversion needs no map since bug 7. (`853acfc`; `test_exec_with_yahoo_tickers_and_no_symbol_map`)
+4. [x] **Error handler crashes on ordinary exceptions.** `run.py:195,202` do `int(str(e))`, so any exception without a numeric message raises `ValueError` inside `except`: a traceback, and exit code 1 only by accident.
+   Fixed: `get_exit_status` maps only plain `Exception('<code>')`; anything else prints its traceback and exits 1 as `UnexpectedError`. (`bb62641`; `tests/test_run_cli.py`)
+5. [x] **`check_internet` sets a global 3 s socket timeout** (`src/utils.py:20`) for the rest of the process, including every yfinance/requests call after it. It also leaks the socket. Likely source of flaky runs on slow networks.
+   Fixed: `socket.create_connection` with a per-call timeout, in a `with` block. (`261d266`; `tests/test_utils.py`)
+6. [x] **Historical valuation is not a valuation.** `compute_historical_valuation` *adds* sell quantities (`:136`). It also only prices each lot in the month it was bought and never revalues holdings, so the result is closer to cumulative money invested. Decide what the "Valuation Percent" chart should show, then fix it.
+   Fixed: month-end market value of the holdings through the current month (see the decisions table). (`430586c`; `tests/test_portfolio.py`) The monthly charts got a date axis, because the longer range made their labels overlap (`1138a49`).
+7. [x] **Currency conversion only supports two currencies.** Every non-default-currency asset is multiplied by the one FX ticker, so a GBP/GBp/CHF listing would be silently mispriced. Convert per currency pair.
+   Fixed: per-pair rates fetched on demand, minor units, 503 for a missing currency. USD to EUR is still `USDEUR=X`, so the owner's figures don't change. (`d7d87a1`; `tests/test_market.py`)
+8. [x] `--quiet` / `--log-level` CLI flags are ignored (`src/utils.py` parses them; `run.py` never reads them).
+   Fixed: they override the config when given; `--log-level` only takes known levels. (`91958d4`; `tests/test_run_cli.py`)
+9. [x] Matplotlib figures are never closed (`src/plot_mngr.py`), which warns past ~20 figures and leaks memory in long runs.
+   Fixed: each figure is closed once saved. `plot_pie` and `plot_bar` are never called and join the Phase 2 dead-code list. (`4631c79`; `tests/test_plots.py`)
+10. [x] `plot_monthly_stocks` locates the entry point with the `names` list from the *previous* symbol (`src/plot_mngr.py:49`). Wrong x position when two series have different dates.
+    Fixed: each series is plotted on its own dates on a date axis, so series with different dates line up, and its marker is its own first point in the entry month. (`2b66398`; `tests/test_plots.py`)
+11. [x] File I/O has no `encoding=`, so on Windows a non-ASCII character in a sheet (e.g. `€`) breaks reads under cp1252.
+    Fixed: CSV and YAML are read as `utf-8-sig`; CSV, Markdown, HTML, templates and the log are written as UTF-8. The owner's configs are ASCII. (`6db4330`; `tests/test_encoding.py`)
+12. [x] **Monthly loops drop the last month.** `compute_spending_history` and `compute_historical_valuation` step one month at a time from the *first* transaction's date and stop once past the *last* transaction's date. When the last transaction falls on an earlier day of the month than the first (first 2024-01-20, last 2024-03-05), the final month is never visited, so its buys are missing. This affects the spending chart, the valuation chart and the projection's "invested in the last 12 months". The golden fixture (2024-01-15 → 2024-04-08) and the demo (2024-01-08 → 2025-02-03) both hit it. Found 2026-10-24; pinned by `test_spending_history_drops_the_last_month_when_its_day_is_earlier`. Iterate over month starts instead.
+    Fixed: both loops step over month starts. (`a3bb065`; the pinning test, renamed `test_spending_history_keeps_the_last_month_when_its_day_is_earlier`, now pins the fix)
 13. [x] **A buy in the current month crashes the run when the month has no weekly bar yet.** `lite` history labels each weekly bar with its Monday. So on the 1st-6th of a month, the month can have no bar yet. A window that starts today has no bars at all, and Yahoo prints "possibly delisted". `compute_historical_valuation` then raises `KeyError`, which becomes bug 4. A snapshot dated today always hit it. Found 2026-10-28 by probing Yahoo with AAPL. Fix: skip the Yahoo call when the window is empty, and give the current month today's price when it has no bar. (`tests/test_market.py`; `c45f7c3`)
+14. [ ] **A portfolio with every position sold crashes.** `write_csv_lazy` (`src/csv_mngr.py`) takes its headers from the first row, so an empty portfolio raises `StopIteration` (exit 1 since bug 4). `plot_combined` would then divide by a last valuation of 0 and draw an empty pie. Found 2026-10-29 by selling the whole fixture. It predates the bug 1 fix, which only made the totals right up to that point.
 
 ## Phase 2: Structure and cleanup (behaviour-preserving, guarded by Phase 0 tests)
 
-- [ ] Delete dead code: `MarketDataGoogle*`, `MarketReader`, `fetch_histories`, `use_market_google`, `execute_yahoo_finance`, unused parts of `Sheets`, `src/market_tester.py`, unused `TransType`, and `Transactions.prepend` (only tests use it since `merge_positions`).
+- [ ] Delete dead code: `MarketDataGoogle*`, `MarketReader`, `fetch_histories`, `use_market_google`, `execute_yahoo_finance`, unused parts of `Sheets`, `src/market_tester.py`, unused `TransType`, `Transactions.prepend` (only tests use it since `merge_positions`), and `plot_pie`/`plot_bar` in `plot_mngr.py`.
 - [ ] A single month-key helper instead of two copies of `convert_date_to_short_str`. They already differ when called with no arguments: the `portfolio_mngr` copy returns `None`, the `market_mngr` copy `''` (`tests/test_month_key.py`).
 - [ ] `Transaction` becomes a `@dataclass`; remove the `__dict__` method; `Transactions.get()` stops exposing the mutable internal list.
 - [ ] Config becomes typed dataclasses with validation and clear error messages (same YAML schema). Use `pathlib.Path` for every directory, which removes the trailing-slash requirement.
-- [ ] A real exception hierarchy (`TrkrError` → `NoNetworkError`, `UnsupportedConfigError`, …), mapped to exit codes in one place.
+- [ ] A real exception hierarchy (`TrkrError` → `NoNetworkError`, `UnsupportedConfigError`, …), mapped to exit codes in one place. `get_exit_status` (`src/utils.py`, bug 4) is that place for now.
 - [ ] Replace `print` + `is_quiet` threading with `logging` (console level from `quiet`); simplify `LogManager` to stdlib level parsing.
 - [ ] `CsvMngr.read` → `csv.DictReader` keyed by the header row. Today it relies on column order and blindly drops the first row.
 - [ ] Templates become tracked `.html` files loaded via `PackageLoader`, no longer rewritten at runtime. Un-ignore them, and turn on Jinja autoescape.
@@ -113,7 +132,7 @@ Ordered by impact. Line numbers are as of commit `c1d28fe`.
 - [ ] Optional on-disk cache of history, so same-day re-runs need little network.
 - [ ] Relative paths in the HTML report, so a `data/<run>/` folder can be moved or zipped.
 - [ ] GitHub Actions (`origin` is GitHub): ruff + pytest on push and PRs.
-- [ ] Upgrade the locked dependencies. `uv.lock` still pins the venv as of 2025 (yfinance 0.2.59, pandas 2.2.3, numpy 2.1.2, matplotlib 3.10.0). Upgrade with `uv lock --upgrade`, check with the golden test and a demo run, then re-export `requirements.txt`. pandas 3 changes the default string dtype and turns on copy-on-write, so take it as its own step.
+- [ ] Upgrade the locked dependencies. `uv.lock` still pins the venv as of 2025 (yfinance 0.2.59, pandas 2.2.3, numpy 2.1.2, matplotlib 3.10.0). Upgrade with `uv lock --upgrade`, check with the golden test and a demo run, then re-export `requirements.txt`. pandas 3 changes the default string dtype and turns on copy-on-write, so take it as its own step. matplotlib 3.11 removes `plt.cm.get_cmap`, which `plot_monthly_stocks` still calls (a deprecation warning in the tests); switch to `matplotlib.colormaps` first.
 
 ## Feature: net-worth projection and imaginary portfolios
 
@@ -173,7 +192,7 @@ C++ defects not to carry over:
 
 ### Later, owner's call
 
-- [ ] Buys without a price: leave `price` empty and fill it from that day's Yahoo close, so a what-if portfolio needs only a date, a ticker and an amount. Needs daily history (bug 2).
+- [ ] Buys without a price: leave `price` empty and fill it from that day's Yahoo close, so a what-if portfolio needs only a date, a ticker and an amount. Needs daily history (bug 2, fixed).
 - [ ] Scenarios: several named return/fee sets (e.g. pessimistic, base, optimistic) on one chart.
 - [ ] Drawdown after retirement: a withdrawal rate, and how long the money lasts.
 
@@ -188,7 +207,7 @@ For holdings without a full trade history: one row per investment with a quantit
 - [x] Optional `positions:` block (`source: local` with `positions-dir`, or `cloud` with `shareable-address`). Positions go before the transactions, because `Portfolio.calculate` processes the list in order. Since 2026-10-28 that is done by `merge_positions`, which also drops the trades a position already includes (below).
 - [x] Tests: reader and validation, config, and an end-to-end run combining positions with trades. The demo config uses `examples/positions.csv`.
 - [ ] Positions for imaginary portfolios, which would make "I hold N at price P" what-ifs possible without a transactions file.
-- [ ] A position followed by a partial sell inherits bug 1 (totals). Fixing bug 1 fixes this too.
+- [x] A position followed by a partial sell inherits bug 1 (totals). Fixing bug 1 fixes this too. (`5468eef`; `test_exec_with_a_snapshot_and_a_later_partial_sell`)
 
 ### Holdings snapshot (owner, 2026-10-28)
 
@@ -239,7 +258,7 @@ Prerequisites:
 
 - W0 needs only the Phase 0 tests, because it is a behaviour-preserving refactor guarded by the golden test.
 - W1 onward needs these Phase 2 items: the exception hierarchy (the server shows error names, which also retires bug 4), `logging` instead of `print`, tracked templates with autoescape (transactions come from a sheet and are now rendered in a browser), and typed config with `pathlib`. It also needs the Phase 3 package item, so the server can live in `trkr.web`.
-- Fix bug 1 before using the app day to day, so the new UI doesn't show wrong totals.
+- Fix bug 1 before using the app day to day, so the new UI doesn't show wrong totals. (Done, `5468eef`.)
 - The Phase 3 batched download and history cache make "Run now" much faster. They are not required.
 - W7-W9 (owner, 2026-10-28) need W1. W8 also needs the broker import feature, and W9 the sheet generator.
 
@@ -304,7 +323,7 @@ Each feature of the CLI, and where it ends up in the app:
 - [ ] "Run now": `POST /runs` starts `python -m trkr --cfg <file>` as a subprocess and returns a run id. The page polls the run with htmx and shows the tail of its output. When the run finishes, the page loads the new snapshot.
 - [ ] One run at a time per `generation-dir`. The CLI takes `<gen-dir>/.run.lock` and writes its PID into it, so a lock left behind by a dead process can be broken. The scheduled job takes the lock too, so it and a web run never write the same files at once. A second "Run now" gets "already running".
 - [ ] A failed run shows the exit code, the error name and the log tail. The last good snapshot stays on screen.
-- [ ] Run history: every snapshot with its time, value, profit and profit %, and each one can be opened. A chart of total value across snapshots gives a real value-over-time series from the scheduled runs, which the "Valuation Percent" chart doesn't (bug 6).
+- [ ] Run history: every snapshot with its time, value, profit and profit %, and each one can be opened. A chart of total value across snapshots gives a value-over-time series from the scheduled runs, at each run's current prices. Since bug 6 the "Valuation Percent" chart values the holdings month by month too, but only at month-end closes.
 - [ ] Tests: the runner sits behind an interface, and the tests swap in a fake (no subprocess, no network). They cover lock contention and the failure path.
 
 ### W3: Interactive charts
