@@ -43,7 +43,7 @@ def get_yaml_parameter(
 ) -> Union[str, dict]:
     param_val = None
     param_dict = {}
-    with open(yaml_path, 'r') as stream:
+    with open(yaml_path, 'r', encoding='utf-8-sig') as stream:
         try:
             param_dict = yaml.safe_load(stream)
             if parameter:

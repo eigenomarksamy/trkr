@@ -12,7 +12,7 @@ class LogManager:
         else:
             self.logger.setLevel(log_level)
         os.makedirs(os.path.dirname(log_file), exist_ok=True)
-        file_handler = logging.FileHandler(log_file)
+        file_handler = logging.FileHandler(log_file, encoding='utf-8')
         file_handler.setLevel(log_level)
         console_handler = logging.StreamHandler()
         console_handler.setLevel(log_level)
