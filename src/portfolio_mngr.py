@@ -159,7 +159,8 @@ class Portfolio:
         loc_trans.sort(key=lambda x: x.__dict__()['date'])
         first_date = datetime.strptime(loc_trans[0].__dict__()['date'], '%Y-%m-%d').date()
         last_date = datetime.strptime(loc_trans[-1].__dict__()['date'], '%Y-%m-%d').date()
-        date_tmp = first_date
+        # Step over month starts, or a last day of the month earlier than the first is skipped.
+        date_tmp = first_date.replace(day=1)
         while date_tmp <= last_date:
             month_transactions = []
             ret_dict[convert_date_to_short_str(date=date_tmp)] = 0
@@ -194,7 +195,7 @@ class Portfolio:
         first_date = datetime.strptime(loc_trans[0].__dict__()['date'], '%Y-%m-%d').date()
         last_date = datetime.strptime(loc_trans[-1].__dict__()['date'], '%Y-%m-%d').date()
         acu_valuation = 0
-        date_itr = first_date
+        date_itr = first_date.replace(day=1)
         while date_itr <= last_date:
             ret_data[convert_date_to_short_str(date=date_itr)] = acu_valuation
             for trans_itr in self.transactions.get_transactions_month(date_itr):

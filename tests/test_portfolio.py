@@ -126,16 +126,26 @@ def test_spending_history_sums_buys_per_month_and_ignores_sells():
     ]
 
 
-def test_spending_history_drops_the_last_month_when_its_day_is_earlier():
-    # Known bug: months are stepped from the first transaction's day of the month,
-    # so 2024-03-05 falls after the last step (2024-02-20) and March is never visited.
+def test_spending_history_keeps_the_last_month_when_its_day_is_earlier():
+    # Stepping a month at a time from 2024-01-20 would go past 2024-03-05 and skip March.
     portfolio = make_portfolio(
         [
             trade('buy', '2024-01-20', 'AAA', 1, 10),
             trade('buy', '2024-03-05', 'AAA', 1, 10),
         ]
     )
-    assert portfolio.compute_spending_history() == {'jan24': 10, 'feb24': 0}
+    assert portfolio.compute_spending_history() == {'jan24': 10, 'feb24': 0, 'mar24': 10}
+
+
+def test_historical_valuation_keeps_the_last_month_when_its_day_is_earlier():
+    portfolio = make_portfolio(
+        [
+            trade('buy', '2024-01-20', 'AAA', 1, 10),
+            trade('buy', '2024-03-05', 'AAA', 1, 10),
+        ]
+    )
+    history = {'AAA': {'jan24': {'price': 10}, 'feb24': {'price': 11}, 'mar24': {'price': 12}}}
+    assert list(portfolio.compute_historical_valuation(history))[-1] == 'mar24'
 
 
 def test_entry_points_are_the_month_of_the_first_buy():
