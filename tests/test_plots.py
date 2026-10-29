@@ -108,3 +108,44 @@ def test_full_history_charts_keep_their_ticks_readable(tmp_path, saved_figures):
         ax = saved_figures[path].axes[0]
         # One label per day used to be 336 labels.
         assert len(ax.get_xticks()) <= 15
+
+
+def test_monthly_stats_charts_keep_their_ticks_readable(tmp_path, saved_figures):
+    # The valuation runs to this month, so a few years of history are dozens of months.
+    months = [
+        f'{month}{year}'
+        for year in (23, 24, 25)
+        for month in (
+            'jan',
+            'feb',
+            'mar',
+            'apr',
+            'may',
+            'jun',
+            'jul',
+            'aug',
+            'sep',
+            'oct',
+            'nov',
+            'dec',
+        )
+    ]
+    fig_path = f'{tmp_path.as_posix()}/gen_stats.png'
+    plot_combined(
+        fig_path=fig_path,
+        nums_pie=[100],
+        nums_bar=[10, 10],
+        nums_points=[1] * len(months),
+        nums_points_1=list(range(1, len(months) + 1)),
+        labels_pie=['AAA'],
+        labels_bar=['AAA', 'Total'],
+        labels_points=months,
+        labels_points_1=months,
+        points_title='Spending Per Month',
+        points1_title='Valuation Percent',
+        pie_title='Spending Percent',
+        bar_title='Profit Percent',
+    )
+    for name in ('spending_per_month', 'valuation_percent'):
+        ax = saved_figures[fig_path.replace('.png', f'_points_{name}.png')].axes[0]
+        assert len(ax.get_xticks()) <= 15

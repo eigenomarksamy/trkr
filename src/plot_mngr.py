@@ -137,16 +137,15 @@ def plot_combined(
     ax2.axhline(0, color='black', linewidth=0.8)
     ax2.set_title(kwargs.get('bar_title', 'Bar Chart'))
     ax2.grid(True)
-    x3 = np.arange(len(nums_points))
+    # The points are labelled with month keys; one tick label per month overlaps after a year.
+    x3 = [history_key_date(month) for month in labels_points]
     ax3.plot(x3, y3, marker='o', linestyle='-', color='r')
-    ax3.set_xticks(x3)
-    ax3.set_xticklabels(labels_points)
+    use_date_axis(ax3)
     ax3.set_title(kwargs.get('points_title', 'Points Chart'))
     ax3.grid(True)
-    x4 = np.arange(len(nums_points_1))
+    x4 = [history_key_date(month) for month in labels_points_1]
     ax4.plot(x4, y4, marker='o', linestyle='-', color='b')
-    ax4.set_xticks(x4)
-    ax4.set_xticklabels(labels_points_1)
+    use_date_axis(ax4)
     ax4.set_title(kwargs.get('points1_title', 'Points 1 Chart'))
     ax4.grid(True)
     fig1_name = fig_path.replace(
