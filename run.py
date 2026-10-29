@@ -301,7 +301,6 @@ def process_portfolio(
             logger.info(f'Start date: {start_date}')
         market = MarketDataYahoo(
             tickers=symbols_of_interest,
-            ticker_map=yfinance_map_obj,
             start_date=start_date,
             interval=Interval.WEEKLY if history_variant == 'lite' else Interval.DAILY,
             req_currency=cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY),

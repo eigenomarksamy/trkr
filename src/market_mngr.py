@@ -162,11 +162,19 @@ class MarketDataGoogleFull(MarketDataGoogle):
                     self.data_aligned[elm][date]['currency'] = 'USD'
 
 
+# Yahoo quotes some listings in a minor unit, such as most London listings in pence.
+MINOR_UNITS = {'GBp': ('GBP', 100), 'GBX': ('GBP', 100), 'ZAc': ('ZAR', 100), 'ILA': ('ILS', 100)}
+
+
+def exchange_rate_ticker(currency: str, req_currency: str) -> str:
+    """The Yahoo ticker whose price is one unit of currency in req_currency."""
+    return f'{currency}{req_currency}=X'
+
+
 class MarketDataYahoo(MarketData):
     def __init__(
         self,
         tickers: list[str],
-        ticker_map: Optional[YFinanceSymbMap],
         start_date: Union[str, date],
         end_date: Optional[Union[str, date]] = None,
         date_format: str = '%Y-%m-%d',
@@ -188,12 +196,10 @@ class MarketDataYahoo(MarketData):
         self.current_price = {}
         self.formulate_history()
         if auto_convert_currency:
-            req_currency = kwargs.get('req_currency', 'NA')
-            self.currency_key = ticker_map.tickerMap.get(req_currency.lower(), None)
-            if not self.currency_key:
+            req_currency = kwargs.get('req_currency')
+            if not req_currency:
                 raise Exception('Currency conversion required, no currency provided.')
-            else:
-                self.convert_currencies(req_currency)
+            self.convert_currencies(req_currency)
 
     @staticmethod
     def get_current_price_ticker(ticker: str) -> float:
@@ -209,48 +215,66 @@ class MarketDataYahoo(MarketData):
 
     def formulate_history(self) -> None:
         for ticker in self.tickers:
-            yf_ticker = yf.Ticker(ticker)
-            self.history[ticker] = {}
-            # A window that starts today has no bars, and Yahoo warns the ticker may be delisted.
-            if self.start_date < self.end_date:
-                history_data_frame = yf_ticker.history(
-                    start=self.start_date, end=self.end_date, interval=self.interval
-                )
-                if self.interval == Interval.DAILY:
-                    self.history[ticker] = {
-                        date.strftime(self.date_format): float(row['Close'])
-                        for date, row in history_data_frame.iterrows()
-                    }
-                else:
-                    self.history[ticker] = {
-                        MarketData.convert_date_to_short_str(date=dater.date()): float(row['Close'])
-                        for dater, row in history_data_frame.iterrows()
-                    }
-            self.currency[ticker] = yf_ticker.info.get('currency', 'NA')
-            self.current_price[ticker] = self.get_current_price_ticker(ticker)
-            if self.end_date >= date.today():
-                if self.interval == Interval.DAILY:
-                    # The end date is exclusive and today's bar comes with the close, so the
-                    # last close so far is today's price.
-                    today_key = date.today().strftime(self.date_format)
-                else:
-                    # Weekly bars are labelled with their Monday, so a month has none until its
-                    # first Monday, but buys in it are looked up by month.
-                    today_key = MarketData.convert_date_to_short_str(date=date.today())
-                self.history[ticker].setdefault(today_key, self.current_price[ticker])
+            self.fetch(ticker)
+
+    def fetch(self, ticker: str) -> None:
+        yf_ticker = yf.Ticker(ticker)
+        self.history[ticker] = {}
+        # A window that starts today has no bars, and Yahoo warns the ticker may be delisted.
+        if self.start_date < self.end_date:
+            history_data_frame = yf_ticker.history(
+                start=self.start_date, end=self.end_date, interval=self.interval
+            )
+            if self.interval == Interval.DAILY:
+                self.history[ticker] = {
+                    date.strftime(self.date_format): float(row['Close'])
+                    for date, row in history_data_frame.iterrows()
+                }
+            else:
+                self.history[ticker] = {
+                    MarketData.convert_date_to_short_str(date=dater.date()): float(row['Close'])
+                    for dater, row in history_data_frame.iterrows()
+                }
+        self.currency[ticker] = yf_ticker.info.get('currency', 'NA')
+        self.current_price[ticker] = self.get_current_price_ticker(ticker)
+        if self.end_date >= date.today():
+            if self.interval == Interval.DAILY:
+                # The end date is exclusive and today's bar comes with the close, so the
+                # last close so far is today's price.
+                today_key = date.today().strftime(self.date_format)
+            else:
+                # Weekly bars are labelled with their Monday, so a month has none until its
+                # first Monday, but buys in it are looked up by month.
+                today_key = MarketData.convert_date_to_short_str(date=date.today())
+            self.history[ticker].setdefault(today_key, self.current_price[ticker])
 
     def convert_currencies(self, req_currency: str) -> None:
+        """Converts each ticker's prices with the exchange rate of its own currency.
+
+        The rates are fetched as needed. History is converted with the rate's close for the
+        same key, or with the current rate when the rate has none.
+        """
+        req_currency = req_currency.upper()
         for ticker in self.tickers:
-            if ticker == self.currency_key:
-                continue
-            if self.currency[ticker] != req_currency.upper():
-                self.current_price[ticker] *= self.current_price[self.currency_key]
-                self.currency[ticker] = req_currency.upper()
-                for d in self.history[ticker]:
-                    try:
-                        self.history[ticker][d] *= self.history[self.currency_key][d]
-                    except KeyError:
-                        self.history[ticker][d] *= self.current_price[self.currency_key]
+            currency, units = MINOR_UNITS.get(
+                self.currency[ticker], (self.currency[ticker].upper(), 1)
+            )
+            if currency == 'NA':
+                print(f'Yahoo gave no currency for {ticker}, so it cannot be converted.')
+                raise Exception('503')
+            if currency == req_currency:
+                if units == 1:
+                    continue
+                rate_now, rates = 1, {}
+            else:
+                rate_ticker = exchange_rate_ticker(currency, req_currency)
+                if rate_ticker not in self.history:
+                    self.fetch(rate_ticker)
+                rate_now, rates = self.current_price[rate_ticker], self.history[rate_ticker]
+            self.current_price[ticker] *= rate_now / units
+            self.currency[ticker] = req_currency
+            for d in self.history[ticker]:
+                self.history[ticker][d] *= rates.get(d, rate_now) / units
 
     def fetch_history(self) -> dict:
         return self.history
