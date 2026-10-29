@@ -60,6 +60,7 @@ def plot_monthly_stocks(
         ax.set_title(elm.upper())
         figs_paths.append(fig_path.replace('.png', f'_{elm.lower()}.png'))
         fig.savefig(fig_path.replace('.png', f'_{elm.lower()}.png'))
+        plt.close(fig)
     fig, ax = plt.subplots(1, 1, figsize=(12, 6))
     colors = plt.cm.get_cmap('tab10', len(data_dict))
     for idx, elm in enumerate(data_dict):
@@ -87,6 +88,7 @@ def plot_monthly_stocks(
     fig.savefig(fig_path)
     if kwargs.get('show', False):
         plt.show()
+    plt.close(fig)
     return figs_paths
 
 
@@ -153,6 +155,8 @@ def plot_combined(
     figs_paths.append(fig4_name)
     if kwargs.get('show', False):
         plt.show()
+    for fig in (fig1, fig2, fig3, fig4):
+        plt.close(fig)
     return figs_paths
 
 
