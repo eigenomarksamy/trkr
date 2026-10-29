@@ -31,10 +31,9 @@ def parse_arguments() -> argparse.Namespace:
 
 def check_internet(host='8.8.8.8', port=53, timeout=3) -> bool:
     try:
-        socket.setdefaulttimeout(timeout)
-        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
-        return True
-    except socket.error as ex:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError as ex:
         print(ex)
         return False
 
