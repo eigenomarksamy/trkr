@@ -1,5 +1,6 @@
 from os import PathLike
 from pathlib import Path
+from typing import Optional
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -44,22 +45,29 @@ def plot_bar(nums: list[float], fig_path: PathLike, labels: list[str] = None) ->
     plt.show()
 
 
+def use_date_axis(ax) -> None:
+    """Ticks a date x axis at a readable density, for month (lite) or daily (full) history."""
+    locator = mdates.AutoDateLocator()
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
+
+
+def point_marker(points: list) -> Optional[str]:
+    """A marker per point, unless there are so many (daily history) that they merge."""
+    return 'o' if len(points) <= 100 else None
+
+
 def plot_monthly_stocks(
     fig_path: PathLike, data_dict: dict, entry_points: dict, **kwargs
 ) -> list[PathLike]:
     Path(fig_path).parent.mkdir(parents=True, exist_ok=True)
     figs_paths = []
     for elm in data_dict:
-        x = np.arange(len(data_dict[elm].keys()))
-        names = list(data_dict[elm].keys())
-        y_list = []
-        for i in data_dict[elm].values():
-            y_list.append(i['price'])
-        y = np.array(y_list)
+        days = [history_key_date(key) for key in data_dict[elm]]
+        prices = [point['price'] for point in data_dict[elm].values()]
         fig, ax = plt.subplots(1, 1, figsize=(12, 6))
-        ax.plot(x, y, marker='o', linestyle='-', color='b')
-        ax.set_xticks(x)
-        ax.set_xticklabels(names)
+        ax.plot(days, prices, marker=point_marker(days), linestyle='-', color='b')
+        use_date_axis(ax)
         ax.set_title(elm.upper())
         figs_paths.append(fig_path.replace('.png', f'_{elm.lower()}.png'))
         fig.savefig(fig_path.replace('.png', f'_{elm.lower()}.png'))
@@ -74,7 +82,9 @@ def plot_monthly_stocks(
         if not prices:
             continue
         y = [price / prices[0] * 100 for price in prices]
-        ax.plot(days, y, marker='o', linestyle='-', label=elm.upper(), color=colors(idx))
+        ax.plot(
+            days, y, marker=point_marker(days), linestyle='-', label=elm.upper(), color=colors(idx)
+        )
         # The entry point is a month key; mark the series' first point in that month.
         entry_x = next(
             (
@@ -86,9 +96,7 @@ def plot_monthly_stocks(
         )
         if entry_x is not None:
             ax.plot(days[entry_x], y[entry_x], marker='o', markersize=10, color='black')
-    locator = mdates.AutoDateLocator()
-    ax.xaxis.set_major_locator(locator)
-    ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
+    use_date_axis(ax)
     ax.grid(True)
     ax.set_title('Combined Monthly Stocks')
     ax.legend()

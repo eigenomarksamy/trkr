@@ -178,3 +178,18 @@ positions:
         total[metric.strip()] = float(value)
     assert total['spending'] == pytest.approx(1721 * 24 / 34 + 501.5 / 1.1)
     assert total['realized_profit'] == pytest.approx(598 - 1721 * 10 / 34)
+
+
+def test_exec_with_full_history(offline):
+    cfg = make_cfg(offline)
+    cfg.write_text(
+        cfg.read_text(encoding='utf-8').replace('history-variant: lite', 'history-variant: full'),
+        encoding='utf-8',
+    )
+    run.exec(cfg)
+    out = offline / 'out'
+    # The figures come from current prices, so they match the lite run's.
+    check_real_portfolio_outputs(out)
+    valuation = (out / 'generated' / 'misc_tables.html').read_text(encoding='utf-8')
+    for month in ('jan24', 'apr24', 'jun24'):
+        assert f'{month}: ' in valuation

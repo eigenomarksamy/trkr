@@ -228,13 +228,16 @@ class MarketDataYahoo(MarketData):
                     }
             self.currency[ticker] = yf_ticker.info.get('currency', 'NA')
             self.current_price[ticker] = self.get_current_price_ticker(ticker)
-            if self.interval != Interval.DAILY and self.end_date >= date.today():
-                # Weekly bars are labelled with their Monday, so a month has none until its first
-                # Monday, but buys in it are looked up by month. Its last close so far is today's.
-                self.history[ticker].setdefault(
-                    MarketData.convert_date_to_short_str(date=date.today()),
-                    self.current_price[ticker],
-                )
+            if self.end_date >= date.today():
+                if self.interval == Interval.DAILY:
+                    # The end date is exclusive and today's bar comes with the close, so the
+                    # last close so far is today's price.
+                    today_key = date.today().strftime(self.date_format)
+                else:
+                    # Weekly bars are labelled with their Monday, so a month has none until its
+                    # first Monday, but buys in it are looked up by month.
+                    today_key = MarketData.convert_date_to_short_str(date=date.today())
+                self.history[ticker].setdefault(today_key, self.current_price[ticker])
 
     def convert_currencies(self, req_currency: str) -> None:
         for ticker in self.tickers:

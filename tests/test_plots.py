@@ -94,3 +94,17 @@ def test_plots_close_their_figures(tmp_path):
     )
     assert plt.get_fignums() == []
     assert len(list(tmp_path.rglob('*.png'))) == 7
+
+
+def test_full_history_charts_keep_their_ticks_readable(tmp_path, saved_figures):
+    fig_path = f'{tmp_path.as_posix()}/history.png'
+    days = [f'2024-{month:02}-{day:02}' for month in range(1, 13) for day in range(1, 29)]
+    plot_monthly_stocks(
+        fig_path=fig_path,
+        data_dict={'AAA': history({day: 10 + i for i, day in enumerate(days)})},
+        entry_points={'AAA': 'mar24'},
+    )
+    for path in (fig_path, fig_path.replace('.png', '_aaa.png')):
+        ax = saved_figures[path].axes[0]
+        # One label per day used to be 336 labels.
+        assert len(ax.get_xticks()) <= 15
