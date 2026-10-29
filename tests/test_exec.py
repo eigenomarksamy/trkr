@@ -137,3 +137,44 @@ positions:
     transactions_page = (generated / 'transactions.html').read_text()
     assert 'positions file' in transactions_page
     assert 'broker-y' not in transactions_page
+
+
+def test_exec_with_a_snapshot_and_a_later_partial_sell(offline):
+    snapshot = offline / 'holdings.csv'
+    snapshot.write_text('symbol,quantity,cost,date\naaa,30,1500,2024-03-01\n', encoding='utf-8')
+    trades = offline / 'transactions.csv'
+    trades.write_text(
+        (FIXTURES / 'transactions.csv').read_text(encoding='utf-8')
+        + 'sell,2024-05-06,10,2,60,EUR,aaa,AMS,broker-x,1,0\n',
+        encoding='utf-8',
+    )
+    cfg = make_cfg(
+        offline,
+        f"""
+positions:
+  source: local
+  positions-dir: {snapshot.as_posix()}
+""",
+    )
+    cfg.write_text(
+        cfg.read_text(encoding='utf-8').replace(
+            (FIXTURES / 'transactions.csv').as_posix(), trades.as_posix()
+        ),
+        encoding='utf-8',
+    )
+    run.exec(cfg)
+    generated = offline / 'out' / 'generated'
+    with open(generated / 'portfolio.csv', newline='', encoding='utf-8') as file:
+        holdings = {row['symbol']: row for row in csv.DictReader(file)}
+    # The snapshot replaces the January aaa buy; the April buy (4 @ 55 + 1) comes on top.
+    # Selling 10 of 34 takes 10/34 of the 1721 cost; the proceeds are 10 * 60 - 2.
+    assert float(holdings['AAA.AS']['amount']) == 24
+    assert float(holdings['AAA.AS']['spending']) == pytest.approx(1721 * 24 / 34)
+    assert float(holdings['AAA.AS']['realized_profit']) == pytest.approx(598 - 1721 * 10 / 34)
+    assert float(holdings['BBB']['spending']) == pytest.approx(501.5 / 1.1)
+    total = {}
+    for line in (generated / 'total.md').read_text(encoding='utf-8').splitlines()[4:]:
+        _, metric, value, _ = line.split('|')
+        total[metric.strip()] = float(value)
+    assert total['spending'] == pytest.approx(1721 * 24 / 34 + 501.5 / 1.1)
+    assert total['realized_profit'] == pytest.approx(598 - 1721 * 10 / 34)
