@@ -190,32 +190,48 @@ class Portfolio:
         return entry_points
 
     def compute_historical_valuation(self, historical_dict: dict) -> dict:
+        """The market value of the holdings at the end of each month, up to this month.
+
+        A month is priced at its last close in historical_dict, which is keyed by month (lite)
+        or by day (full). A month without a close takes the close before it, or else today's
+        price.
+        """
+        month_closes = {
+            symbol: {
+                convert_date_to_short_str(date=history_key_date(key)): point['price']
+                for key, point in history.items()
+            }
+            for symbol, history in historical_dict.items()
+        }
         ret_data = {}
         loc_trans = self.transactions.get()
         loc_trans.sort(key=lambda x: x.__dict__()['date'])
-        first_date = datetime.strptime(loc_trans[0].__dict__()['date'], '%Y-%m-%d').date()
-        last_date = datetime.strptime(loc_trans[-1].__dict__()['date'], '%Y-%m-%d').date()
-        acu_valuation = 0
-        date_itr = first_date.replace(day=1)
-        while date_itr <= last_date:
-            ret_data[convert_date_to_short_str(date=date_itr)] = acu_valuation
-            for trans_itr in self.transactions.get_transactions_month(date_itr):
-                if trans_itr['type'] == 'buy':
-                    acu_valuation += (
-                        trans_itr['quantity']
-                        * historical_dict[trans_itr['symbol']][
-                            convert_date_to_short_str(date=date_itr)
-                        ]['price']
-                    )
-                    ret_data[convert_date_to_short_str(date=date_itr)] = acu_valuation
-                elif trans_itr['type'] == 'sell':
-                    acu_valuation += (
-                        trans_itr['quantity']
-                        * historical_dict[trans_itr['symbol']][
-                            convert_date_to_short_str(date=date_itr)
-                        ]['price']
-                    )
-                    ret_data[convert_date_to_short_str(date=date_itr)] = acu_valuation
+        held = {}
+        last_close = {}
+        next_trade = 0
+        date_itr = datetime.strptime(loc_trans[0].date, '%Y-%m-%d').date().replace(day=1)
+        while date_itr <= datetime.today().date():
+            month = convert_date_to_short_str(date=date_itr)
+            month_end = (date_itr + relativedelta(months=1, days=-1)).strftime('%Y-%m-%d')
+            while next_trade < len(loc_trans) and loc_trans[next_trade].date <= month_end:
+                trade = loc_trans[next_trade]
+                if trade.type == 'buy':
+                    held[trade.symbol] = held.get(trade.symbol, 0) + trade.quantity
+                elif trade.type == 'sell':
+                    held[trade.symbol] = held.get(trade.symbol, 0) - trade.quantity
+                next_trade += 1
+            for symbol, closes in month_closes.items():
+                if month in closes:
+                    last_close[symbol] = closes[month]
+            ret_data[month] = sum(
+                quantity
+                * (
+                    last_close[symbol]
+                    if symbol in last_close
+                    else self.market_data[symbol]['price']
+                )
+                for symbol, quantity in held.items()
+            )
             date_itr += relativedelta(months=1)
         return ret_data
 

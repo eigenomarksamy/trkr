@@ -249,8 +249,51 @@ def test_historical_valuation_keeps_the_last_month_when_its_day_is_earlier():
             trade('buy', '2024-03-05', 'AAA', 1, 10),
         ]
     )
-    history = {'AAA': {'jan24': {'price': 10}, 'feb24': {'price': 11}, 'mar24': {'price': 12}}}
-    assert list(portfolio.compute_historical_valuation(history))[-1] == 'mar24'
+    history = {'AAA': closes(jan24=10, feb24=11, mar24=12)}
+    assert portfolio.compute_historical_valuation(history)['mar24'] == 24
+
+
+def closes(**month_closes) -> dict:
+    return {month: {'price': price} for month, price in month_closes.items()}
+
+
+def test_historical_valuation_prices_the_holdings_at_each_month_end():
+    # Used to add each trade's quantity at its month's price, sells included, and never
+    # revalue: closer to the money put in than to a valuation.
+    portfolio = make_portfolio(
+        [
+            trade('buy', '2024-01-20', 'AAA', 2, 10),
+            trade('sell', '2024-02-15', 'AAA', 1, 11),
+            trade('buy', '2024-03-05', 'BBB', 1, 50),
+        ],
+        prices={'AAA': 16, 'BBB': 60},
+    )
+    history = {
+        'AAA': closes(jan24=10, feb24=11, mar24=12, apr24=13, may24=14, jun24=15),
+        'BBB': closes(mar24=50, apr24=55, may24=60, jun24=58),
+    }
+    # Through the frozen today, 2024-06-30, not just the last trade's month.
+    assert portfolio.compute_historical_valuation(history) == pytest.approx(
+        {'jan24': 20, 'feb24': 11, 'mar24': 62, 'apr24': 68, 'may24': 74, 'jun24': 73}
+    )
+
+
+def test_a_month_without_a_close_takes_the_close_before_it():
+    portfolio = make_portfolio([trade('buy', '2024-01-20', 'AAA', 1, 10)], prices={'AAA': 20})
+    valuation = portfolio.compute_historical_valuation({'AAA': closes(jan24=10, mar24=12)})
+    assert valuation == {
+        'jan24': 10,
+        'feb24': 10,
+        'mar24': 12,
+        'apr24': 12,
+        'may24': 12,
+        'jun24': 12,
+    }
+
+
+def test_a_symbol_without_any_close_yet_takes_the_current_price():
+    portfolio = make_portfolio([trade('buy', '2024-05-20', 'AAA', 2, 10)], prices={'AAA': 20})
+    assert portfolio.compute_historical_valuation({'AAA': {}}) == {'may24': 40, 'jun24': 40}
 
 
 def test_entry_points_are_the_month_of_the_first_buy():
