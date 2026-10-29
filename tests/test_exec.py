@@ -193,3 +193,37 @@ def test_exec_with_full_history(offline):
     valuation = (out / 'generated' / 'misc_tables.html').read_text(encoding='utf-8')
     for month in ('jan24', 'apr24', 'jun24'):
         assert f'{month}: ' in valuation
+
+
+def test_exec_with_yahoo_tickers_and_no_symbol_map(offline):
+    trades = offline / 'transactions.csv'
+    trades.write_text(
+        (FIXTURES / 'transactions.csv')
+        .read_text(encoding='utf-8')
+        .replace(',aaa,', ',AAA.AS,')
+        .replace(',bbb,', ',BBB,'),
+        encoding='utf-8',
+    )
+    cfg = offline / 'yahoo.yml'
+    cfg.write_text(
+        f"""
+market-data-origin: yahoo
+comp:
+  default-currency: EUR
+  history-variant: lite
+directories:
+  generation-dir: {(offline / 'out').as_posix()}/
+  log-dir: {(offline / 'log').as_posix()}/
+  transactions-dir: {trades.as_posix()}
+transactions:
+  source: local
+  symbols-standard: yahoo
+cli-exec:
+  quiet: true
+  log-level: notset
+""",
+        encoding='utf-8',
+    )
+    run.exec(cfg)
+    # The tickers are the ones the map gives, so the figures match the golden files.
+    check_real_portfolio_outputs(offline / 'out')

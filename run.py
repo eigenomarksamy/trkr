@@ -180,7 +180,7 @@ def write_report(
         total_dict=portfolio_run.total_dict,
         entry_points=portfolio_run.entry_points,
         portfolio_dict=portfolio_run.portfolio_dict,
-        ticker_map=yfinance_map_obj.tickerMap,
+        ticker_map=yfinance_map_obj.tickerMap if yfinance_map_obj else {},
         def_currency=cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY),
         figs_paths_stocks=portfolio_run.figs_paths_stocks[::-1],
         figs_paths_stats=portfolio_run.figs_paths_stats,
@@ -255,8 +255,10 @@ def process_portfolio(
     logger: Optional[logging.Logger],
     positions: Optional[PositionsCfg] = None,
 ) -> PortfolioRun:
+    # With symbols-standard: yahoo there is no map; the symbols are Yahoo tickers already.
+    ticker_map = yfinance_map_obj.tickerMap if yfinance_map_obj else None
     transactions_obj = build_transactions_object(
-        is_local, trans_sheets, f'{directories.sheets_dir}', is_quiet, yfinance_map_obj.tickerMap
+        is_local, trans_sheets, f'{directories.sheets_dir}', is_quiet, ticker_map
     )
     if positions:
         dropped = merge_positions(
@@ -266,7 +268,7 @@ def process_portfolio(
                 positions.location,
                 f'{directories.sheets_dir}',
                 is_quiet,
-                yfinance_map_obj.tickerMap,
+                ticker_map,
                 cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY),
             ),
         )
@@ -279,12 +281,11 @@ def process_portfolio(
     if logger:
         logger.info('Transactions retrieved.')
     symbols_of_interest = transactions_obj.get_symbols_of_interest()
-    if yfinance_map_obj:
-        symbols_of_interest += [
-            f'{yfinance_map_obj.tickerMap.get(cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY).lower())}'
-        ]
-    else:
-        symbols_of_interest += [f'{cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY)}']
+    # The map's exchange-rate entry, if it has one, is charted with the rest. The market data
+    # fetches the rates it converts with by itself.
+    exchange_rate = (ticker_map or {}).get(cfg.get_param(ConfigMapUri.DEFAULT_CURRENCY).lower())
+    if exchange_rate and exchange_rate not in symbols_of_interest:
+        symbols_of_interest += [exchange_rate]
     if not is_quiet:
         print('Symbols of Interest: ', symbols_of_interest)
     if logger:
