@@ -1,9 +1,12 @@
 from os import PathLike
 from pathlib import Path
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
+
+from src.portfolio_mngr import convert_date_to_short_str, history_key_date
 
 # Categorical slots 1-3 of the validated dataviz palette, in fixed order.
 SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a']
@@ -64,24 +67,29 @@ def plot_monthly_stocks(
     fig, ax = plt.subplots(1, 1, figsize=(12, 6))
     colors = plt.cm.get_cmap('tab10', len(data_dict))
     for idx, elm in enumerate(data_dict):
-        entry = entry_points.get(elm)
-        if entry:
-            entry_x = names.index(entry)
-            base_price = list(data_dict[elm].values())[0]['price']
-            entry_y = (data_dict[elm][entry]['price'] / base_price) * 100
-            ax.plot(entry_x, entry_y, marker='o', markersize=10, color='black')
-        x = np.arange(len(data_dict[elm].keys()))
-        names = list(data_dict[elm].keys())
-        y_list = []
-        for i in data_dict[elm].values():
-            if len(y_list) == 0:
-                base_price = i['price']
-            y_list.append((i['price'] / base_price) * 100)
-        y = np.array(y_list)
-        ax.plot(x, y, marker='o', linestyle='-', label=elm.upper(), color=colors(idx))
+        # On a date axis, series with different dates (a later listing, other trading days)
+        # line up.
+        days = [history_key_date(key) for key in data_dict[elm]]
+        prices = [point['price'] for point in data_dict[elm].values()]
+        if not prices:
+            continue
+        y = [price / prices[0] * 100 for price in prices]
+        ax.plot(days, y, marker='o', linestyle='-', label=elm.upper(), color=colors(idx))
+        # The entry point is a month key; mark the series' first point in that month.
+        entry_x = next(
+            (
+                i
+                for i, day in enumerate(days)
+                if convert_date_to_short_str(date=day) == entry_points.get(elm)
+            ),
+            None,
+        )
+        if entry_x is not None:
+            ax.plot(days[entry_x], y[entry_x], marker='o', markersize=10, color='black')
+    locator = mdates.AutoDateLocator()
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
     ax.grid(True)
-    ax.set_xticks(x)
-    ax.set_xticklabels(names)
     ax.set_title('Combined Monthly Stocks')
     ax.legend()
     figs_paths.append(fig_path)

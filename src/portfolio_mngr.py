@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Tuple
 
 from dateutil.relativedelta import relativedelta
@@ -242,6 +242,19 @@ class Portfolio:
             pp_list,
             months_list,
         )
+
+
+def history_key_date(key: str) -> date:
+    """The day a price-history key stands for.
+
+    Full (daily) history is keyed YYYY-MM-DD. Lite history is keyed by month keys like 'jan24',
+    which stand for the 1st of their month.
+    """
+    try:
+        return datetime.strptime(key, '%Y-%m-%d').date()
+    except ValueError:
+        month = [convert_date_to_short_str(month=m) for m in range(1, 13)].index(key[:3]) + 1
+        return date(2000 + int(key[3:]), month, 1)
 
 
 def convert_date_to_short_str(**kwargs) -> str:
