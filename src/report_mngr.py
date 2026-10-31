@@ -11,7 +11,8 @@ def generate_misc_tables_html(
     template_dir = pathlib.Path('templates')
     template_dir.mkdir(parents=True, exist_ok=True)
     template_file = template_dir / 'misc_tables_template.html'
-    template_file.write_text("""
+    template_file.write_text(
+        """
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -28,7 +29,9 @@ def generate_misc_tables_html(
     {{ entry_points | safe }}
     </body>
     </html>
-    """)
+    """,
+        encoding='utf-8',
+    )
     env = Environment(loader=FileSystemLoader('templates'))
     template = env.get_template('misc_tables_template.html')
     html_report = template.render(
@@ -37,14 +40,15 @@ def generate_misc_tables_html(
         historical_valuation=historical_valuation,
     )
     report_path = pathlib.Path(f'{output_path}misc_tables.html')
-    report_path.write_text(html_report)
+    report_path.write_text(html_report, encoding='utf-8')
 
 
 def generate_transactions_html(transactions: list[dict], output_path: PathLike) -> None:
     template_dir = pathlib.Path('templates')
     template_dir.mkdir(parents=True, exist_ok=True)
     template_file = template_dir / 'transactions_template.html'
-    template_file.write_text("""
+    template_file.write_text(
+        """
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -82,19 +86,22 @@ def generate_transactions_html(transactions: list[dict], output_path: PathLike) 
     </table>
     </body>
     </html>
-    """)
+    """,
+        encoding='utf-8',
+    )
     env = Environment(loader=FileSystemLoader('templates'))
     template = env.get_template('transactions_template.html')
     html_report = template.render(transactions=transactions)
     report_path = pathlib.Path(f'{output_path}transactions.html')
-    report_path.write_text(html_report)
+    report_path.write_text(html_report, encoding='utf-8')
 
 
 def generate_historical_report(figs_historical: list[PathLike], output_path: PathLike) -> None:
     template_dir = pathlib.Path('templates')
     template_dir.mkdir(parents=True, exist_ok=True)
     template_file = template_dir / 'historical_template.html'
-    template_file.write_text("""
+    template_file.write_text(
+        """
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -111,21 +118,24 @@ def generate_historical_report(figs_historical: list[PathLike], output_path: Pat
     </div>
     </body>
     </html>
-    """)
+    """,
+        encoding='utf-8',
+    )
     env = Environment(loader=FileSystemLoader('templates'))
     template = env.get_template('historical_template.html')
     html_report = template.render(
         plots_history=[str(pathlib.Path(plot).absolute()) for plot in figs_historical]
     )
     report_path = pathlib.Path(f'{output_path}figs_historical.html')
-    report_path.write_text(html_report)
+    report_path.write_text(html_report, encoding='utf-8')
 
 
 def generate_projection_html(headers: list[str], rows: list[list], output_path: PathLike) -> None:
     template_dir = pathlib.Path('templates')
     template_dir.mkdir(parents=True, exist_ok=True)
     template_file = template_dir / 'projection_template.html'
-    template_file.write_text("""
+    template_file.write_text(
+        """
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -155,12 +165,14 @@ def generate_projection_html(headers: list[str], rows: list[list], output_path: 
     </table>
     </body>
     </html>
-    """)
+    """,
+        encoding='utf-8',
+    )
     env = Environment(loader=FileSystemLoader('templates'))
     template = env.get_template('projection_template.html')
     html_report = template.render(headers=headers, rows=rows)
     report_path = pathlib.Path(f'{output_path}projection.html')
-    report_path.write_text(html_report)
+    report_path.write_text(html_report, encoding='utf-8')
 
 
 def generate_html_report(
@@ -196,7 +208,8 @@ def generate_html_report(
     template_dir = pathlib.Path('templates')
     template_dir.mkdir(parents=True, exist_ok=True)
     template_file = template_dir / 'report_template.html'
-    template_file.write_text("""
+    template_file.write_text(
+        """
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -332,7 +345,9 @@ def generate_html_report(
     <a href="{{ misc_tables_report_dir | abs }}">View Misc Tables Report</a>
     </body>
     </html>
-    """)
+    """,
+        encoding='utf-8',
+    )
     total_html = ''
     for it in total_dict:
         total_html += f'{it.replace("_", " ").capitalize()}: {total_dict[it]}<br>'
@@ -355,4 +370,4 @@ def generate_html_report(
         misc_tables_report_dir=f'{sub_dir}misc_tables.html',
     )
     report_path = pathlib.Path(req_path)
-    report_path.write_text(html_report)
+    report_path.write_text(html_report, encoding='utf-8')

@@ -5,7 +5,8 @@ from src import portfolio_mngr
 from src.portfolio_mngr import Portfolio
 from src.transactions import Transaction, Transactions
 
-# These pin the current behaviour, bugs included, so later refactors can't change it unnoticed.
+# These pin the current behaviour, so later refactors can't change it unnoticed. Sells use
+# average cost: a sell removes its share of the cost basis and books the rest as realized.
 
 
 @pytest.fixture(autouse=True)
@@ -67,6 +68,7 @@ def test_calculate_buys_of_several_symbols():
             'price75': 41.3,
             'price100': 47.2,
             'price150': 59,
+            'realized_profit': 0,
         }
     )
     assert portfolio['BBB'].pop('exchange') == 'XAMS'
@@ -85,6 +87,7 @@ def test_calculate_buys_of_several_symbols():
             'price75': 70.7,
             'price100': 80.8,
             'price150': 101,
+            'realized_profit': 0,
         }
     )
 
@@ -96,6 +99,7 @@ def test_calculate_buys_of_several_symbols():
             'spending': 515.6,
             'profit_net': 54.4,
             'profit_percent': profit_percent,
+            'realized_profit': 0,
             'cash_out': 541.5,
             'time_interval_days': 172,
             'time_interval_months': 172 / 30,
@@ -105,6 +109,107 @@ def test_calculate_buys_of_several_symbols():
             'avg_year_roi': profit_percent / 172 * 365,
         }
     )
+
+
+def test_a_partial_sell_keeps_the_rest_of_the_cost_basis():
+    # Reported before the fix: total spending 100 (all of A's cost gone) and profit +60%.
+    portfolio, total = make_portfolio(
+        [
+            trade('buy', '2024-01-10', 'A', 10, 10),
+            trade('buy', '2024-01-10', 'B', 10, 10),
+            trade('sell', '2024-02-10', 'A', 5, 12),
+        ],
+        prices={'A': 12, 'B': 10},
+    ).calculate()
+    assert portfolio['A']['amount'] == 5
+    assert portfolio['A']['spending'] == pytest.approx(50)
+    assert portfolio['A']['break_even_price'] == pytest.approx(10)
+    assert portfolio['A']['profit_net'] == pytest.approx(10)
+    assert portfolio['A']['realized_profit'] == pytest.approx(10)
+    assert portfolio['A']['spending_percent'] == pytest.approx(100 / 3)
+    assert total['spending'] == pytest.approx(150)
+    assert total['value'] == pytest.approx(160)
+    assert total['profit_net'] == pytest.approx(10)
+    assert total['profit_percent'] == pytest.approx(10 / 150 * 100)
+    assert total['realized_profit'] == pytest.approx(10)
+
+
+def test_a_partial_sell_of_the_only_symbol():
+    # Used to raise ZeroDivisionError: the sell took the total spending to 0.
+    portfolio, total = make_portfolio(
+        [trade('buy', '2024-01-10', 'A', 10, 10), trade('sell', '2024-02-10', 'A', 4, 8)],
+        prices={'A': 9},
+    ).calculate()
+    assert portfolio['A']['amount'] == 6
+    assert portfolio['A']['spending_percent'] == pytest.approx(100)
+    assert total['spending'] == pytest.approx(60)
+    assert total['profit_net'] == pytest.approx(-6)
+    assert total['realized_profit'] == pytest.approx(-8)
+
+
+def test_sells_use_the_average_cost():
+    portfolio, total = make_portfolio(
+        [
+            trade('buy', '2024-01-10', 'A', 10, 10),
+            trade('buy', '2024-02-10', 'A', 10, 20),
+            trade('sell', '2024-03-10', 'A', 10, 15, fees=1, ex_rate=0.5, ex_fees=1),
+        ],
+        prices={'A': 15},
+    ).calculate()
+    # 10 of 20 shares carry half of the 300 cost; the proceeds are (150 - 2) / 0.5.
+    assert portfolio['A']['spending'] == pytest.approx(150)
+    assert portfolio['A']['break_even_price'] == pytest.approx(15)
+    assert total['realized_profit'] == pytest.approx(296 - 150)
+
+
+def test_a_closed_position_leaves_the_portfolio_but_keeps_its_realized_profit():
+    portfolio, total = make_portfolio(
+        [
+            trade('buy', '2024-01-10', 'A', 10, 10),
+            trade('buy', '2024-01-10', 'B', 1, 50),
+            trade('sell', '2024-02-10', 'A', 10, 13),
+        ],
+        prices={'A': 99, 'B': 50},
+    ).calculate()
+    assert list(portfolio) == ['B']
+    assert total['spending'] == pytest.approx(50)
+    assert total['realized_profit'] == pytest.approx(30)
+
+
+def test_selling_everything_leaves_no_dust():
+    # 0.1 + 0.2 is 0.30000000000000004, so an exact comparison kept a crypto position open.
+    portfolio, total = make_portfolio(
+        [
+            trade('buy', '2024-01-10', 'BTC', 0.1, 100),
+            trade('buy', '2024-01-11', 'BTC', 0.2, 100),
+            trade('sell', '2024-02-10', 'BTC', 0.3, 200),
+        ],
+        prices={'BTC': 300},
+    ).calculate()
+    assert portfolio == {}
+    assert total['spending'] == 0
+    assert total['realized_profit'] == pytest.approx(30)
+
+
+def test_trades_are_walked_by_date_not_by_row():
+    # The sheet lists the sell first, but it happened after the buy.
+    portfolio, total = make_portfolio(
+        [trade('sell', '2024-02-10', 'A', 4, 15), trade('buy', '2024-01-10', 'A', 10, 10)],
+        prices={'A': 15},
+    ).calculate()
+    assert portfolio['A']['amount'] == 6
+    assert portfolio['A']['current_price'] == 15
+    assert total['realized_profit'] == pytest.approx(20)
+
+
+def test_selling_more_than_is_held_is_an_input_error(capsys):
+    portfolio = make_portfolio(
+        [trade('buy', '2024-01-10', 'A', 10, 10), trade('sell', '2024-02-10', 'A', 11, 10)],
+        prices={'A': 10},
+    )
+    with pytest.raises(Exception, match='^400$'):
+        portfolio.calculate()
+    assert 'A' in capsys.readouterr().out
 
 
 def test_spending_history_sums_buys_per_month_and_ignores_sells():
@@ -126,16 +231,69 @@ def test_spending_history_sums_buys_per_month_and_ignores_sells():
     ]
 
 
-def test_spending_history_drops_the_last_month_when_its_day_is_earlier():
-    # Known bug: months are stepped from the first transaction's day of the month,
-    # so 2024-03-05 falls after the last step (2024-02-20) and March is never visited.
+def test_spending_history_keeps_the_last_month_when_its_day_is_earlier():
+    # Stepping a month at a time from 2024-01-20 would go past 2024-03-05 and skip March.
     portfolio = make_portfolio(
         [
             trade('buy', '2024-01-20', 'AAA', 1, 10),
             trade('buy', '2024-03-05', 'AAA', 1, 10),
         ]
     )
-    assert portfolio.compute_spending_history() == {'jan24': 10, 'feb24': 0}
+    assert portfolio.compute_spending_history() == {'jan24': 10, 'feb24': 0, 'mar24': 10}
+
+
+def test_historical_valuation_keeps_the_last_month_when_its_day_is_earlier():
+    portfolio = make_portfolio(
+        [
+            trade('buy', '2024-01-20', 'AAA', 1, 10),
+            trade('buy', '2024-03-05', 'AAA', 1, 10),
+        ]
+    )
+    history = {'AAA': closes(jan24=10, feb24=11, mar24=12)}
+    assert portfolio.compute_historical_valuation(history)['mar24'] == 24
+
+
+def closes(**month_closes) -> dict:
+    return {month: {'price': price} for month, price in month_closes.items()}
+
+
+def test_historical_valuation_prices_the_holdings_at_each_month_end():
+    # Used to add each trade's quantity at its month's price, sells included, and never
+    # revalue: closer to the money put in than to a valuation.
+    portfolio = make_portfolio(
+        [
+            trade('buy', '2024-01-20', 'AAA', 2, 10),
+            trade('sell', '2024-02-15', 'AAA', 1, 11),
+            trade('buy', '2024-03-05', 'BBB', 1, 50),
+        ],
+        prices={'AAA': 16, 'BBB': 60},
+    )
+    history = {
+        'AAA': closes(jan24=10, feb24=11, mar24=12, apr24=13, may24=14, jun24=15),
+        'BBB': closes(mar24=50, apr24=55, may24=60, jun24=58),
+    }
+    # Through the frozen today, 2024-06-30, not just the last trade's month.
+    assert portfolio.compute_historical_valuation(history) == pytest.approx(
+        {'jan24': 20, 'feb24': 11, 'mar24': 62, 'apr24': 68, 'may24': 74, 'jun24': 73}
+    )
+
+
+def test_a_month_without_a_close_takes_the_close_before_it():
+    portfolio = make_portfolio([trade('buy', '2024-01-20', 'AAA', 1, 10)], prices={'AAA': 20})
+    valuation = portfolio.compute_historical_valuation({'AAA': closes(jan24=10, mar24=12)})
+    assert valuation == {
+        'jan24': 10,
+        'feb24': 10,
+        'mar24': 12,
+        'apr24': 12,
+        'may24': 12,
+        'jun24': 12,
+    }
+
+
+def test_a_symbol_without_any_close_yet_takes_the_current_price():
+    portfolio = make_portfolio([trade('buy', '2024-05-20', 'AAA', 2, 10)], prices={'AAA': 20})
+    assert portfolio.compute_historical_valuation({'AAA': {}}) == {'may24': 40, 'jun24': 40}
 
 
 def test_entry_points_are_the_month_of_the_first_buy():

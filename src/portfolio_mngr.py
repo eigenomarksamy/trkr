@@ -1,9 +1,34 @@
-from datetime import datetime
+import math
+from datetime import date, datetime
 from typing import Tuple
 
 from dateutil.relativedelta import relativedelta
 
-from src.transactions import Transactions
+from src.transactions import Transactions, input_error
+
+# Price target -> multiple of the break-even price.
+PRICE_TARGETS = {
+    'price25': 1.25,
+    'price50': 1.50,
+    'price75': 1.75,
+    'price100': 2.00,
+    'price150': 2.50,
+}
+
+# A holding's figures, in the order portfolio.csv lists them.
+HOLDING_COLUMNS = [
+    'exchange',
+    'amount',
+    'value',
+    'spending',
+    'spending_percent',
+    'profit_net',
+    'profit_percent',
+    'current_price',
+    'break_even_price',
+    *PRICE_TARGETS,
+    'realized_profit',
+]
 
 
 class Portfolio:
@@ -17,6 +42,7 @@ class Portfolio:
             'spending': 0,
             'profit_net': 0,
             'profit_percent': 0,
+            'realized_profit': 0,
             'cash_out': 0,
             'time_interval_days': 0,
             'time_interval_months': 0,
@@ -31,91 +57,67 @@ class Portfolio:
 
     def calculate(self) -> Tuple[dict, dict]:
         symbols_dict = {}
-        for transaction in self.transactions.get():
+        # Average cost depends on the order of the trades, so walk them by date. The sort is
+        # stable: trades on the same day keep their order in the sheet.
+        for transaction in sorted(self.transactions.get(), key=lambda t: t.date):
             transaction = transaction.__dict__()
             if transaction['symbol'] not in symbols_dict:
-                symbols_dict[transaction['symbol']] = {
-                    'exchange': f'{transaction["exchange"]}',
-                    'amount': 0,
-                    'value': 0,
-                    'spending': 0,
-                    'spending_percent': 0,
-                    'profit_net': 0,
-                    'profit_percent': 0,
-                    'current_price': 0,
-                    'break_even_price': 0,
-                    'price25': 0,
-                    'price50': 0,
-                    'price75': 0,
-                    'price100': 0,
-                    'price150': 0,
+                symbols_dict[transaction['symbol']] = dict.fromkeys(HOLDING_COLUMNS, 0) | {
+                    'exchange': f'{transaction["exchange"]}'
                 }
+            holding = symbols_dict[transaction['symbol']]
             if transaction['type'] == 'buy':
-                symbols_dict[transaction['symbol']]['amount'] += transaction['quantity']
-                spending = (
+                holding['amount'] += transaction['quantity']
+                holding['spending'] += (
                     transaction['price'] * transaction['quantity']
                     + transaction['fees']
                     + transaction['ex_fees']
                 ) / transaction['ex_rate']
-                symbols_dict[transaction['symbol']]['spending'] += spending
-                self.total['spending'] += spending
-                symbols_dict[transaction['symbol']]['current_price'] = self.market_data[
-                    transaction['symbol']
-                ]['price']
-                symbols_dict[transaction['symbol']]['value'] = (
-                    symbols_dict[transaction['symbol']]['amount']
-                    * symbols_dict[transaction['symbol']]['current_price']
-                )
-                symbols_dict[transaction['symbol']]['break_even_price'] = (
-                    symbols_dict[transaction['symbol']]['spending']
-                    / symbols_dict[transaction['symbol']]['amount']
-                )
-                symbols_dict[transaction['symbol']]['profit_net'] = (
-                    symbols_dict[transaction['symbol']]['value']
-                    - symbols_dict[transaction['symbol']]['spending']
-                )
-                symbols_dict[transaction['symbol']]['profit_percent'] = (
-                    (
-                        symbols_dict[transaction['symbol']]['profit_net']
-                        / symbols_dict[transaction['symbol']]['spending']
-                    )
-                    * 100
-                    if symbols_dict[transaction['symbol']]['spending'] != 0
-                    else 0
-                )
-                symbols_dict[transaction['symbol']]['price25'] = (
-                    symbols_dict[transaction['symbol']]['break_even_price'] * 1.25
-                )
-                symbols_dict[transaction['symbol']]['price50'] = (
-                    symbols_dict[transaction['symbol']]['break_even_price'] * 1.50
-                )
-                symbols_dict[transaction['symbol']]['price75'] = (
-                    symbols_dict[transaction['symbol']]['break_even_price'] * 1.75
-                )
-                symbols_dict[transaction['symbol']]['price100'] = (
-                    symbols_dict[transaction['symbol']]['break_even_price'] * 2.00
-                )
-                symbols_dict[transaction['symbol']]['price150'] = (
-                    symbols_dict[transaction['symbol']]['break_even_price'] * 2.50
-                )
             elif transaction['type'] == 'sell':
-                symbols_dict[transaction['symbol']]['amount'] -= transaction['quantity']
-                symbols_dict[transaction['symbol']]['value'] = (
-                    symbols_dict[transaction['symbol']]['amount']
-                    * symbols_dict[transaction['symbol']]['current_price']
-                )
-                self.total['spending'] -= symbols_dict[transaction['symbol']]['spending']
+                held = holding['amount']
+                # Selling all of 0.1 + 0.2 bought sells 0.3, which is not quite the sum.
+                if math.isclose(transaction['quantity'], held, rel_tol=1e-9):
+                    cost = holding['spending']
+                    holding['amount'] = 0
+                elif transaction['quantity'] < held:
+                    cost = holding['spending'] * transaction['quantity'] / held
+                    holding['amount'] -= transaction['quantity']
+                else:
+                    raise input_error(
+                        f'the sell of {transaction["quantity"]} {transaction["symbol"]} '
+                        + f'on {transaction["date"]} is more than the {held} held.'
+                    )
+                holding['spending'] -= cost
+                proceeds = (
+                    transaction['price'] * transaction['quantity']
+                    - transaction['fees']
+                    - transaction['ex_fees']
+                ) / transaction['ex_rate']
+                holding['realized_profit'] += proceeds - cost
 
-        for p in list(symbols_dict.keys()):
-            if symbols_dict[p]['amount'] == 0:
-                del symbols_dict[p]
-
-        for symbol in symbols_dict:
-            symbols_dict[symbol]['spending_percent'] = (
-                symbols_dict[symbol]['spending'] / self.total['spending'] * 100
+        for symbol, holding in symbols_dict.items():
+            self.total['realized_profit'] += holding['realized_profit']
+            if holding['amount'] == 0:
+                continue
+            holding['current_price'] = self.market_data[symbol]['price']
+            holding['value'] = holding['amount'] * holding['current_price']
+            holding['break_even_price'] = holding['spending'] / holding['amount']
+            holding['profit_net'] = holding['value'] - holding['spending']
+            holding['profit_percent'] = (
+                holding['profit_net'] / holding['spending'] * 100 if holding['spending'] != 0 else 0
             )
-            self.portfolio[symbol] = symbols_dict[symbol]
-            self.total['value'] += self.portfolio[symbol]['value']
+            for target, factor in PRICE_TARGETS.items():
+                holding[target] = holding['break_even_price'] * factor
+            self.portfolio[symbol] = holding
+            self.total['value'] += holding['value']
+            self.total['spending'] += holding['spending']
+
+        for holding in self.portfolio.values():
+            holding['spending_percent'] = (
+                holding['spending'] / self.total['spending'] * 100
+                if self.total['spending'] != 0
+                else 0
+            )
 
         if not self.is_quiet:
             for p in self.portfolio:
@@ -159,7 +161,8 @@ class Portfolio:
         loc_trans.sort(key=lambda x: x.__dict__()['date'])
         first_date = datetime.strptime(loc_trans[0].__dict__()['date'], '%Y-%m-%d').date()
         last_date = datetime.strptime(loc_trans[-1].__dict__()['date'], '%Y-%m-%d').date()
-        date_tmp = first_date
+        # Step over month starts, or a last day of the month earlier than the first is skipped.
+        date_tmp = first_date.replace(day=1)
         while date_tmp <= last_date:
             month_transactions = []
             ret_dict[convert_date_to_short_str(date=date_tmp)] = 0
@@ -188,32 +191,48 @@ class Portfolio:
         return entry_points
 
     def compute_historical_valuation(self, historical_dict: dict) -> dict:
+        """The market value of the holdings at the end of each month, up to this month.
+
+        A month is priced at its last close in historical_dict, which is keyed by month (lite)
+        or by day (full). A month without a close takes the close before it, or else today's
+        price.
+        """
+        month_closes = {
+            symbol: {
+                convert_date_to_short_str(date=history_key_date(key)): point['price']
+                for key, point in history.items()
+            }
+            for symbol, history in historical_dict.items()
+        }
         ret_data = {}
         loc_trans = self.transactions.get()
         loc_trans.sort(key=lambda x: x.__dict__()['date'])
-        first_date = datetime.strptime(loc_trans[0].__dict__()['date'], '%Y-%m-%d').date()
-        last_date = datetime.strptime(loc_trans[-1].__dict__()['date'], '%Y-%m-%d').date()
-        acu_valuation = 0
-        date_itr = first_date
-        while date_itr <= last_date:
-            ret_data[convert_date_to_short_str(date=date_itr)] = acu_valuation
-            for trans_itr in self.transactions.get_transactions_month(date_itr):
-                if trans_itr['type'] == 'buy':
-                    acu_valuation += (
-                        trans_itr['quantity']
-                        * historical_dict[trans_itr['symbol']][
-                            convert_date_to_short_str(date=date_itr)
-                        ]['price']
-                    )
-                    ret_data[convert_date_to_short_str(date=date_itr)] = acu_valuation
-                elif trans_itr['type'] == 'sell':
-                    acu_valuation += (
-                        trans_itr['quantity']
-                        * historical_dict[trans_itr['symbol']][
-                            convert_date_to_short_str(date=date_itr)
-                        ]['price']
-                    )
-                    ret_data[convert_date_to_short_str(date=date_itr)] = acu_valuation
+        held = {}
+        last_close = {}
+        next_trade = 0
+        date_itr = datetime.strptime(loc_trans[0].date, '%Y-%m-%d').date().replace(day=1)
+        while date_itr <= datetime.today().date():
+            month = convert_date_to_short_str(date=date_itr)
+            month_end = (date_itr + relativedelta(months=1, days=-1)).strftime('%Y-%m-%d')
+            while next_trade < len(loc_trans) and loc_trans[next_trade].date <= month_end:
+                trade = loc_trans[next_trade]
+                if trade.type == 'buy':
+                    held[trade.symbol] = held.get(trade.symbol, 0) + trade.quantity
+                elif trade.type == 'sell':
+                    held[trade.symbol] = held.get(trade.symbol, 0) - trade.quantity
+                next_trade += 1
+            for symbol, closes in month_closes.items():
+                if month in closes:
+                    last_close[symbol] = closes[month]
+            ret_data[month] = sum(
+                quantity
+                * (
+                    last_close[symbol]
+                    if symbol in last_close
+                    else self.market_data[symbol]['price']
+                )
+                for symbol, quantity in held.items()
+            )
             date_itr += relativedelta(months=1)
         return ret_data
 
@@ -242,6 +261,19 @@ class Portfolio:
             pp_list,
             months_list,
         )
+
+
+def history_key_date(key: str) -> date:
+    """The day a price-history key stands for.
+
+    Full (daily) history is keyed YYYY-MM-DD. Lite history is keyed by month keys like 'jan24',
+    which stand for the 1st of their month.
+    """
+    try:
+        return datetime.strptime(key, '%Y-%m-%d').date()
+    except ValueError:
+        month = [convert_date_to_short_str(month=m) for m in range(1, 13)].index(key[:3]) + 1
+        return date(2000 + int(key[3:]), month, 1)
 
 
 def convert_date_to_short_str(**kwargs) -> str:

@@ -1,9 +1,13 @@
 from os import PathLike
 from pathlib import Path
+from typing import Optional
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter, MaxNLocator
+
+from src.portfolio_mngr import convert_date_to_short_str, history_key_date
 
 # Categorical slots 1-3 of the validated dataviz palette, in fixed order.
 SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a']
@@ -41,52 +45,72 @@ def plot_bar(nums: list[float], fig_path: PathLike, labels: list[str] = None) ->
     plt.show()
 
 
+def use_date_axis(ax) -> None:
+    """Ticks a date x axis at a readable density, for month (lite) or daily (full) history."""
+    locator = mdates.AutoDateLocator()
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
+
+
+def show_note(ax, text: str) -> None:
+    """Says why a chart has nothing to draw, in place of the chart."""
+    ax.text(0.5, 0.5, text, ha='center', va='center', transform=ax.transAxes, color=TEXT_SECONDARY)
+    ax.set_axis_off()
+
+
+def point_marker(points: list) -> Optional[str]:
+    """A marker per point, unless there are so many (daily history) that they merge."""
+    return 'o' if len(points) <= 100 else None
+
+
 def plot_monthly_stocks(
     fig_path: PathLike, data_dict: dict, entry_points: dict, **kwargs
 ) -> list[PathLike]:
     Path(fig_path).parent.mkdir(parents=True, exist_ok=True)
     figs_paths = []
     for elm in data_dict:
-        x = np.arange(len(data_dict[elm].keys()))
-        names = list(data_dict[elm].keys())
-        y_list = []
-        for i in data_dict[elm].values():
-            y_list.append(i['price'])
-        y = np.array(y_list)
+        days = [history_key_date(key) for key in data_dict[elm]]
+        prices = [point['price'] for point in data_dict[elm].values()]
         fig, ax = plt.subplots(1, 1, figsize=(12, 6))
-        ax.plot(x, y, marker='o', linestyle='-', color='b')
-        ax.set_xticks(x)
-        ax.set_xticklabels(names)
+        ax.plot(days, prices, marker=point_marker(days), linestyle='-', color='b')
+        use_date_axis(ax)
         ax.set_title(elm.upper())
         figs_paths.append(fig_path.replace('.png', f'_{elm.lower()}.png'))
         fig.savefig(fig_path.replace('.png', f'_{elm.lower()}.png'))
+        plt.close(fig)
     fig, ax = plt.subplots(1, 1, figsize=(12, 6))
     colors = plt.cm.get_cmap('tab10', len(data_dict))
     for idx, elm in enumerate(data_dict):
-        entry = entry_points.get(elm)
-        if entry:
-            entry_x = names.index(entry)
-            base_price = list(data_dict[elm].values())[0]['price']
-            entry_y = (data_dict[elm][entry]['price'] / base_price) * 100
-            ax.plot(entry_x, entry_y, marker='o', markersize=10, color='black')
-        x = np.arange(len(data_dict[elm].keys()))
-        names = list(data_dict[elm].keys())
-        y_list = []
-        for i in data_dict[elm].values():
-            if len(y_list) == 0:
-                base_price = i['price']
-            y_list.append((i['price'] / base_price) * 100)
-        y = np.array(y_list)
-        ax.plot(x, y, marker='o', linestyle='-', label=elm.upper(), color=colors(idx))
+        # On a date axis, series with different dates (a later listing, other trading days)
+        # line up.
+        days = [history_key_date(key) for key in data_dict[elm]]
+        prices = [point['price'] for point in data_dict[elm].values()]
+        if not prices:
+            continue
+        y = [price / prices[0] * 100 for price in prices]
+        ax.plot(
+            days, y, marker=point_marker(days), linestyle='-', label=elm.upper(), color=colors(idx)
+        )
+        # The entry point is a month key; mark the series' first point in that month.
+        entry_x = next(
+            (
+                i
+                for i, day in enumerate(days)
+                if convert_date_to_short_str(date=day) == entry_points.get(elm)
+            ),
+            None,
+        )
+        if entry_x is not None:
+            ax.plot(days[entry_x], y[entry_x], marker='o', markersize=10, color='black')
+    use_date_axis(ax)
     ax.grid(True)
-    ax.set_xticks(x)
-    ax.set_xticklabels(names)
     ax.set_title('Combined Monthly Stocks')
     ax.legend()
     figs_paths.append(fig_path)
     fig.savefig(fig_path)
     if kwargs.get('show', False):
         plt.show()
+    plt.close(fig)
     return figs_paths
 
 
@@ -107,30 +131,36 @@ def plot_combined(
     y1 = np.array(nums_pie)
     y2 = np.array(nums_bar)
     y3 = np.array(nums_points)
-    y4 = np.array([100 * num_point / nums_points_1[-1] for num_point in nums_points_1])
     fig1, ax1 = plt.subplots(1, 1, figsize=(12, 6))
     fig2, ax2 = plt.subplots(1, 1, figsize=(12, 6))
     fig3, ax3 = plt.subplots(1, 1, figsize=(12, 6))
     fig4, ax4 = plt.subplots(1, 1, figsize=(12, 6))
-    ax1.pie(y1, labels=labels_pie, autopct='%1.1f%%')
+    if nums_pie:
+        ax1.pie(y1, labels=labels_pie, autopct='%1.1f%%')
+    else:
+        show_note(ax1, 'Nothing is held.')
     ax1.set_title(kwargs.get('pie_title', 'Pie Chart'))
     x2 = np.arange(len(y2))
     ax2.bar(x2, y2, tick_label=labels_bar)
     ax2.axhline(0, color='black', linewidth=0.8)
     ax2.set_title(kwargs.get('bar_title', 'Bar Chart'))
     ax2.grid(True)
-    x3 = np.arange(len(nums_points))
+    # The points are labelled with month keys; one tick label per month overlaps after a year.
+    x3 = [history_key_date(month) for month in labels_points]
     ax3.plot(x3, y3, marker='o', linestyle='-', color='r')
-    ax3.set_xticks(x3)
-    ax3.set_xticklabels(labels_points)
+    use_date_axis(ax3)
     ax3.set_title(kwargs.get('points_title', 'Points Chart'))
     ax3.grid(True)
-    x4 = np.arange(len(nums_points_1))
-    ax4.plot(x4, y4, marker='o', linestyle='-', color='b')
-    ax4.set_xticks(x4)
-    ax4.set_xticklabels(labels_points_1)
+    # Each month is a percentage of the last, which is 0 once everything is sold.
+    if nums_points_1[-1]:
+        x4 = [history_key_date(month) for month in labels_points_1]
+        y4 = np.array([100 * num_point / nums_points_1[-1] for num_point in nums_points_1])
+        ax4.plot(x4, y4, marker='o', linestyle='-', color='b')
+        use_date_axis(ax4)
+        ax4.grid(True)
+    else:
+        show_note(ax4, 'Nothing is held.')
     ax4.set_title(kwargs.get('points1_title', 'Points 1 Chart'))
-    ax4.grid(True)
     fig1_name = fig_path.replace(
         '.png', f'_pie_{kwargs.get("pie_title", "chart").lower().replace(" ", "_")}.png'
     )
@@ -153,6 +183,8 @@ def plot_combined(
     figs_paths.append(fig4_name)
     if kwargs.get('show', False):
         plt.show()
+    for fig in (fig1, fig2, fig3, fig4):
+        plt.close(fig)
     return figs_paths
 
 

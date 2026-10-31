@@ -11,7 +11,8 @@ import pytest
 FIXTURES = pathlib.Path(__file__).parent / 'fixtures'
 GOLDEN = pathlib.Path(__file__).parent / 'golden'
 
-# Made-up market. Weekly closes rise 1% a week from 'base'; 'current' is today's price.
+# Made-up market. Weekly closes rise 1% a week from 'base', daily closes 0.2% a weekday;
+# 'current' is today's price.
 TICKERS = {
     'AAA.AS': {'currency': 'EUR', 'base': 50.0, 'current': 62.0},
     'BBB': {'currency': 'USD', 'base': 100.0, 'current': 130.0},
@@ -29,8 +30,14 @@ class FakeTicker:
             return pd.DataFrame(
                 {'Close': [self.data['current']]}, index=pd.to_datetime(['2024-06-28'])
             )
-        index = pd.date_range('2024-01-01', '2024-06-24', freq='W-MON')
-        closes = [self.data['base'] * (1 + 0.01 * week) for week in range(len(index))]
+        if kwargs.get('interval') == '1d':
+            # Yahoo's end is exclusive, so the frozen today (a Sunday) has no bar.
+            index = pd.bdate_range('2024-01-01', '2024-06-28')
+            step = 0.002
+        else:
+            index = pd.date_range('2024-01-01', '2024-06-24', freq='W-MON')
+            step = 0.01
+        closes = [self.data['base'] * (1 + step * bar) for bar in range(len(index))]
         return pd.DataFrame({'Close': closes}, index=index)
 
 

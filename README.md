@@ -14,7 +14,7 @@ Python 3.11 or newer. From the project's home directory:
 
 ``$ .venv/Scripts/python.exe run.py --cfg config/cfg.yml``
 
-`--cfg` defaults to `config/cfg.yml`. The `--quiet` and `--log-level` flags are accepted but ignored; set `quiet` and `log-level` in the config instead. `config/*.yml` is gitignored except the demo, so your own configs stay local. To try the tool on made-up data first, see [Demo](#demo).
+`--cfg` defaults to `config/cfg.yml`. `--quiet` and `--log-level <level>` override `quiet` and `log-level` in the config; without them, the config decides. `config/*.yml` is gitignored except the demo, so your own configs stay local. To try the tool on made-up data first, see [Demo](#demo).
 
 ## Configuration
 
@@ -23,8 +23,8 @@ One YAML file holds everything. The required part:
 ```yaml
 market-data-origin: yahoo        # the only supported source
 comp:
-  default-currency: EUR          # EUR or USD: every value is reported in it
-  history-variant: lite          # lite (weekly prices); full (daily) currently crashes
+  default-currency: EUR          # every value is reported in it
+  history-variant: lite          # lite (weekly prices) or full (daily prices, slower)
 directories:                     # every directory must end with '/'
   generation-dir: data/me/       # where the outputs go
   log-dir: log/me/
@@ -33,8 +33,8 @@ directories:                     # every directory must end with '/'
 transactions:
   source: cloud                  # local (a CSV file) or cloud (a Google Sheet)
   shareable-address: <sheet id>  # only for source: cloud
-  symbols-standard: custom       # custom: use the symbol map below
-symbols-map:
+  symbols-standard: custom       # custom: use the symbol map below; yahoo: symbols are tickers
+symbols-map:                     # only for symbols-standard: custom
   source: cloud                  # local or cloud
   shareable-address: <sheet id>  # only for source: cloud
 cli-exec:
@@ -55,16 +55,17 @@ One row per trade. The columns are read **by position**, so keep them in this or
 | buy  | 2024-01-08 | 10       | 1    | 105.20 | EUR      | vwce   | XETRA    | broker-a | 1       | 0       |
 | buy  | 2024-03-04 | 2        | 1    | 175.10 | USD      | aapl   | NASDAQ   | broker-b | 1.08    | 2       |
 
-- `type` is `buy` or `sell`. `date` is YYYY-MM-DD.
+- `type` is `buy` or `sell`. `date` is YYYY-MM-DD. Rows don't have to be in date order.
 - `price`, `fees` and `ex_fees` (currency exchange fees) are in the trade's own currency.
 - `ex_rate` is how many units of the trade's currency one unit of the default currency buys, so 1 when they are the same. The cost in the default currency is `(price × quantity + fees + ex_fees) / ex_rate`.
 - `currency`, `exchange` and `platform` are only shown.
+- A sell uses the average cost: it removes its share of what the holding cost, and the proceeds, `(price × quantity − fees − ex_fees) / ex_rate`, minus that share are realized profit. Selling more than you hold stops the run with an input error that names the trade.
 
 Most brokers (IBKR, Degiro, Coinbase, …) can export trades as CSV, which you can rearrange into these columns.
 
 ### Symbol map
 
-Maps the symbols in your transactions to Yahoo Finance tickers. Two columns, `symbol` then `ticker`, with the first row skipped as the header. Symbols are matched case-insensitively. A symbol missing from the map goes to Yahoo as it is, in lower case.
+Maps the symbols in your transactions to Yahoo Finance tickers. Two columns, `symbol` then `ticker`, with the first row skipped as the header. Symbols are matched case-insensitively. A symbol missing from the map goes to Yahoo as it is, in lower case. The map is only used with `symbols-standard: custom`; with `yahoo`, write Yahoo tickers in the transactions and leave the map out.
 
 | symbol | ticker   |
 |--------|----------|
@@ -72,7 +73,7 @@ Maps the symbols in your transactions to Yahoo Finance tickers. Two columns, `sy
 | aapl   | AAPL     |
 | eur    | USDEUR=X |
 
-The map must also contain the default currency, lower-cased, mapped to the exchange-rate ticker for the other currency: `eur → USDEUR=X` with EUR as default, `usd → EURUSD=X` with USD. Every price that isn't in the default currency is multiplied by that rate, so only two currencies are supported.
+Prices are converted to the default currency with Yahoo's rate for each currency: `USDEUR=X` for USD with EUR as default, `GBPEUR=X` for GBP, and so on. London listings quoted in pence (GBp) are divided by 100 first. The map needs no exchange-rate row; an entry for the default currency, like `eur` above, only adds that rate to the charts.
 
 ### Positions (holdings snapshot or opening balances)
 
@@ -148,11 +149,11 @@ Each row is one year from the day of the run, so the first row is next calendar 
 Everything goes under `generation-dir`:
 
 - `report.html`: the report. It links its charts and pages with absolute paths, so it only works on the machine that generated it.
-- `generated/portfolio.csv`, `generated/total.md`, `generated/entries.md`: per-investment figures, totals, and the month of each first buy.
-- `generated/plots/`: the charts.
+- `generated/portfolio.csv`, `generated/total.md`, `generated/entries.md`: per-investment figures, totals, and the month of each first buy. `spending`, `profit_net` and `profit_percent` are about what you still hold; `realized_profit` is what sells made.
+- `generated/plots/`: the charts. "Valuation Percent" is the market value of your holdings at the end of each month, as a percentage of this month's.
 - `imaginary/<name>/`: one report per imaginary portfolio.
 
-Known bugs, including wrong totals after a partial sell, are listed in [docs/MODERNIZATION.md](docs/MODERNIZATION.md).
+Known bugs are listed in [docs/MODERNIZATION.md](docs/MODERNIZATION.md).
 
 ## Demo
 

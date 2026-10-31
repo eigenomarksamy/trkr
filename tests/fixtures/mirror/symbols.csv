@@ -1,0 +1,12 @@
+symbol,ticker
+etfa,ETFA.AS
+etfb,ETFB.AS
+etfc,ETFC.AS
+etfd,ETFD.AS
+etfe,ETFE.AS
+nysa,NYSA
+nasa,NASA
+nasb,NASB
+coin,COIN-EUR
+eur,USDEUR=X
+usd,EURUSD=X
