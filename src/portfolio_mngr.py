@@ -15,6 +15,21 @@ PRICE_TARGETS = {
     'price150': 2.50,
 }
 
+# A holding's figures, in the order portfolio.csv lists them.
+HOLDING_COLUMNS = [
+    'exchange',
+    'amount',
+    'value',
+    'spending',
+    'spending_percent',
+    'profit_net',
+    'profit_percent',
+    'current_price',
+    'break_even_price',
+    *PRICE_TARGETS,
+    'realized_profit',
+]
+
 
 class Portfolio:
     def __init__(
@@ -47,22 +62,8 @@ class Portfolio:
         for transaction in sorted(self.transactions.get(), key=lambda t: t.date):
             transaction = transaction.__dict__()
             if transaction['symbol'] not in symbols_dict:
-                symbols_dict[transaction['symbol']] = {
-                    'exchange': f'{transaction["exchange"]}',
-                    'amount': 0,
-                    'value': 0,
-                    'spending': 0,
-                    'spending_percent': 0,
-                    'profit_net': 0,
-                    'profit_percent': 0,
-                    'current_price': 0,
-                    'break_even_price': 0,
-                    'price25': 0,
-                    'price50': 0,
-                    'price75': 0,
-                    'price100': 0,
-                    'price150': 0,
-                    'realized_profit': 0,
+                symbols_dict[transaction['symbol']] = dict.fromkeys(HOLDING_COLUMNS, 0) | {
+                    'exchange': f'{transaction["exchange"]}'
                 }
             holding = symbols_dict[transaction['symbol']]
             if transaction['type'] == 'buy':

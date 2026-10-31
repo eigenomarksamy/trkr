@@ -1,10 +1,11 @@
 import csv
+import re
 from datetime import date
 
 import pytest
 
 import run
-from conftest import FIXTURES, check_golden, make_cfg
+from conftest import FIXTURES, GOLDEN, check_golden, make_cfg
 
 
 def check_real_portfolio_outputs(out):
@@ -139,30 +140,45 @@ positions:
     assert 'broker-y' not in transactions_page
 
 
-def test_exec_with_a_snapshot_and_a_later_partial_sell(offline):
-    snapshot = offline / 'holdings.csv'
-    snapshot.write_text('symbol,quantity,cost,date\naaa,30,1500,2024-03-01\n', encoding='utf-8')
+def make_cfg_with_trades(offline, extra_trades: str, extra_yaml: str = ''):
+    """A config whose transactions are the fixture's plus extra_trades, in its columns."""
     trades = offline / 'transactions.csv'
     trades.write_text(
-        (FIXTURES / 'transactions.csv').read_text(encoding='utf-8')
-        + 'sell,2024-05-06,10,2,60,EUR,aaa,AMS,broker-x,1,0\n',
+        (FIXTURES / 'transactions.csv').read_text(encoding='utf-8') + extra_trades,
         encoding='utf-8',
     )
-    cfg = make_cfg(
-        offline,
-        f"""
-positions:
-  source: local
-  positions-dir: {snapshot.as_posix()}
-""",
-    )
+    cfg = make_cfg(offline, extra_yaml)
     cfg.write_text(
         cfg.read_text(encoding='utf-8').replace(
             (FIXTURES / 'transactions.csv').as_posix(), trades.as_posix()
         ),
         encoding='utf-8',
     )
-    run.exec(cfg)
+    return cfg
+
+
+def read_total(generated) -> dict:
+    total = {}
+    for line in (generated / 'total.md').read_text(encoding='utf-8').splitlines()[4:]:
+        _, metric, value, _ = line.split('|')
+        total[metric.strip()] = float(value)
+    return total
+
+
+def test_exec_with_a_snapshot_and_a_later_partial_sell(offline):
+    snapshot = offline / 'holdings.csv'
+    snapshot.write_text('symbol,quantity,cost,date\naaa,30,1500,2024-03-01\n', encoding='utf-8')
+    run.exec(
+        make_cfg_with_trades(
+            offline,
+            'sell,2024-05-06,10,2,60,EUR,aaa,AMS,broker-x,1,0\n',
+            f"""
+positions:
+  source: local
+  positions-dir: {snapshot.as_posix()}
+""",
+        )
+    )
     generated = offline / 'out' / 'generated'
     with open(generated / 'portfolio.csv', newline='', encoding='utf-8') as file:
         holdings = {row['symbol']: row for row in csv.DictReader(file)}
@@ -172,12 +188,40 @@ positions:
     assert float(holdings['AAA.AS']['spending']) == pytest.approx(1721 * 24 / 34)
     assert float(holdings['AAA.AS']['realized_profit']) == pytest.approx(598 - 1721 * 10 / 34)
     assert float(holdings['BBB']['spending']) == pytest.approx(501.5 / 1.1)
-    total = {}
-    for line in (generated / 'total.md').read_text(encoding='utf-8').splitlines()[4:]:
-        _, metric, value, _ = line.split('|')
-        total[metric.strip()] = float(value)
+    total = read_total(generated)
     assert total['spending'] == pytest.approx(1721 * 24 / 34 + 501.5 / 1.1)
     assert total['realized_profit'] == pytest.approx(598 - 1721 * 10 / 34)
+
+
+def test_exec_with_every_position_sold(offline):
+    run.exec(
+        make_cfg_with_trades(
+            offline,
+            'sell,2024-05-06,14,2,60,EUR,aaa,AMS,broker-x,1,0\n'
+            + 'sell,2024-05-06,5,1,120,USD,bbb,NASDAQ,broker-x,1.1,0.5\n',
+        )
+    )
+    out = offline / 'out'
+    generated = out / 'generated'
+    # Nothing is held, so the table is its header row, with the usual columns.
+    with open(generated / 'portfolio.csv', newline='', encoding='utf-8') as file:
+        rows = list(csv.reader(file))
+    with open(GOLDEN / 'exec' / 'portfolio.csv', newline='', encoding='utf-8') as file:
+        assert rows == [next(csv.reader(file))]
+    total = read_total(generated)
+    assert total['spending'] == 0
+    assert total['value'] == 0
+    # aaa: 14 * 60 - 2 against a cost of 501 + 221. bbb: (5 * 120 - 1 - 0.5) / 1.1 against
+    # 501.5 / 1.1.
+    assert total['realized_profit'] == pytest.approx(838 - 722 + (598.5 - 501.5) / 1.1)
+    valuation = (generated / 'misc_tables.html').read_text(encoding='utf-8')
+    assert float(re.search(r'jun24: ([\d.]+)', valuation).group(1)) == 0
+    for path in (
+        'report.html',
+        'generated/plots/gen_stats_pie_spending_percent.png',
+        'generated/plots/gen_stats_points_valuation_percent.png',
+    ):
+        assert (out / path).exists(), path
 
 
 def test_exec_with_full_history(offline):

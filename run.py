@@ -20,7 +20,7 @@ from src.market_mngr import (
     get_yfinance_map_local,
 )
 from src.plot_mngr import plot_combined, plot_monthly_stocks, plot_projection
-from src.portfolio_mngr import Portfolio
+from src.portfolio_mngr import HOLDING_COLUMNS, Portfolio
 from src.projection import (
     ProjectionCfg,
     invested_last_12_months,
@@ -352,7 +352,9 @@ def process_portfolio(
             print('\t', ep, entry_points[ep])
     if not is_quiet:
         print('Generating files..')
-    write_csv_lazy(pathlib.Path(f'{directories.gen_portfolio_file}'), portfolio_dict, 'symbol')
+    write_csv_lazy(
+        pathlib.Path(f'{directories.gen_portfolio_file}'), portfolio_dict, 'symbol', HOLDING_COLUMNS
+    )
     write_markdown_table(
         pathlib.Path(f'{directories.gen_total_file}'), 'Total', 'Metric', 'Value', total_dict
     )

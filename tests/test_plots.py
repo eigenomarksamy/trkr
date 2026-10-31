@@ -96,6 +96,30 @@ def test_plots_close_their_figures(tmp_path):
     assert len(list(tmp_path.rglob('*.png'))) == 7
 
 
+def test_stats_charts_say_when_nothing_is_held(tmp_path, saved_figures):
+    # Everything was sold in feb24: no holdings to split, and no current value to compare with.
+    fig_path = f'{tmp_path.as_posix()}/gen_stats.png'
+    plot_combined(
+        fig_path=fig_path,
+        nums_pie=[],
+        nums_bar=[0],
+        nums_points=[100],
+        nums_points_1=[1000, 0],
+        labels_pie=[],
+        labels_bar=['Total'],
+        labels_points=['jan24'],
+        labels_points_1=['jan24', 'feb24'],
+        points_title='Spending Per Month',
+        points1_title='Valuation Percent',
+        pie_title='Spending Percent',
+        bar_title='Profit Percent',
+    )
+    for name in ('pie_spending_percent', 'points_valuation_percent'):
+        ax = saved_figures[fig_path.replace('.png', f'_{name}.png')].axes[0]
+        assert not ax.patches and not ax.get_lines()
+        assert [text.get_text() for text in ax.texts] == ['Nothing is held.']
+
+
 def test_full_history_charts_keep_their_ticks_readable(tmp_path, saved_figures):
     fig_path = f'{tmp_path.as_posix()}/history.png'
     days = [f'2024-{month:02}-{day:02}' for month in range(1, 13) for day in range(1, 29)]

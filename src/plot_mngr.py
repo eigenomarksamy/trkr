@@ -52,6 +52,12 @@ def use_date_axis(ax) -> None:
     ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
 
 
+def show_note(ax, text: str) -> None:
+    """Says why a chart has nothing to draw, in place of the chart."""
+    ax.text(0.5, 0.5, text, ha='center', va='center', transform=ax.transAxes, color=TEXT_SECONDARY)
+    ax.set_axis_off()
+
+
 def point_marker(points: list) -> Optional[str]:
     """A marker per point, unless there are so many (daily history) that they merge."""
     return 'o' if len(points) <= 100 else None
@@ -125,12 +131,14 @@ def plot_combined(
     y1 = np.array(nums_pie)
     y2 = np.array(nums_bar)
     y3 = np.array(nums_points)
-    y4 = np.array([100 * num_point / nums_points_1[-1] for num_point in nums_points_1])
     fig1, ax1 = plt.subplots(1, 1, figsize=(12, 6))
     fig2, ax2 = plt.subplots(1, 1, figsize=(12, 6))
     fig3, ax3 = plt.subplots(1, 1, figsize=(12, 6))
     fig4, ax4 = plt.subplots(1, 1, figsize=(12, 6))
-    ax1.pie(y1, labels=labels_pie, autopct='%1.1f%%')
+    if nums_pie:
+        ax1.pie(y1, labels=labels_pie, autopct='%1.1f%%')
+    else:
+        show_note(ax1, 'Nothing is held.')
     ax1.set_title(kwargs.get('pie_title', 'Pie Chart'))
     x2 = np.arange(len(y2))
     ax2.bar(x2, y2, tick_label=labels_bar)
@@ -143,11 +151,16 @@ def plot_combined(
     use_date_axis(ax3)
     ax3.set_title(kwargs.get('points_title', 'Points Chart'))
     ax3.grid(True)
-    x4 = [history_key_date(month) for month in labels_points_1]
-    ax4.plot(x4, y4, marker='o', linestyle='-', color='b')
-    use_date_axis(ax4)
+    # Each month is a percentage of the last, which is 0 once everything is sold.
+    if nums_points_1[-1]:
+        x4 = [history_key_date(month) for month in labels_points_1]
+        y4 = np.array([100 * num_point / nums_points_1[-1] for num_point in nums_points_1])
+        ax4.plot(x4, y4, marker='o', linestyle='-', color='b')
+        use_date_axis(ax4)
+        ax4.grid(True)
+    else:
+        show_note(ax4, 'Nothing is held.')
     ax4.set_title(kwargs.get('points1_title', 'Points 1 Chart'))
-    ax4.grid(True)
     fig1_name = fig_path.replace(
         '.png', f'_pie_{kwargs.get("pie_title", "chart").lower().replace(" ", "_")}.png'
     )

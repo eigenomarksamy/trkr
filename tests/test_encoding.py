@@ -32,7 +32,7 @@ def test_yaml_reads_utf8(tmp_path):
 def test_csv_and_markdown_are_written_as_utf8(tmp_path):
     CsvMngr(tmp_path / 'a.csv', ['name']).write([['₿ ' + TEXT]])
     write_markdown_table(tmp_path / 'b.md', 'Total', 'Metric', 'Value', {'₿': TEXT})
-    write_csv_lazy(tmp_path / 'c.csv', {'₿': {'exchange': TEXT}}, 'symbol')
+    write_csv_lazy(tmp_path / 'c.csv', {'₿': {'exchange': TEXT}}, 'symbol', ['exchange'])
     for name in ('a.csv', 'b.md', 'c.csv'):
         written = (tmp_path / name).read_bytes()
         assert '₿'.encode() in written

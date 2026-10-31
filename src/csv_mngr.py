@@ -64,12 +64,11 @@ def write_markdown_urls(path: pathlib.Path, title: str, writable_dict: dict) -> 
             file.write(f'* [{key}]({value})\n')
 
 
-def write_csv_lazy(path: pathlib.Path, data_dict: dict, key: str) -> None:
+def write_csv_lazy(path: pathlib.Path, data_dict: dict, key: str, columns: list[str]) -> None:
+    """A row per key of data_dict. The header comes from columns, so an empty dict still has one."""
     pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
-        headers = [f'{key}'] + list(next(iter(data_dict.values())).keys())
-        writer.writerow(headers)
+        writer.writerow([key] + columns)
         for symbol, data in data_dict.items():
-            row = [symbol] + list(data.values())
-            writer.writerow(row)
+            writer.writerow([symbol] + [data[column] for column in columns])
