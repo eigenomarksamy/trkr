@@ -16,14 +16,16 @@ State as of 2026-10-22: the last code change was 2025-03; the scheduled job ran 
 
 Later on 2026-10-29: instead of a live run on the owner's sheets, Phase 1 was validated on a mirror: made-up sheets in the shape of the owner's cached sheet (`tests/test_mirror.py`, `tests/fixtures/mirror/`). Its one sell closes a whole position, and nothing is oversold, so the new 400 rule doesn't fire. Run through `main` and through this branch, the mirror gives the same spending, value and profit, apart from float noise in the last digits. What changes is the new `realized_profit` row, holdings listed in first-trade order instead of sheet order, and the valuation chart. The old chart stopped at the last trade and added the sold position back in; the new one runs to today.
 
-## Status (2026-10-29)
+2026-10-31: bug 14 is fixed (`8ff5e1c`), so every Phase 1 item is done. The branch `phase-1-bugs` is still not merged.
+
+## Status (2026-10-31)
 
 | Area | State |
 |---|---|
 | Phase 0 | Done and committed (last: `88b87d4`). |
 | Projection, imaginary portfolios, opening positions | Done and committed (`49af3d4`). |
 | Holdings snapshot, bug 13, sheet tab links | Done and committed (`c45f7c3`). 106 tests pass. The demo run and a live run with a snapshot dated today both exit 0. |
-| Phase 1, bugs 1-12 | Done on branch `phase-1-bugs` (`bb62641`..`1138a49`), not merged. 167 tests pass, including the run on a mirror of the owner's sheet, and the demo run exits 0. Bug 14 is open. |
+| Phase 1, bugs 1-14 | Done on branch `phase-1-bugs` (`bb62641`..`8ff5e1c`; bug 13 in `c45f7c3`), not merged. 169 tests pass, including the run on a mirror of the owner's sheet, and the demo run exits 0. |
 | Phases 2-4 | Not started. |
 | Web app, W0-W9 | Not started. W1 and later wait on Phase 2 items and the Phase 3 package. |
 | Broker import, sheet generator | Planned only. The importer waits on sample exports from the owner. |
@@ -44,7 +46,7 @@ Claude assumes the defaults below unless told otherwise.
 | Python floor | `>=3.11`, so the current venv keeps working. |
 | Cost basis for sells | Average cost (already implied by `break_even_price`). Realized and unrealized P&L reported separately. |
 | Selling more than is held | The run stops with 400 `InvalidInputData` and names the trade, as bad positions rows do. Every figure after such a sell would be wrong, and it usually means a missing buy. A sell within 1e-9 (relative) of the holding counts as selling all of it. |
-| "Valuation Percent" chart (bug 6) | The market value of the holdings at the end of each month, from the first trade's month through the current one, as a percentage of the current month's. A month without a close takes the previous close, or today's price. |
+| "Valuation Percent" chart (bug 6) | The market value of the holdings at the end of each month, from the first trade's month through the current one, as a percentage of the current month's. A month without a close takes the previous close, or today's price. When nothing is held this month there is nothing to compare with, so the chart says "Nothing is held." instead of switching to another base (bug 14). |
 | Currency conversion (bug 7) | Each currency with its own Yahoo pair, `<CUR><DEFAULT>=X`. Minor units (GBp, ZAc, ILA) are divided by 100. A ticker Yahoo gives no currency for stops the run with 503 instead of being treated as USD. The symbol map's default-currency row is no longer needed. |
 | CLI flags (bug 8) | `--quiet` and `--log-level` override the YAML `cli-exec` block when given, and leave it alone when not. |
 | Data sources | Keep Google Sheets (CSV export) and local CSV. Keep Yahoo via `yfinance`. |
@@ -113,7 +115,8 @@ Ordered by impact. Line numbers are as of commit `c1d28fe`.
 12. [x] **Monthly loops drop the last month.** `compute_spending_history` and `compute_historical_valuation` step one month at a time from the *first* transaction's date and stop once past the *last* transaction's date. When the last transaction falls on an earlier day of the month than the first (first 2024-01-20, last 2024-03-05), the final month is never visited, so its buys are missing. This affects the spending chart, the valuation chart and the projection's "invested in the last 12 months". The golden fixture (2024-01-15 → 2024-04-08) and the demo (2024-01-08 → 2025-02-03) both hit it. Found 2026-10-24; pinned by `test_spending_history_drops_the_last_month_when_its_day_is_earlier`. Iterate over month starts instead.
     Fixed: both loops step over month starts. (`a3bb065`; the pinning test, renamed `test_spending_history_keeps_the_last_month_when_its_day_is_earlier`, now pins the fix)
 13. [x] **A buy in the current month crashes the run when the month has no weekly bar yet.** `lite` history labels each weekly bar with its Monday. So on the 1st-6th of a month, the month can have no bar yet. A window that starts today has no bars at all, and Yahoo prints "possibly delisted". `compute_historical_valuation` then raises `KeyError`, which becomes bug 4. A snapshot dated today always hit it. Found 2026-10-28 by probing Yahoo with AAPL. Fix: skip the Yahoo call when the window is empty, and give the current month today's price when it has no bar. (`tests/test_market.py`; `c45f7c3`)
-14. [ ] **A portfolio with every position sold crashes.** `write_csv_lazy` (`src/csv_mngr.py`) takes its headers from the first row, so an empty portfolio raises `StopIteration` (exit 1 since bug 4). `plot_combined` would then divide by a last valuation of 0 and draw an empty pie. Found 2026-10-29 by selling the whole fixture. It predates the bug 1 fix, which only made the totals right up to that point.
+14. [x] **A portfolio with every position sold crashes.** `write_csv_lazy` (`src/csv_mngr.py`) takes its headers from the first row, so an empty portfolio raises `StopIteration` (exit 1 since bug 4). `plot_combined` would then divide by a last valuation of 0 and draw an empty pie. Found 2026-10-29 by selling the whole fixture. It predates the bug 1 fix, which only made the totals right up to that point.
+    Fixed: `portfolio.csv` takes its columns from `HOLDING_COLUMNS` (`src/portfolio_mngr.py`), which also builds each holding, so an empty portfolio writes the header alone. The spending pie and the valuation chart say "Nothing is held." instead of drawing (see the decisions table). (`8ff5e1c`; `test_exec_with_every_position_sold`, `tests/test_plots.py`)
 
 ## Phase 2: Structure and cleanup (behaviour-preserving, guarded by Phase 0 tests)
 
