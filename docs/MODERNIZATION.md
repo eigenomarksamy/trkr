@@ -18,20 +18,25 @@ Later on 2026-10-29: instead of a live run on the owner's sheets, Phase 1 was va
 
 2026-10-31: bug 14 is fixed (`8ff5e1c`), so every Phase 1 item is done. The branch `phase-1-bugs` is still not merged.
 
-## Status (2026-10-31)
+Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
+
+2026-11-02: the owner asked for the web app to deploy as a Cloudflare Worker on its own domain, to start small and grow, and to publish nothing private. That replaces the local FastAPI plan; the decisions table and "Feature: web app" are rewritten for it. Built, not yet committed: every run writes `snapshot.json` (W0), and `web/` holds a viewer on a Worker (W1) with the projection playground (W4) and a privacy check that guards every build and deploy. 175 Python tests and 16 web tests pass; a local `wrangler dev` and a dry-run deploy both work. The owner deploys.
+
+## Status (2026-11-02)
 
 | Area | State |
 |---|---|
 | Phase 0 | Done and committed (last: `88b87d4`). |
 | Projection, imaginary portfolios, opening positions | Done and committed (`49af3d4`). |
 | Holdings snapshot, bug 13, sheet tab links | Done and committed (`c45f7c3`). 106 tests pass. The demo run and a live run with a snapshot dated today both exit 0. |
-| Phase 1, bugs 1-14 | Done on branch `phase-1-bugs` (`bb62641`..`8ff5e1c`; bug 13 in `c45f7c3`), not merged. 169 tests pass, including the run on a mirror of the owner's sheet, and the demo run exits 0. |
+| Phase 1, bugs 1-14 | Done (`bb62641`..`8ff5e1c`; bug 13 in `c45f7c3`) and merged into `main` (`c7bc1fb`). |
 | Phases 2-4 | Not started. |
-| Web app, W0-W9 | Not started. W1 and later wait on Phase 2 items and the Phase 3 package. |
+| Web app | A Cloudflare Worker app in `web/`, not committed yet. W0's snapshot, W1's viewer and most of W4 are done; it is not deployed. 175 Python tests and 16 web tests pass. |
 | Broker import, sheet generator | Planned only. The importer waits on sample exports from the owner. |
 
 Waiting on the owner:
 
+- deploying the web app (`web/README.md`: `npx wrangler login`, then `npm run deploy -- --domain <host>`), and whether a hosted app should get the latest snapshot without the file (decisions table);
 - a holdings tab in the transactions sheet, and the `positions:` block in `cfg.yml` and `cfg_bat.yml`;
 - one export per broker, for the importer;
 - the new defaults in the decisions table: web editing of holdings, Google Sheets for the generator, and what "prompts" means.
@@ -58,16 +63,18 @@ Claude assumes the defaults below unless told otherwise.
 | Mortgage calculator in `networth_projection` | Not ported. |
 | First projection row | One year after the run (owner, 2026-10-23). A run in October 2026 labels row 1 as 2027, so no year is credited with a full year it hasn't had. |
 | Opening positions | One row per investment (quantity, average price or total cost, and a date per row) in a separate optional file or sheet tab, local or cloud. A position is what was held *as of* its date. Trades in that symbol up to and including the date are already in it and are dropped; later trades adjust it (owner, 2026-10-23; as-of rule 2026-10-28). Real portfolio only for now. |
-| Web app: where it runs | On the owner's PC only, bound to `127.0.0.1`, with no login. The pages show holdings, and the config holds sheet IDs that anyone with the link can read. Opening it to the LAN or the internet needs auth and HTTPS first, and is a separate decision. |
-| Web app: stack | FastAPI + Jinja2 + htmx, rendered on the server, with no Node build step. htmx and `plotly.min.js` are vendored at pinned versions, so the pages work offline. Alternative: Streamlit gets to a first page faster, but it can't share templates or tests with the static report. |
-| Web app: charts | Plotly. Figures are built in Python from the run snapshot and drawn in the browser. |
-| Web app: how a run executes | The CLI runs as a subprocess, one run at a time, under a lock file that the scheduled job also takes. A crash or a hang can't take the server down, and process-wide state (bugs 5 and 9) stays out of the server. |
-| Web app: data contract | Every CLI run writes a versioned `snapshot.json`, the scheduled run included. The server reads snapshots. The only thing it computes itself is projections. |
-| Web app: config | Read-only. The server never writes `cfg.yml` or `cfg_bat.yml`. What-ifs live in the URL or under `<gen-dir>/web/`. `run_web.bat` points at `cfg_bat.yml`, so the app opens on the scheduled job's latest run. |
-| Web app: dependencies | An optional `web` extra in `pyproject.toml`, so the scheduled job doesn't install FastAPI. |
+| Web app: where it runs | A Cloudflare Worker on its own domain (owner, 2026-11-02). It serves static files and stores nothing. The owner opens a `snapshot.json` in the browser, which reads it there, so no holdings reach the server. Until 2026-11-02: on the owner's PC only, on `127.0.0.1`. |
+| Web app: stack | TypeScript without a UI framework, built by Vite, served as the Worker's static assets; vitest for tests. Exact-pinned dev dependencies only (wrangler, vite, vitest, typescript), each at least two weeks old when pinned, locked in `web/package-lock.json`. Replaces FastAPI + Jinja2 + htmx, which a Worker can't run without a Python runtime and the CLI's dependencies. |
+| Web app: charts | Hand-written SVG (`web/src/chart.ts`) on the dataviz palette, drawn from the snapshot. No chart library so far, so nothing to vendor. |
+| Web app: how a run executes | The hosted app can't run the CLI. Runs stay with the scheduled job and the CLI; the app shows what they wrote. |
+| Web app: data contract | Every CLI run writes a versioned `snapshot.json`, the scheduled run included. The app reads snapshots. The only thing it computes itself is projections, with a port of `project_net_worth` tested against the CLI's rows. |
+| Web app: config | The app never sees the config: the snapshot carries only the currency, the history variant and local/cloud per source. What-ifs live in the browser; the projection page gives a YAML block to paste. |
+| Web app: dependencies | A separate Node project in `web/`. `pyproject.toml`, `requirements.txt` and the scheduled job don't change. |
 | Snapshot date | Required on every row. Defaulting it to the run date would move the date every day, and each later trade would be dropped as already counted. In Sheets, fill the column down. |
 | Snapshot cost | `cost` is the total paid in the default currency, as broker apps show it, so it needs no `ex_rate`. A row with `average_price` in another currency now requires `ex_rate`, which used to default to 1 without a warning. |
-| Web app: editing holdings | The holdings snapshot is the one thing the app edits, and only in a local file (`positions: source: local`). With a Google Sheet source the page shows the rows read-only and links to the sheet. Transactions stay read-only, and the app still never writes the config. |
+| Web app: editing holdings | The hosted app can't write the local positions file. Edited rows are checked in the browser and downloaded as a positions CSV, to save over the file or paste into the sheet tab (W7). Transactions stay read-only, and the app never writes the config. |
+| Web app: private data | Nothing private is published. The deploy is built only from files git knows, and `web/scripts/check-private.mjs` refuses a build holding a local config's sheet address, the home directory, or any snapshot but the made-up demo. The CSP keeps the page from sending data anywhere; pages are `noindex`. The domain is passed at deploy time, not committed, since the repo is public. Wrangler metrics are off. |
+| Web app: getting the snapshot to a hosted app | Open the file, optionally kept in the browser's storage on that device (default). Owner's call, later: the scheduled job uploads each snapshot to R2 or KV behind Cloudflare Access, so a phone opens the latest one. That stores holdings at Cloudflare under the owner's account, and needs Access set up on the domain and an API token on the PC. |
 | Broker import: output | A CSV of new rows in the sheet's column order, to paste into the sheet or append to a local file. The importer never writes to Google. |
 | Sheet generator: Google Sheets | It writes one CSV per tab, to import into a new Google Sheet (File > Import), and the matching config blocks. Creating the sheet directly through the Google Sheets API needs a Google Cloud project, OAuth consent on the owner's account and a stored token, so it is a separate decision. |
 | Sheet generator: "prompts" | Questions the tool asks, in the terminal and in the web app. Turning free text into rows with an LLM is a different feature: it needs an API key and sends holdings to a third party. Not planned unless the owner asks. |
@@ -257,15 +264,16 @@ A setup tool that asks a few questions and writes every file trkr reads, so star
 
 ## Feature: web app
 
-A local web app that shows everything the static report shows. It also does what a static page can't: start a run, browse past runs, and recompute the projection as its inputs are edited. It is a second front end on the same core, not a fork. The CLI stays the only code that fetches data and computes portfolios, and the scheduled job keeps working. The defaults are the "Web app" rows in the decisions table.
+A web page that shows everything the static report shows, and does what a static page can't: recompute the projection as its inputs change, sort and filter, and show any run's snapshot. It is a second front end on the same core, not a fork. The CLI stays the only code that fetches data and computes portfolios, and the scheduled job keeps working. The defaults are the "Web app" rows in the decisions table.
+
+Until 2026-11-02 the plan was a FastAPI server on the owner's PC. The owner then asked for an app that deploys as a Cloudflare Worker on its own domain, starts small and grows, and publishes nothing private. A Worker can't run the CLI or read the owner's files, so the app reads the snapshot the CLI writes, opened in the browser. Milestones that needed the server (runs from the browser, writing files) are marked below.
 
 Prerequisites:
 
-- W0 needs only the Phase 0 tests, because it is a behaviour-preserving refactor guarded by the golden test.
-- W1 onward needs these Phase 2 items: the exception hierarchy (the server shows error names, which also retires bug 4), `logging` instead of `print`, tracked templates with autoescape (transactions come from a sheet and are now rendered in a browser), and typed config with `pathlib`. It also needs the Phase 3 package item, so the server can live in `trkr.web`.
-- Fix bug 1 before using the app day to day, so the new UI doesn't show wrong totals. (Done, `5468eef`.)
-- The Phase 3 batched download and history cache make "Run now" much faster. They are not required.
-- W7-W9 (owner, 2026-10-28) need W1. W8 also needs the broker import feature, and W9 the sheet generator.
+- W0 needs only the Phase 0 tests.
+- The Worker app needs none of Phase 2 or the Phase 3 package, because it shares no Python code. Its contract with the CLI is the snapshot, pinned on both sides by tests.
+- The Phase 3 batched download and history cache make the scheduled job faster, not the app.
+- W7-W9 (owner, 2026-10-28): W8 also needs the broker import feature, and W9 the sheet generator.
 
 ### Feature parity
 
@@ -273,132 +281,109 @@ Each feature of the CLI, and where it ends up in the app:
 
 | Feature | Today | Web app | Milestone |
 | --- | --- | --- | --- |
-| Transactions from a local CSV or a public Google Sheet (or one of its tabs), symbol map, positions | YAML config, read by `run.py` | Same config, run by the CLI subprocess | W2 |
-| Totals: spending, value, profit, profit %, cash-out, holding period, average ROI | `report.html`, Total | Overview | W1 |
-| Per-symbol table with price targets | `report.html`, Portfolio | Holdings (sortable), plus a page per symbol | W1 |
-| Stats charts: spending %, profit %, spending per month, valuation % | `plots/gen_stats.png` | Overview: PNGs first, then interactive | W1, W3 |
-| Price history per ticker with entry points | `plots/stocks/*.png`, `figs_historical.html` | Symbol pages | W1, W3 |
-| Transactions list | `transactions.html` | Transactions, filterable by symbol, type and platform | W1 |
-| Symbol map, entry points, historical valuation | `misc_tables.html` | Data | W1 |
-| Generated files: `portfolio.csv`, `total.md`, `entries.md`, `projection.csv`, `projection.md` | `generated/` | Downloads on Data | W1 |
-| Imaginary portfolios and the comparison table | `imaginary/<name>/report.html`, main report | The same views per portfolio; the comparison on Overview | W1 |
-| Net-worth projection | `report.html`, `projection.html` | Projection page, then editable inputs | W1, W4 |
-| Scheduled run | `run_script.bat` | Unchanged; its snapshots show up in the app | W0 |
-| Logs and exit codes | `log/`, console | Run status with the error name and the log tail | W2 |
-| Static HTML report | `report.html` | Still written by the CLI, and linked from Data | none |
-| Holdings snapshot | `positions:` file or sheet tab | Holdings page, editable for a local file | W7 |
-| Broker import | `trkr import` (planned) | Upload page | W8 |
-| Setup | `trkr init` (planned) | Wizard | W9 |
+| Transactions from a local CSV or a public Google Sheet (or one of its tabs), symbol map, positions | YAML config, read by `run.py` | Unchanged: the CLI reads them; the app shows the result | none |
+| Totals: spending, value, profit, profit %, cash-out, holding period, average ROI | `report.html`, Total | Overview | W1, done |
+| Per-symbol table with price targets | `report.html`, Portfolio | Holdings (sortable), plus a page per symbol | W1, done |
+| Stats charts: spending %, profit %, spending per month, valuation % | `plots/gen_stats.png` | Overview: value at each month end and invested each month are done; spending % and profit % are in the Holdings table, not charted | W1, W3 |
+| Price history per ticker with entry points | `plots/stocks/*.png`, `figs_historical.html` | Symbol pages, with the break-even line | W1, done |
+| Transactions list | `transactions.html` | Transactions, filterable by symbol, type and platform | W1, done |
+| Symbol map, entry points, historical valuation | `misc_tables.html` | Data (symbol map); entry points on symbol charts; valuation as a table under its chart | W1, done |
+| Generated files: `portfolio.csv`, `total.md`, `entries.md`, `projection.csv`, `projection.md` | `generated/` | Not in the app: they stay on the PC | none |
+| Imaginary portfolios and the comparison table | `imaginary/<name>/report.html`, main report | The same views per portfolio; the comparison on Overview | W1, done |
+| Net-worth projection | `report.html`, `projection.html` | Projection page with editable inputs | W4, done in part |
+| Scheduled run | `run_script.bat` | Unchanged; each run writes a snapshot to open | W0, done |
+| Logs and exit codes | `log/`, console | Not in the app | none |
+| Static HTML report | `report.html` | Still written by the CLI | none |
+| Holdings snapshot | `positions:` file or sheet tab | Positions are marked in Transactions; editing is W7 | W7 |
+| Broker import | `trkr import` (planned) | Upload page, owner's call | W8 |
+| Setup | `trkr init` (planned) | Wizard, owner's call | W9 |
 
 ### W0: Core seam (CLI only, no web code)
 
-- [ ] Split computation from output. `process_portfolio` and `process_projection` return data only. Writing the CSV, Markdown and PNG files moves into a separate `write_outputs(run, directories)`. The golden test passes unchanged.
-- [ ] A `RunSnapshot` dataclass that holds everything any page needs:
-  - run time and a config summary: default currency, history variant, and `local`/`cloud` for each source, but never addresses or sheet IDs;
-  - the ticker map, per-symbol rows, totals, monthly spending, entry points and historical valuation;
-  - price history per ticker, in the default currency;
-  - transactions, with positions marked, and the trades that positions replaced (W7 shows them);
+- [x] Every run writes `<gen-dir>/snapshot.json`, plus a copy at `<gen-dir>/snapshots/<YYYYmmdd_HHMMSS>.json`. Each is written to a temp file and renamed, so a reader never sees half a file. Every copy is kept: at tens of KB per run, a year of daily runs is a few MB. (`src/snapshot.py`, called last in `exec`)
+- [x] The snapshot holds what any page needs, with `schema` and `schema_version` (1):
+  - run time and a config summary: default currency, history variant, and `local`/`cloud` for each source, but never addresses, sheet IDs or paths;
+  - the symbol map, per-symbol rows, totals, monthly spending, historical valuation (months as `YYYY-MM`) and entry points;
+  - price history per ticker, in the default currency (days as `YYYY-MM-DD`; with lite history a month's 1st stands for its last close);
+  - transactions, with positions marked by their platform (`positions file`);
   - each imaginary portfolio, in the same shape;
-  - projection inputs, start value and rows.
+  - projection inputs, start year, start value and rows.
 
-  It gets `to_json`/`from_json` and a `schema_version`.
-- [ ] Every run writes `<gen-dir>/snapshot.json`, plus a copy at `<gen-dir>/snapshots/<YYYYmmdd_HHMMSS>.json`. It writes a temp file and renames it, so a reader never sees half a file. Keep every copy: at tens of KB per run, a year of daily runs is a few MB.
-- [ ] Tests: a golden `snapshot.json` for the fixture config (same `TRKR_UPDATE_GOLDEN=1` flow), and a JSON round trip.
+  It is a plain dict in Python and typed in `web/src/snapshot.ts`; the Python side needs no `from_json`, because only the app reads snapshots. NaN becomes `null`.
+- [x] Tests: a golden `tests/golden/exec/snapshot.json` (same `TRKR_UPDATE_GOLDEN=1` flow), months and dates, no paths, the imaginary portfolio and projection against `projection.csv`, NaN, and on the mirror: no sheet address and the same valuation as the report (`tests/test_snapshot.py`, `tests/test_mirror.py`). The web tests parse the golden file.
+- [ ] The trades that positions replaced (`merge_positions` returns them), for W7.
+- [ ] Split computation from output: `process_portfolio` and `process_projection` return data only, and a separate `write_outputs(run, directories)` writes the files. No longer needed by the app; it would let a test build a snapshot without writing PNGs.
 
-### W1: Read-only viewer
+### W1: Viewer on a Worker
 
-- [ ] `trkr web --cfg <file>` starts the server on `127.0.0.1:8765`, using uvicorn and a `create_app(cfg_path)` factory. It shows the latest snapshot from the config's `generation-dir`. When there is no snapshot yet, the page explains how to make one. A snapshot with a different `schema_version` asks for a new run.
-- [ ] Layout: navigation, an `as of <run time>` line, and a warning when the snapshot is more than a week old. That warning would have flagged the scheduled job's last run on 2025-11-04 long before 2026-10. The layout works at phone width.
-- [ ] Pages, following the parity table:
-  - Overview.
-  - Holdings, plus one page per symbol with its price history, entry point, break-even and price targets.
-  - Transactions.
-  - Imaginary: each portfolio gets the same Overview, Holdings and Transactions pages under `/imaginary/<name>/`.
-  - Projection.
-  - Data: the misc tables, downloads, and a link to the static report.
-- [ ] Charts: the existing PNGs. Files are served only from inside `<gen-dir>`, and the resolved path is checked.
-- [ ] Read-only JSON at `/api/snapshot` and `/api/snapshot/imaginary/<name>`.
-- [ ] Tests with FastAPI's `TestClient` (`httpx` becomes a dev dependency), run on the fixture snapshot:
-  - every page returns 200 and shows the fixture values;
-  - a made-up sheet ID from the fixture config appears in no response;
-  - a request for a file outside `<gen-dir>` gets 404.
+- [x] `web/`: TypeScript with no framework, built by Vite into `dist/`, served by a Worker through the `ASSETS` binding with `run_worker_first`, so every response gets the headers: a CSP limiting the page to its own origin (`connect-src 'self'`, no inline script or style), `frame-ancestors 'none'`, `noindex`, `no-referrer`, HSTS. Hashed assets are cached as immutable. `/api/health` reports the snapshot version the app reads.
+- [x] Landing page: open `snapshot.json` (picker or drop), "Remember it on this device" (localStorage, off by default), and a made-up demo, also at `/?demo`. A file that is not a snapshot, or of another version, gets a message saying what to do.
+- [x] Layout: navigation, `Snapshot of <run time>`, a warning when the snapshot is more than a week old (that would have flagged the scheduled job's last run, 2025-11-04, long before 2026-10), a portfolio switcher for imaginary portfolios. Checked at 390 px wide (no sideways scroll) and in light and dark mode.
+- [x] Pages: Overview (tiles, value at each month end, invested each month, comparison table), Holdings (sortable, totals row), a page per symbol (price history with the first buy and break-even, price targets, its trades), Transactions (filters), Projection (W4), Data (snapshot facts, symbol map, forget the stored copy).
+- [x] Charts: SVG drawn in the browser, following the dataviz palette (blue, orange, aqua), with a crosshair readout on hover and from the keyboard, and a table view under each.
+- [x] Privacy check: `web/scripts/check-private.mjs` ends `npm run build`, which `wrangler dev` and `wrangler deploy` run first. It refuses a build whose inputs git doesn't know, whose output holds a sheet address from the local configs or the home directory, or that holds any snapshot other than the demo made from local files.
+- [x] Tests (`npm run check`, vitest): parsing the CLI's golden snapshot and the demo, the error messages, the Worker's headers and routes, and the projection port against the rows the CLI computed for the demo.
+- [ ] A symbol table that links sold positions too (only held ones have pages from Holdings today).
 
-### W2: Runs from the browser
+### W2: Snapshot history (was: runs from the browser)
 
-- [ ] "Run now": `POST /runs` starts `python -m trkr --cfg <file>` as a subprocess and returns a run id. The page polls the run with htmx and shows the tail of its output. When the run finishes, the page loads the new snapshot.
-- [ ] One run at a time per `generation-dir`. The CLI takes `<gen-dir>/.run.lock` and writes its PID into it, so a lock left behind by a dead process can be broken. The scheduled job takes the lock too, so it and a web run never write the same files at once. A second "Run now" gets "already running".
-- [ ] A failed run shows the exit code, the error name and the log tail. The last good snapshot stays on screen.
-- [ ] Run history: every snapshot with its time, value, profit and profit %, and each one can be opened. A chart of total value across snapshots gives a value-over-time series from the scheduled runs, at each run's current prices. Since bug 6 the "Valuation Percent" chart values the holdings month by month too, but only at month-end closes.
-- [ ] Tests: the runner sits behind an interface, and the tests swap in a fake (no subprocess, no network). They cover lock contention and the failure path.
+A Worker can't start the CLI, so "Run now", run status and the run lock are dropped from the hosted app. The scheduled job and the CLI make the runs.
+
+- [ ] Open several snapshots from `snapshots/` at once and chart total value across them: a value-over-time series at each run's current prices.
+- [ ] Owner's call: get the latest snapshot to the app without the file (decisions table, "getting the snapshot to a hosted app").
 
 ### W3: Interactive charts
 
-- [ ] `trkr/charts.py` holds pure functions that turn a snapshot into a Plotly figure dict, one for each current matplotlib chart: spending %, profit %, spending per month, valuation %, price history per ticker with its entry point, and the projection. The tests check each figure's structure (series, labels, values) on the fixture snapshot, not its pixels.
-- [ ] The pages draw the figures with the vendored `plotly.min.js`. Nothing loads from a CDN.
-- [ ] Interactions:
-  - hover values, legend toggles and date-range zoom;
-  - break-even and price-target lines on symbol charts;
-  - imaginary portfolios overlaid on the real one.
-- [ ] Phase 4's interactive-report item can then reuse these figures in the static report. Until the owner decides on that, the CLI report keeps its PNGs.
+- [x] Hover and keyboard readout on every chart (W1).
+- [ ] Spending % and profit % per holding as charts (bars, ranked).
+- [ ] Legend toggles and date-range zoom; price targets on symbol charts.
+- [ ] Imaginary portfolios overlaid on the real one's value.
+- [ ] Phase 4's interactive-report item could reuse these charts in the static report. Until the owner decides on that, the CLI report keeps its PNGs.
 
 ### W4: Projection playground
 
-- [ ] A form filled in from the config's `projection:` block. It has every field, including the deposit and withdrawal rows. `start-net-worth` is a choice between the real portfolio, each imaginary portfolio and a fixed amount, with the current values taken from the snapshot.
-- [ ] Each change is validated with the same rules as `parse_projection_cfg` and recomputed with `project_net_worth`. That needs no network and takes milliseconds, so htmx can swap in the new table, chart and summary as the owner types. Invalid input shows the message the CLI prints before raising 422.
-- [ ] The inputs live in the query string, so a what-if can be bookmarked. "Copy as YAML" gives a `projection:` block to paste into the config; the app never writes the config.
+- [x] A form filled in from the snapshot's projection inputs, or blank when the config has none. `start-net-worth` is a choice between the real portfolio, each imaginary one and a fixed amount, with their current values. Deposits and withdrawals are "year: amount" lines.
+- [x] Each change is validated with the rules and messages of `parse_projection_cfg` and recomputed by `web/src/projection.ts`, a port of `project_net_worth` checked against the CLI's rows. An invalid input dims the last good result and shows the message.
+- [x] "As a projection block for the config" gives the YAML to paste, with a copy button; the app never writes the config.
+- [ ] Inputs in the query string, so a what-if can be bookmarked.
 - [ ] When the Scenarios item (projection feature, "Later") lands, each scenario becomes its own set of inputs on a shared chart.
-- [ ] Tests: the fixture inputs entered through the form give the same rows as calling `project_net_worth` directly. Each validation error is also tested.
 
 ### W5: What-if portfolios from the browser (owner's call)
 
-- [ ] Create an imaginary portfolio by uploading a CSV or typing rows. The same reader that reads the transactions file checks them. The result is saved as `<gen-dir>/web/imaginary/<name>.csv`.
-- [ ] A new CLI option, `--imaginary-dir <dir>`, adds every CSV in that directory as an imaginary portfolio named after its file. The web runner passes `<gen-dir>/web/imaginary/`, so portfolios made in the browser join the next run without touching the config.
-- [ ] Ticker suggestions come from the symbol map, with a warning for tickers it doesn't contain, since those would fail the run.
-- [ ] This builds on two open items: buys without a price (so a row needs only a date, a ticker and an amount) and positions for imaginary portfolios.
-- [ ] Tests:
-  - upload validation: bad columns, bad dates, unknown symbols, and non-ASCII text (needs bug 11);
-  - `--imaginary-dir` end to end with the offline fixture.
+Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) and the Worker would have to proxy. Two ways, both for the owner to choose:
+
+- [ ] The app writes a transactions CSV for download, to add to the config as an imaginary portfolio (the CLI prices it on its next run). Needs nothing new on the server.
+- [ ] The Worker proxies Yahoo for the tickers asked, and the browser values the portfolio. That puts portfolio math in TypeScript, a second copy of `Portfolio.calculate`, so it needs the same characterization tests.
 
 ### W6: Running it day to day
 
-- [ ] `run_web.bat` runs `-m trkr web --cfg config/cfg_bat.yml` with the venv's Python and opens the browser. Optionally, add a Task Scheduler entry that starts it at logon. `run_script.bat` stays as it is; it gets the run lock through the CLI.
-- [ ] A "Web app" section in the README.
-- [ ] The GitHub Actions job runs the web tests along with the rest.
+- [x] Build and deploy commands: `npm ci`, `npm run check`, `npm run build`, `npx wrangler login`, `npm run deploy [-- --domain <host>]` (`web/README.md`). Wrangler metrics are off (`send_metrics: false`).
+- [x] A "Web app" section in the README.
+- [ ] Owner: deploy, and attach the domain (its zone must be on the same Cloudflare account).
+- [ ] The GitHub Actions job (Phase 3) runs `npm ci && npm run check` in `web/` along with pytest. The privacy check needs no secrets: in CI it finds no local configs and checks the rest.
 
 ### W7: Holdings snapshot from the browser
 
-- [ ] A Holdings page lists the snapshot rows with their current value and P&L, and flags rows more than three months old. Each row shows the trades it replaced, from the run snapshot.
-- [ ] With a local positions file, rows can be edited, added and deleted in place:
-  - every save goes through `build_positions` before it is written;
-  - the previous file is kept as `<file>.bak`;
-  - a change to a row's quantity or cost also sets its date to today, unless the owner picks one, because a position is what was held on its date.
-- [ ] With a Google Sheet source, the rows are read-only and the page links to the tab.
-- [ ] Tests: an edit round trip, a rejected invalid row, and a check that the file path comes only from the config.
+- [ ] A Holdings page section lists the positions rows with their current value and P&L, and flags rows more than three months old. Each row shows the trades it replaced (W0's open item).
+- [ ] Rows can be edited, added and deleted in the browser and downloaded as a positions CSV, checked with the same rules as `build_positions` (ported, with tests against the Python messages). The hosted app can't write the local file, so the owner saves the download over it or pastes it into the sheet tab. A change to a row's quantity or cost also sets its date to today, unless the owner picks one.
 
-### W8: Broker import from the browser
+### W8: Broker import from the browser (owner's call)
 
-- [ ] Upload one or more exports. The page shows:
-  - the parsed rows, with the new ones marked;
-  - flagged rows;
-  - unmapped ISINs, with Yahoo suggestions.
+- [ ] The importer is Python (`src/importers/`). In the hosted app it would need a TypeScript copy of each parser, or a Worker running Python. Until the owner decides, the importer stays a CLI command.
 
-  It offers `new_trades.csv` for download. With a local transactions file it can also append the rows, after a confirmation.
-- [ ] Tests: upload, the preview and the duplicate check, on the made-up broker fixtures.
+### W9: Setup wizard (owner's call)
 
-### W9: Setup wizard
-
-- [ ] The sheet generator's questions as a multi-step form, with ticker search as you type. It ends with the files and the YAML as downloads.
-- [ ] Same functions as `trkr init`, so the two can't drift apart. Tests drive the form with the stubbed search.
+- [ ] The sheet generator's questions as a multi-step form that ends with the files and the YAML as downloads. Ticker search needs `yf.Search`, so the Worker would proxy Yahoo's search (see W5). Same rows as `trkr init`, checked by shared fixtures.
 
 ### Not planned
 
-- Accounts, hosting or a database. There is one user on one machine, and snapshots are files.
-- Editing the real transactions. The Google Sheet or the CSV stays the source of truth. The holdings snapshot in a local file is the one exception (W7).
-- A separate JavaScript front end (React or similar). It would add a Node build and gain nothing at this size.
+- Accounts or a database. There is one user, and snapshots are files. If the owner picks the stored-snapshot option, Cloudflare Access does the login.
+- Editing the real transactions. The Google Sheet or the CSV stays the source of truth.
+- A UI framework (React or similar). The pages are small enough for plain TypeScript and the DOM.
 
 ## Phase 4: Optional, owner's call
 
 - [ ] pandas-based computation: history as DataFrames, monthly resampling instead of string month keys.
-- [ ] Interactive report (e.g. Plotly) instead of PNGs. Web app W3 builds the figures; this item reuses them in the static report.
+- [ ] Interactive report instead of PNGs. The web app's SVG charts (`web/src/chart.ts`) could be reused, by shipping a script with the report.
 - [ ] Dividends, deposits/withdrawals, transfers.
 - [ ] Money-weighted (XIRR) / time-weighted returns, replacing the linear `profit_percent / days * 365`.

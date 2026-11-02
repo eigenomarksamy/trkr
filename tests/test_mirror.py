@@ -10,6 +10,7 @@ quiet, log level INFO.
 """
 
 import csv
+import json
 import logging
 from argparse import Namespace
 from datetime import date, datetime, timedelta
@@ -250,3 +251,21 @@ def test_the_valuation_is_each_month_ends_holdings_at_market_prices(mirror):
     assert valuation['feb24'] == pytest.approx(month_end_value('2024-02-29', date(2024, 2, 26)))
     # This month: the latest bar is Monday 2024-10-07.
     assert valuation['oct24'] == pytest.approx(month_end_value('2024-10-31', date(2024, 10, 7)))
+
+
+def test_the_snapshot_holds_no_sheet_address_or_path(mirror):
+    text = (mirror.out / 'snapshot.json').read_text(encoding='utf-8')
+    for sheet_id in SHEETS:
+        assert sheet_id not in text
+    tmp = mirror.out.parent
+    assert tmp.as_posix() not in text
+    assert str(tmp) not in text
+    snapshot = json.loads(text)
+    assert snapshot['config']['sources'] == {
+        'transactions': 'cloud',
+        'symbols_map': 'cloud',
+        'positions': None,
+    }
+    # The valuation the web app charts is the one the report lists.
+    valuation = read_valuation(mirror.out / 'generated' / 'misc_tables.html')
+    assert [m['value'] for m in snapshot['portfolio']['valuation']] == list(valuation.values())

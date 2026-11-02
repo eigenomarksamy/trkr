@@ -152,8 +152,15 @@ Everything goes under `generation-dir`:
 - `generated/portfolio.csv`, `generated/total.md`, `generated/entries.md`: per-investment figures, totals, and the month of each first buy. `spending`, `profit_net` and `profit_percent` are about what you still hold; `realized_profit` is what sells made.
 - `generated/plots/`: the charts. "Valuation Percent" is the market value of your holdings at the end of each month, as a percentage of this month's.
 - `imaginary/<name>/`: one report per imaginary portfolio.
+- `snapshot.json`: everything the [web app](#web-app) shows, as one file. Each run also keeps a copy as `snapshots/<YYYYmmdd_HHMMSS>.json`. It holds your holdings and transactions but no sheet address and no file path.
 
 Known bugs are listed in [docs/MODERNIZATION.md](docs/MODERNIZATION.md).
+
+## Web app
+
+`web/` is a web page that shows a `snapshot.json`: totals, holdings with a page per investment, transactions, imaginary portfolios, and a projection you can edit. It is served by a Cloudflare Worker, so it can live on its own domain. You open the snapshot in the browser, and it is read there: the site stores nothing and receives no portfolio data. `/?demo` opens it on made-up data.
+
+Building, running it locally and deploying are in [web/README.md](web/README.md).
 
 ## Demo
 

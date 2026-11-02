@@ -29,6 +29,7 @@ from src.projection import (
     resolve_start_value,
 )
 from src.report_mngr import generate_html_report
+from src.snapshot import build_snapshot, write_snapshot
 from src.transactions import (
     Transactions,
     build_positions,
@@ -46,6 +47,8 @@ class PortfolioRun:
     total_dict: dict
     entry_points: dict
     historical_valuation: dict
+    # Ticker -> history key -> {'price': close in the default currency}
+    history: dict
     figs_paths_stocks: list
     figs_paths_stats: list
 
@@ -172,6 +175,21 @@ def exec(
         logger.info('HTMLs created.')
     if not is_quiet:
         print(f'HTML report generated at {f"{directories.base_dir}report.html"}')
+    write_snapshot(
+        build_snapshot(
+            cfg,
+            portfolio_run,
+            imaginary_runs,
+            projection,
+            yfinance_map_obj.tickerMap if yfinance_map_obj else None,
+        ),
+        directories.snapshot_file,
+        directories.snapshots_dir,
+    )
+    if logger:
+        logger.info('Snapshot written.')
+    if not is_quiet:
+        print(f'Snapshot for the web app written at {directories.snapshot_file}')
 
 
 def write_report(
@@ -208,7 +226,8 @@ def process_projection(
         portfolio_values[name] = imaginary_run.total_dict['value']
     start_value = resolve_start_value(projection_cfg, portfolio_values)
     today = date.today()
-    rows = project_net_worth(projection_cfg, start_value, today.year + 1)
+    start_year = today.year + 1
+    rows = project_net_worth(projection_cfg, start_value, start_year)
     headers, lines = projection_table(rows, labels=False)
     CsvMngr(pathlib.Path(directories.gen_projection_csv), headers).write(lines)
     labels, _ = projection_table(rows, labels=True)
@@ -239,6 +258,8 @@ def process_projection(
         'cfg': projection_cfg,
         'start_value': start_value,
         'start_label': start_label,
+        'start_year': start_year,
+        'projection_rows': rows,
         'last': rows[-1],
         'contribution': rows[0].contribution,
         'invested_last_12_months': invested_last_12_months(
@@ -410,6 +431,7 @@ def process_portfolio(
         total_dict=total_dict,
         entry_points=entry_points,
         historical_valuation=historical_valuation,
+        history=history_dict,
         figs_paths_stocks=figs_paths_stocks,
         figs_paths_stats=figs_paths_stats,
     )

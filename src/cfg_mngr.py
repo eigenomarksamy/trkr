@@ -358,3 +358,5 @@ class Directories:
         self.gen_projection_md = self.generated_dir + 'projection.md'
         self.gen_plots_projection = self.plots_dir + 'projection.png'
         self.imaginary_dir = self.base_dir + 'imaginary/'
+        self.snapshot_file = self.base_dir + 'snapshot.json'
+        self.snapshots_dir = self.base_dir + 'snapshots/'

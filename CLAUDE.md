@@ -1,6 +1,6 @@
 # trkr
 
-Personal investment-portfolio tracker. Reads a transactions CSV (local file or a public Google Sheet), pulls prices from Yahoo Finance via `yfinance`, computes per-symbol and total P&L, and writes CSV/Markdown tables, matplotlib PNGs and a static HTML report. Single user, Windows, run on a schedule via `run_script.bat`.
+Personal investment-portfolio tracker. Reads a transactions CSV (local file or a public Google Sheet), pulls prices from Yahoo Finance via `yfinance`, computes per-symbol and total P&L, and writes CSV/Markdown tables, matplotlib PNGs, a static HTML report and a `snapshot.json` for the web app in `web/`. Single user, Windows, run on a schedule via `run_script.bat`.
 
 **Modernization is in progress.** The plan, the known-bug list and progress live in `docs/MODERNIZATION.md`. Read it before starting work, and tick items there as they land.
 
@@ -16,6 +16,7 @@ Personal investment-portfolio tracker. Reads a transactions CSV (local file or a
 - `tests/test_exec.py` snapshots the fixture portfolio's `portfolio.csv`, `total.md` and `entries.md` in `tests/golden/`. When an output change is intended, rerun with `TRKR_UPDATE_GOLDEN=1` and review the golden diff.
 - `tests/test_mirror.py` runs the CLI the way the scheduled job does (cloud sheets, custom map, EUR, lite, not quiet, log INFO) on `tests/fixtures/mirror/`: made-up sheets in the shape of the owner's, as of its 2025-11-04 download. Every value in them is invented. Snapshots are in `tests/golden/mirror/`. Use it instead of a live run to check a change against owner-like data. If the owner's sheet changes shape, rebuild the mirror from a profile of the cached sheet (counts and categories only), never from its values.
 - `config/demo-cfg.yml` runs on made-up data in `examples/` plus live Yahoo prices, writing to `data/demo-run/`. It doesn't touch the owner's sheets, so it is safe to run.
+- Web app: `cd web`, then `npm run check` (tsc + vitest, offline), `npm run build`, `npm run preview` (Worker on 127.0.0.1:8787, `/?demo` opens the demo). Details in `web/README.md`.
 
 ## Private data
 
@@ -24,6 +25,8 @@ Personal investment-portfolio tracker. Reads a transactions CSV (local file or a
 - Never copy real values (sheet IDs, holdings, quantities, prices) into tracked files, test fixtures, commit messages or PR text. Build fixtures from made-up data.
 - Don't edit `config/cfg.yml` or `config/cfg_bat.yml` without asking.
 - A real end-to-end run hits the owner's live sheets. Ask before running it.
+- A `snapshot.json` holds holdings and transactions. Never copy one into `web/`; the only snapshot there is `web/public/demo-snapshot.json`, made from `config/demo-cfg.yml`.
+- Deploying the web app (`npm run deploy`, `wrangler deploy`) publishes it. Leave that to the owner unless asked, and never write the owner's domain into tracked files: the repo is public.
 
 ## Pipeline (`run.py` → `exec`)
 
@@ -33,8 +36,9 @@ Personal investment-portfolio tracker. Reads a transactions CSV (local file or a
 4. `MarketDataYahoo` (`src/market_mngr.py`) fetches history, current price and currency for each ticker, then converts each currency with its own Yahoo pair `<CUR><DEFAULT>=X`, fetched on demand. Minor units (GBp, ZAc, ILA) are divided by 100. A ticker without a currency fails the run with 503.
 5. `Portfolio` (`src/portfolio_mngr.py`) computes per-symbol and total figures, monthly spending, entry points and historical valuation. `calculate` walks trades by date with average cost: `spending`, `profit_net` and `profit_percent` cover what is still held, `realized_profit` what sells made, and a sell of more than is held raises 400. The historical valuation is the holdings' market value at each month end, through the current month.
 6. `csv_mngr`, `plot_mngr` and `report_mngr` write `<gen-dir>/generated/…` and `<gen-dir>/report.html`.
+7. `src/snapshot.py` writes `<gen-dir>/snapshot.json` and a copy in `<gen-dir>/snapshots/`, both through a temp file and a rename. It holds everything the web app shows: no sheet address and no path, only whether each source is `local` or `cloud`. Months are `YYYY-MM`, days `YYYY-MM-DD`, and NaN becomes `null`.
 
-Steps 3-5 and the files/plots of step 6 live in `process_portfolio`, which returns a `PortfolioRun`. It runs once for the real portfolio and once per imaginary portfolio (output in `<gen-dir>/imaginary/<name>/`, with its own report). Then `process_projection` runs `src/projection.py`, a pure year-by-year net-worth projection ported from the owner's C++ tool `C:\dev_ws\networth_projection`. Last, `write_report` renders the main report with the comparison table and the projection section.
+Steps 3-5 and the files/plots of step 6 live in `process_portfolio`, which returns a `PortfolioRun`. It runs once for the real portfolio and once per imaginary portfolio (output in `<gen-dir>/imaginary/<name>/`, with its own report). Then `process_projection` runs `src/projection.py`, a pure year-by-year net-worth projection ported from the owner's C++ tool `C:\dev_ws\networth_projection`. Then `write_report` renders the main report with the comparison table and the projection section. Last, `write_snapshot` writes the snapshot of the whole run.
 
 Errors are signalled as `raise Exception("503")`; `run_cli` turns the message into an int exit code and a name via `get_exit_status` (`src/utils.py`). Any other exception prints its traceback and exits 1 as `UnexpectedError`.
 
@@ -54,3 +58,13 @@ Errors are signalled as `raise Exception("503")`; `run_cli` turns the message in
 - Tests never touch the network: stub `yfinance.Ticker` and `requests.get`.
 - One concern per commit. Keep formatting-only changes in their own commits, apart from logic changes.
 - Keep the YAML config schema backward compatible: the owner's existing `cfg.yml` and `cfg_bat.yml` must keep working.
+
+## Web app (`web/`)
+
+A TypeScript page with no framework, built by Vite and served by a Cloudflare Worker (`web/src/worker.ts`) with a strict CSP. It reads a `snapshot.json` that the owner opens in the browser. The Worker stores nothing and receives no portfolio data. The plan and its decisions are in `docs/MODERNIZATION.md`, "Feature: web app".
+
+- The snapshot is a contract between `src/snapshot.py` and `web/src/snapshot.ts`. Change both and bump `SCHEMA_VERSION` in both when its shape changes. `tests/golden/exec/snapshot.json` pins the Python side, and the web tests parse it.
+- `web/src/projection.ts` ports `project_net_worth` and the projection checks of `parse_projection_cfg`. A change to either Python function needs the same change there. `web/test/projection.test.ts` compares the port with the rows in the demo snapshot.
+- `npm run build` ends with `web/scripts/check-private.mjs`, and `wrangler dev`/`deploy` run that build first. It refuses files under `web/index.html`, `web/src/` or `web/public/` that git doesn't know, so `git add` new files before building.
+- Build DOM with `h()`/`s()` from `web/src/dom.ts`, which only inserts text. No `innerHTML`, no inline styles (the CSP blocks them), no CDN or third-party requests.
+- Charts follow the dataviz palette: up to three series in slots 1-3, a legend for two or more, a table view under each chart.

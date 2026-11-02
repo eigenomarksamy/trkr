@@ -1,0 +1,244 @@
+{
+ "schema": "trkr-snapshot",
+ "schema_version": 1,
+ "generated_at": "2024-06-30T12:00:00",
+ "config": {
+  "default_currency": "EUR",
+  "history_variant": "lite",
+  "sources": {
+   "transactions": "local",
+   "symbols_map": "local",
+   "positions": null
+  }
+ },
+ "symbol_map": {
+  "aaa": "AAA.AS",
+  "bbb": "BBB",
+  "eur": "USDEUR=X"
+ },
+ "portfolio": {
+  "holdings": [
+   {
+    "symbol": "AAA.AS",
+    "exchange": "AMS",
+    "amount": 14.0,
+    "value": 868.0,
+    "spending": 722.0,
+    "spending_percent": 61.29505286717604,
+    "profit_net": 146.0,
+    "profit_percent": 20.221606648199447,
+    "current_price": 62.0,
+    "break_even_price": 51.57142857142857,
+    "price25": 64.46428571428571,
+    "price50": 77.35714285714286,
+    "price75": 90.25,
+    "price100": 103.14285714285714,
+    "price150": 128.92857142857142,
+    "realized_profit": 0
+   },
+   {
+    "symbol": "BBB",
+    "exchange": "NASDAQ",
+    "amount": 5.0,
+    "value": 598.0,
+    "spending": 455.9090909090909,
+    "spending_percent": 38.70494713282395,
+    "profit_net": 142.09090909090912,
+    "profit_percent": 31.166500498504497,
+    "current_price": 119.60000000000001,
+    "break_even_price": 91.18181818181817,
+    "price25": 113.97727272727272,
+    "price50": 136.77272727272725,
+    "price75": 159.5681818181818,
+    "price100": 182.36363636363635,
+    "price150": 227.95454545454544,
+    "realized_profit": 0
+   }
+  ],
+  "total": {
+   "value": 1466.0,
+   "spending": 1177.909090909091,
+   "profit_net": 288.090909090909,
+   "profit_percent": 24.457822026703706,
+   "realized_profit": 0,
+   "cash_out": 1392.7,
+   "time_interval_days": 167,
+   "time_interval_months": 5.566666666666666,
+   "time_interval_years": 0.4575342465753425,
+   "avg_day_roi": 0.14645402411199823,
+   "avg_month_roi": 4.393620723359947,
+   "avg_year_roi": 53.45571880087935
+  },
+  "monthly_spending": [
+   {
+    "month": "2024-01",
+    "amount": 501.0
+   },
+   {
+    "month": "2024-02",
+    "amount": 455.9090909090909
+   },
+   {
+    "month": "2024-03",
+    "amount": 0
+   },
+   {
+    "month": "2024-04",
+    "amount": 221.0
+   }
+  ],
+  "valuation": [
+   {
+    "month": "2024-01",
+    "value": 520.0
+   },
+   {
+    "month": "2024-02",
+    "value": 1064.88
+   },
+   {
+    "month": "2024-03",
+    "value": 1124.4800000000005
+   },
+   {
+    "month": "2024-04",
+    "value": 1435.005
+   },
+   {
+    "month": "2024-05",
+    "value": 1505.845
+   },
+   {
+    "month": "2024-06",
+    "value": 1578.125
+   }
+  ],
+  "entry_points": {
+   "AAA.AS": "2024-01",
+   "BBB": "2024-02"
+  },
+  "transactions": [
+   {
+    "type": "buy",
+    "date": "2024-01-15",
+    "quantity": 10.0,
+    "fees": 1.0,
+    "price": 50.0,
+    "currency": "EUR",
+    "symbol": "AAA.AS",
+    "exchange": "AMS",
+    "platform": "broker-x",
+    "ex_rate": 1.0,
+    "ex_fees": 0.0
+   },
+   {
+    "type": "buy",
+    "date": "2024-02-12",
+    "quantity": 5.0,
+    "fees": 1.0,
+    "price": 100.0,
+    "currency": "USD",
+    "symbol": "BBB",
+    "exchange": "NASDAQ",
+    "platform": "broker-x",
+    "ex_rate": 1.1,
+    "ex_fees": 0.5
+   },
+   {
+    "type": "buy",
+    "date": "2024-04-08",
+    "quantity": 4.0,
+    "fees": 1.0,
+    "price": 55.0,
+    "currency": "EUR",
+    "symbol": "AAA.AS",
+    "exchange": "AMS",
+    "platform": "broker-y",
+    "ex_rate": 1.0,
+    "ex_fees": 0.0
+   }
+  ],
+  "prices": {
+   "AAA.AS": [
+    {
+     "date": "2024-01-01",
+     "close": 52.0
+    },
+    {
+     "date": "2024-02-01",
+     "close": 54.0
+    },
+    {
+     "date": "2024-03-01",
+     "close": 56.00000000000001
+    },
+    {
+     "date": "2024-04-01",
+     "close": 58.5
+    },
+    {
+     "date": "2024-05-01",
+     "close": 60.5
+    },
+    {
+     "date": "2024-06-01",
+     "close": 62.5
+    }
+   ],
+   "BBB": [
+    {
+     "date": "2024-01-01",
+     "close": 97.34400000000001
+    },
+    {
+     "date": "2024-02-01",
+     "close": 104.97600000000001
+    },
+    {
+     "date": "2024-03-01",
+     "close": 112.89600000000004
+    },
+    {
+     "date": "2024-04-01",
+     "close": 123.201
+    },
+    {
+     "date": "2024-05-01",
+     "close": 131.769
+    },
+    {
+     "date": "2024-06-01",
+     "close": 140.625
+    }
+   ],
+   "USDEUR=X": [
+    {
+     "date": "2024-01-01",
+     "close": 0.936
+    },
+    {
+     "date": "2024-02-01",
+     "close": 0.9720000000000001
+    },
+    {
+     "date": "2024-03-01",
+     "close": 1.0080000000000002
+    },
+    {
+     "date": "2024-04-01",
+     "close": 1.053
+    },
+    {
+     "date": "2024-05-01",
+     "close": 1.089
+    },
+    {
+     "date": "2024-06-01",
+     "close": 1.125
+    }
+   ]
+  }
+ },
+ "imaginary": [],
+ "projection": null
+}

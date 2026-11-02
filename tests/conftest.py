@@ -46,6 +46,10 @@ class FrozenDatetime(datetime):
     def today(cls):
         return cls(2024, 6, 30)
 
+    @classmethod
+    def now(cls, tz=None):
+        return cls(2024, 6, 30, 12, 0)
+
 
 class FrozenDate(date):
     @classmethod
@@ -59,7 +63,7 @@ def _no_network(*args, **kwargs):
 
 @pytest.fixture
 def offline(monkeypatch, tmp_path) -> pathlib.Path:
-    """Stubs Yahoo, Google Sheets, the connectivity check and today's date."""
+    """Stubs Yahoo, Google Sheets, the connectivity check, today's date and the run time."""
     import run
     from src import portfolio_mngr
 
@@ -67,6 +71,7 @@ def offline(monkeypatch, tmp_path) -> pathlib.Path:
     monkeypatch.setattr('src.sheets_mngr.requests.get', _no_network)
     monkeypatch.setattr(run, 'check_internet', lambda: True)
     monkeypatch.setattr(portfolio_mngr, 'datetime', FrozenDatetime)
+    monkeypatch.setattr('src.snapshot.datetime', FrozenDatetime)
     monkeypatch.setattr('src.market_mngr.date', FrozenDate)
     # report_mngr writes its templates/ directory relative to the cwd.
     monkeypatch.chdir(tmp_path)
