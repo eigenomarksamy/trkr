@@ -1,0 +1,24 @@
+{
+  "name": "trkr-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "trkr's web app: a page served by a Cloudflare Worker that shows a snapshot.json opened in the browser.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && node scripts/check-private.mjs",
+    "preview": "wrangler dev",
+    "test": "vitest run",
+    "check": "tsc && vitest run",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.5",
+    "wrangler": "4.151.1"
+  }
+}

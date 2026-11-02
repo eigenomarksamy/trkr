@@ -1,0 +1,24 @@
+// The Worker that serves the web app. Deploy with `npm run deploy`; see README.md.
+// No custom domain here, because this file is public: pass yours on each deploy with
+// `npm run deploy -- --domain <host>`.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "trkr",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+  // `wrangler dev` and `wrangler deploy` run this first. The build ends with
+  // scripts/check-private.mjs, which stops it when the output could hold private data.
+  "build": {
+    "command": "npm run build",
+    "watch_dir": ["src", "public", "index.html"]
+  },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // Every request goes through the Worker, so every response gets its security headers.
+    "run_worker_first": true
+  },
+  "workers_dev": true,
+  "preview_urls": false,
+  "send_metrics": false
+}
