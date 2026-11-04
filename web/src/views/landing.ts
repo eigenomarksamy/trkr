@@ -37,7 +37,7 @@ export function landing(reload: Reload): HTMLElement {
   const drop = h(
     'div',
     { class: 'drop' },
-    h('label', { class: 'button primary' }, input, 'Open snapshot.json'),
+    h('label', { class: 'button primary' }, input, 'open snapshot.json'),
     h('p', { class: 'muted' }, 'or drop the file here'),
   );
   drop.addEventListener('dragover', (event) => {
@@ -51,7 +51,7 @@ export function landing(reload: Reload): HTMLElement {
     void open(event.dataTransfer?.files[0], remember.checked, reload, error);
   });
 
-  const demo = h('button', { class: 'button link', type: 'button' }, 'Try it with made-up data');
+  const demo = h('button', { class: 'button link', type: 'button' }, 'try it with made-up data');
   demo.addEventListener('click', async () => {
     try {
       reload(await loadDemo());
@@ -68,25 +68,25 @@ export function landing(reload: Reload): HTMLElement {
     h(
       'p',
       { class: 'lede' },
-      'Open the snapshot.json that a trkr run writes, and see your portfolio, its history and a projection.',
+      'open the snapshot.json that a trkr run writes, and see your portfolio, its history and a projection.',
     ),
     drop,
-    h('label', { class: 'check' }, remember, 'Remember it on this device'),
+    h('label', { class: 'check' }, remember, 'remember it on this device'),
     error,
     h(
       'p',
       { class: 'privacy' },
-      'The file is read in this browser and never uploaded. This site stores nothing, and the page loads nothing from anywhere else.',
+      'the file is read in this browser and never uploaded. this site stores nothing, and the page loads nothing from anywhere else.',
     ),
     demo,
     h(
       'section',
       { class: 'howto' },
-      h('h2', null, 'Where the file comes from'),
+      h('h2', null, 'where the file comes from'),
       h(
         'p',
         null,
-        'Every run of trkr, the scheduled one included, writes snapshot.json into its generation directory, next to report.html. For the scheduled job that is the generation-dir in cfg_bat.yml. Past runs are kept in snapshots/.',
+        'every run of trkr, the scheduled one included, writes snapshot.json into its generation directory, next to report.html. for the scheduled job that is the generation-dir in cfg_bat.yml. past runs are kept in snapshots/.',
       ),
     ),
   );

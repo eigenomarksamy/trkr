@@ -104,20 +104,20 @@ function shell(context: Context, route: Route): Node[] {
   const { snapshot, loaded } = context;
   const days = ageInDays(snapshot.generated_at);
   const pages: [Page, string][] = [
-    ['overview', 'Overview'],
-    ['holdings', 'Holdings'],
-    ['transactions', 'Transactions'],
-    ['projection', 'Projection'],
-    ['data', 'Data'],
+    ['overview', 'overview'],
+    ['holdings', 'holdings'],
+    ['transactions', 'transactions'],
+    ['projection', 'projection'],
+    ['data', 'data'],
   ];
   const current = route.page === 'symbol' ? 'holdings' : route.page;
   const titles: Record<Page, string> = {
-    overview: 'Overview',
-    holdings: 'Holdings',
-    symbol: route.arg ?? 'Symbol',
-    transactions: 'Transactions',
-    projection: 'Projection',
-    data: 'Data',
+    overview: 'overview',
+    holdings: 'holdings',
+    symbol: route.arg ?? 'symbol',
+    transactions: 'transactions',
+    projection: 'projection',
+    data: 'data',
   };
   document.title = `${titles[route.page]} · trkr`;
 
@@ -126,7 +126,7 @@ function shell(context: Context, route: Route): Node[] {
       ? h(
           'label',
           { class: 'switcher' },
-          h('span', { class: 'visually-hidden' }, 'Portfolio'),
+          h('span', { class: 'visually-hidden' }, 'portfolio'),
           (() => {
             const select = h(
               'select',
@@ -136,7 +136,7 @@ function shell(context: Context, route: Route): Node[] {
                   location.hash = href(name, route.page === 'symbol' ? 'holdings' : route.page);
                 },
               },
-              h('option', { value: '' }, 'Real portfolio'),
+              h('option', { value: '' }, 'real portfolio'),
               snapshot.imaginary.map((p) => h('option', { value: p.name }, `${p.name} (imaginary)`)),
             );
             select.value = route.portfolio;
@@ -173,26 +173,26 @@ function shell(context: Context, route: Route): Node[] {
         h(
           'p',
           { class: 'asof' },
-          loaded.origin === 'demo' ? h('span', { class: 'badge' }, 'Made-up demo data') : null,
-          `Snapshot of ${runTime(snapshot.generated_at)}`,
+          loaded.origin === 'demo' ? h('span', { class: 'badge' }, 'made-up demo data') : null,
+          `snapshot of ${runTime(snapshot.generated_at)}`,
         ),
         h(
           'div',
           { class: 'actions' },
-          openFileButton(context.reload, loaded.remembered, 'Open another'),
-          h('button', { class: 'button quiet', type: 'button', onclick: () => context.reload(null) }, 'Close'),
+          openFileButton(context.reload, loaded.remembered, 'open another'),
+          h('button', { class: 'button quiet', type: 'button', onclick: () => context.reload(null) }, 'close'),
         ),
       ),
       days > STALE_AFTER_DAYS && loaded.origin !== 'demo'
         ? h(
             'p',
             { class: 'notice warn', role: 'status' },
-            `This snapshot is ${days} days old, so its prices are too. Run trkr again for a new one.`,
+            `this snapshot is ${days} days old, so its prices are too. run trkr again for a new one.`,
           )
         : null,
       h(
         'nav',
-        { class: 'tabs', 'aria-label': 'Pages' },
+        { class: 'tabs', 'aria-label': 'pages' },
         h(
           'ul',
           null,
@@ -214,7 +214,7 @@ function shell(context: Context, route: Route): Node[] {
     h(
       'main',
       { class: 'page' },
-      route.portfolio ? h('p', { class: 'notice' }, `Imaginary portfolio: ${route.portfolio}`) : null,
+      route.portfolio ? h('p', { class: 'notice' }, `imaginary portfolio: ${route.portfolio}`) : null,
       view,
     ),
   ];

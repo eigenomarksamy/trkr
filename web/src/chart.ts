@@ -178,7 +178,7 @@ function responsive(plot: HTMLElement, draw: (width: number) => void): void {
 }
 
 export function lineChart(options: LineChartOptions): HTMLElement {
-  const plot = h('div', { class: 'plot', tabindex: 0, 'aria-label': `${options.label}. Use the arrow keys to read the values.` });
+  const plot = h('div', { class: 'plot', tabindex: 0, 'aria-label': `${options.label}. use the arrow keys to read the values.` });
   const legend =
     options.series.length > 1
       ? h(
@@ -194,7 +194,7 @@ export function lineChart(options: LineChartOptions): HTMLElement {
 function drawLines(plot: HTMLElement, width: number, o: LineChartOptions): void {
   const values = o.series.flatMap((series) => series.values.filter((v): v is number => v !== null));
   if (values.length === 0 || o.x.length === 0) {
-    plot.replaceChildren(h('p', { class: 'muted empty' }, 'No data to chart.'));
+    plot.replaceChildren(h('p', { class: 'muted empty' }, 'no data to chart.'));
     return;
   }
   const yValues = [...values, ...(o.references ?? []).map((r) => r.y)];
@@ -302,14 +302,14 @@ function drawLines(plot: HTMLElement, width: number, o: LineChartOptions): void 
 }
 
 export function columnChart(options: ColumnChartOptions): HTMLElement {
-  const plot = h('div', { class: 'plot', tabindex: 0, 'aria-label': `${options.label}. Use the arrow keys to read the values.` });
+  const plot = h('div', { class: 'plot', tabindex: 0, 'aria-label': `${options.label}. use the arrow keys to read the values.` });
   responsive(plot, (width) => drawColumns(plot, width, options));
   return h('div', { class: 'chart' }, plot);
 }
 
 function drawColumns(plot: HTMLElement, width: number, o: ColumnChartOptions): void {
   if (o.values.length === 0) {
-    plot.replaceChildren(h('p', { class: 'muted empty' }, 'No data to chart.'));
+    plot.replaceChildren(h('p', { class: 'muted empty' }, 'no data to chart.'));
     return;
   }
   const f = frame(width, o.label, o.values, true, o.yTick);
@@ -357,7 +357,7 @@ export function tableView(headers: string[], rows: Child[][]): HTMLElement {
   return h(
     'details',
     { class: 'table-view' },
-    h('summary', null, 'Show as a table'),
+    h('summary', null, 'show as a table'),
     h(
       'div',
       { class: 'scroll' },

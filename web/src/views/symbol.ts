@@ -18,9 +18,9 @@ export function symbolPage(context: Context, ticker: string): Child[] {
   const holding = portfolio.holdings.find((x) => x.symbol === ticker);
   const prices = portfolio.prices[ticker] ?? [];
   const trades = portfolio.transactions.filter((t) => t.symbol === ticker);
-  const back = h('p', null, h('a', { href: href(context.portfolioName, 'holdings') }, '← Holdings'));
+  const back = h('p', null, h('a', { href: href(context.portfolioName, 'holdings') }, '← holdings'));
   if (!holding && prices.length === 0 && trades.length === 0) {
-    return [back, h('h1', null, ticker), h('p', null, 'This snapshot has nothing on this symbol.')];
+    return [back, h('h1', null, ticker), h('p', null, 'this snapshot has nothing on this symbol.')];
   }
   const lite = snapshot.config.history_variant === 'lite';
   const entry = portfolio.entry_points[ticker];
@@ -31,20 +31,20 @@ export function symbolPage(context: Context, ticker: string): Child[] {
       ? h(
           'div',
           { class: 'tiles' },
-          tile('Value', money(holding.value, currency), { hero: true, note: `${quantity(holding.amount)} at ${money(holding.current_price, currency)}` }),
-          tile('Cost', money(holding.spending, currency)),
-          tile('Profit', money(holding.profit_net, currency, { signed: true }), {
+          tile('value', money(holding.value, currency), { hero: true, note: `${quantity(holding.amount)} at ${money(holding.current_price, currency)}` }),
+          tile('cost', money(holding.spending, currency)),
+          tile('profit', money(holding.profit_net, currency, { signed: true }), {
             note: percent(holding.profit_percent, { signed: true }),
             tone: direction(holding.profit_net),
           }),
-          tile('Break-even price', money(holding.break_even_price, currency)),
+          tile('break-even price', money(holding.break_even_price, currency)),
         )
-      : h('p', { class: 'notice' }, 'Not held any more.'),
+      : h('p', { class: 'notice' }, 'not held any more.'),
     h(
       'section',
       { class: 'card' },
-      h('h2', null, 'Price'),
-      h('p', { class: 'muted' }, lite ? `Month-end closes in ${currency}.` : `Daily closes in ${currency}.`),
+      h('h2', null, 'price'),
+      h('p', { class: 'muted' }, lite ? `month-end closes in ${currency}.` : `daily closes in ${currency}.`),
       lineChart({
         label: `${ticker} price`,
         x: prices.map((p) => dayDate(p.date).getTime()),
@@ -52,12 +52,12 @@ export function symbolPage(context: Context, ticker: string): Child[] {
         xReadout: (x) => (lite ? monthLabel(new Date(x), 'long') : dayLabel(new Date(x))),
         yTick: (y) => money(y, currency, { compact: Math.abs(y) >= 10_000 }),
         yReadout: (y) => money(y, currency),
-        series: [{ name: 'Close', values: prices.map((p) => p.close) }],
-        references: holding ? [{ y: holding.break_even_price, label: `Break-even ${money(holding.break_even_price, currency)}` }] : [],
-        markers: entry ? [{ x: monthDate(entry).getTime(), label: 'First buy' }] : [],
+        series: [{ name: 'close', values: prices.map((p) => p.close) }],
+        references: holding ? [{ y: holding.break_even_price, label: `break-even ${money(holding.break_even_price, currency)}` }] : [],
+        markers: entry ? [{ x: monthDate(entry).getTime(), label: 'first buy' }] : [],
       }),
       tableView(
-        ['Date', 'Close'],
+        ['date', 'close'],
         prices.map((p) => [lite ? monthLabel(p.date.slice(0, 7), 'long') : dayLabel(p.date), money(p.close, currency)]),
       ),
     ),
@@ -65,15 +65,15 @@ export function symbolPage(context: Context, ticker: string): Child[] {
       ? h(
           'section',
           { class: 'card' },
-          h('h2', null, 'Price targets'),
-          h('p', { class: 'muted' }, 'The price at which the holding is up by each step on its break-even price.'),
+          h('h2', null, 'price targets'),
+          h('p', { class: 'muted' }, 'the price at which the holding is up by each step on its break-even price.'),
           h(
             'div',
             { class: 'scroll' },
             h(
               'table',
               null,
-              h('thead', null, h('tr', null, h('th', null, 'Target'), h('th', { class: 'num' }, 'Price'), h('th', { class: 'num' }, 'From today'))),
+              h('thead', null, h('tr', null, h('th', null, 'target'), h('th', { class: 'num' }, 'price'), h('th', { class: 'num' }, 'from today'))),
               h(
                 'tbody',
                 null,
@@ -91,6 +91,6 @@ export function symbolPage(context: Context, ticker: string): Child[] {
           ),
         )
       : null,
-    h('section', { class: 'card' }, h('h2', null, 'Trades'), tradesTable(trades, false)),
+    h('section', { class: 'card' }, h('h2', null, 'trades'), tradesTable(trades, false)),
   ];
 }

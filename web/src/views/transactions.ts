@@ -11,7 +11,7 @@ const filters = { symbol: '', type: '', platform: '' };
 
 /** Trades, newest first. */
 export function tradesTable(trades: Transaction[], withSymbol: boolean): HTMLElement {
-  if (trades.length === 0) return h('p', { class: 'muted' }, 'No trades match.');
+  if (trades.length === 0) return h('p', { class: 'muted' }, 'no trades match.');
   const newestFirst = [...trades].reverse();
   return h(
     'div',
@@ -25,12 +25,12 @@ export function tradesTable(trades: Transaction[], withSymbol: boolean): HTMLEle
         h(
           'tr',
           null,
-          h('th', null, 'Date'),
-          h('th', null, 'Type'),
-          withSymbol ? h('th', null, 'Symbol') : null,
-          ['Quantity', 'Price', 'Fees', 'Ex. rate', 'Ex. fees'].map((name) => h('th', { class: 'num' }, name)),
-          h('th', null, 'Currency'),
-          h('th', null, 'Platform'),
+          h('th', null, 'date'),
+          h('th', null, 'type'),
+          withSymbol ? h('th', null, 'symbol') : null,
+          ['quantity', 'price', 'fees', 'ex. rate', 'ex. fees'].map((name) => h('th', { class: 'num' }, name)),
+          h('th', null, 'currency'),
+          h('th', null, 'platform'),
         ),
       ),
       h(
@@ -66,10 +66,10 @@ function select(label: string, key: keyof typeof filters, options: string[], onC
         onChange();
       },
     },
-    h('option', { value: '' }, 'All'),
+    h('option', { value: '' }, 'all'),
     options.map((option) => h('option', { value: option }, option)),
   );
-  // A remembered value the portfolio doesn't have falls back to All.
+  // A remembered value the portfolio doesn't have falls back to all.
   if (!options.includes(filters[key])) filters[key] = '';
   element.value = filters[key];
   return h('label', { class: 'field inline' }, h('span', null, label), element);
@@ -91,17 +91,17 @@ export function transactionsPage(context: Context): Child[] {
   const controls = h(
     'div',
     { class: 'filters' },
-    select('Symbol', 'symbol', distinct((t) => t.symbol), render),
-    select('Type', 'type', distinct((t) => t.type), render),
-    select('Platform', 'platform', distinct((t) => t.platform), render),
+    select('symbol', 'symbol', distinct((t) => t.symbol), render),
+    select('type', 'type', distinct((t) => t.type), render),
+    select('platform', 'platform', distinct((t) => t.platform), render),
   );
   render();
   return [
-    h('h1', null, 'Transactions'),
+    h('h1', null, 'transactions'),
     h(
       'p',
       { class: 'muted' },
-      'As the run read them, with symbols mapped to Yahoo tickers. Rows marked position come from the positions file; the trades they already include are left out.',
+      'as the run read them, with symbols mapped to yahoo tickers. rows marked position come from the positions file; the trades they already include are left out.',
     ),
     controls,
     results,

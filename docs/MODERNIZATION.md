@@ -22,6 +22,8 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-02: the owner asked for the web app to deploy as a Cloudflare Worker on its own domain, to start small and grow, and to publish nothing private. That replaces the local FastAPI plan; the decisions table and "Feature: web app" are rewritten for it. Built, not yet committed: every run writes `snapshot.json` (W0), and `web/` holds a viewer on a Worker (W1) with the projection playground (W4) and a privacy check that guards every build and deploy. 175 Python tests and 16 web tests pass; a local `wrangler dev` and a dry-run deploy both work. The owner deploys.
 
+2026-11-04: the owner asked for all text in the web app to be lower case, except acronyms, trading symbols and words that would confuse. The strings in `web/` were rewritten at the source rather than with CSS `text-transform`, which would lowercase tickers and miss the page title, alerts and `aria-label`s. Months are lowered in `lowerMonth` (`web/src/format.ts`). Snapshot values stay as written. The rule is in `CLAUDE.md`. 18 web tests pass.
+
 ## Status (2026-11-02)
 
 | Area | State |

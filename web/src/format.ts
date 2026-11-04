@@ -83,19 +83,27 @@ export function dayDate(day: string): Date {
   return new Date(year ?? 1970, (month ?? 1) - 1, date ?? 1);
 }
 
+/** A date as the format writes it, with the month in lower case like the rest of the page. AM and PM keep their case. */
+export function lowerMonth(format: Intl.DateTimeFormat, date: Date): string {
+  return format
+    .formatToParts(date)
+    .map((part) => (part.type === 'month' ? part.value.toLocaleLowerCase() : part.value))
+    .join('');
+}
+
 export function monthLabel(month: string | Date, style: 'short' | 'long' = 'short'): string {
   const date = typeof month === 'string' ? monthDate(month) : month;
-  return date.toLocaleDateString(undefined, { month: style, year: 'numeric' });
+  return lowerMonth(new Intl.DateTimeFormat(undefined, { month: style, year: 'numeric' }), date);
 }
 
 export function dayLabel(day: string | Date): string {
   const date = typeof day === 'string' ? dayDate(day) : day;
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return lowerMonth(new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }), date);
 }
 
 /** The snapshot's local run time, 'YYYY-MM-DDTHH:MM:SS'. */
 export function runTime(isoLocal: string): string {
-  return new Date(isoLocal).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  return lowerMonth(new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }), new Date(isoLocal));
 }
 
 /** Whole days from a snapshot's run time to now. */

@@ -150,7 +150,7 @@ function checkPortfolio(value: unknown, where: string): void {
 }
 
 function broken(where: string): SnapshotError {
-  return new SnapshotError(`This snapshot is incomplete: ${where} is missing or has the wrong type.`);
+  return new SnapshotError(`this snapshot is incomplete: ${where} is missing or has the wrong type.`);
 }
 
 /** Parses a snapshot.json's text, or throws a SnapshotError that says what to do instead. */
@@ -160,20 +160,20 @@ export function parseSnapshot(text: string): Snapshot {
     data = JSON.parse(text);
   } catch {
     throw new SnapshotError(
-      'This file is not JSON. Open the snapshot.json that a trkr run writes to its generation directory.',
+      'this file is not JSON. open the snapshot.json that a trkr run writes to its generation directory.',
     );
   }
   if (!isRecord(data) || data.schema !== SCHEMA) {
     throw new SnapshotError(
-      'This JSON file is not a trkr snapshot. Open the snapshot.json that a trkr run writes to its generation directory.',
+      'this JSON file is not a trkr snapshot. open the snapshot.json that a trkr run writes to its generation directory.',
     );
   }
   const version = data.schema_version;
   if (version !== SCHEMA_VERSION) {
     const newer = typeof version === 'number' && version > SCHEMA_VERSION;
     throw new SnapshotError(
-      `This snapshot has format version ${String(version)}, and this app reads version ${SCHEMA_VERSION}. ` +
-        (newer ? 'Update and redeploy the web app.' : 'Run trkr again to write a new snapshot.'),
+      `this snapshot has format version ${String(version)}, and this app reads version ${SCHEMA_VERSION}. ` +
+        (newer ? 'update and redeploy the web app.' : 'run trkr again to write a new snapshot.'),
     );
   }
   if (typeof data.generated_at !== 'string' || Number.isNaN(Date.parse(data.generated_at))) {

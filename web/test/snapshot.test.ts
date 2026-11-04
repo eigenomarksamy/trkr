@@ -22,8 +22,8 @@ describe('parseSnapshot', () => {
   it('says what is wrong with a file that is not a snapshot', () => {
     expect(() => parseSnapshot('not json')).toThrow(/not JSON/);
     expect(() => parseSnapshot('{"a": 1}')).toThrow(/not a trkr snapshot/);
-    expect(() => parseSnapshot('{"schema": "trkr-snapshot", "schema_version": 99}')).toThrow(/Update and redeploy/);
-    expect(() => parseSnapshot('{"schema": "trkr-snapshot", "schema_version": 0}')).toThrow(/Run trkr again/);
+    expect(() => parseSnapshot('{"schema": "trkr-snapshot", "schema_version": 99}')).toThrow(/update and redeploy/);
+    expect(() => parseSnapshot('{"schema": "trkr-snapshot", "schema_version": 0}')).toThrow(/run trkr again/);
     const incomplete = JSON.parse(golden);
     delete incomplete.portfolio.holdings;
     expect(() => parseSnapshot(JSON.stringify(incomplete))).toThrow(SnapshotError);

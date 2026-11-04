@@ -11,25 +11,25 @@ interface Column {
 }
 
 const COLUMNS: Column[] = [
-  { label: 'Symbol', value: (x) => x.symbol, cell: () => null },
-  { label: 'Quantity', value: (x) => x.amount, cell: (x) => quantity(x.amount) },
-  { label: 'Price', value: (x) => x.current_price, cell: (x, c) => money(x.current_price, c) },
-  { label: 'Value', value: (x) => x.value, cell: (x, c) => money(x.value, c) },
-  { label: 'Cost', value: (x) => x.spending, cell: (x, c) => money(x.spending, c) },
+  { label: 'symbol', value: (x) => x.symbol, cell: () => null },
+  { label: 'quantity', value: (x) => x.amount, cell: (x) => quantity(x.amount) },
+  { label: 'price', value: (x) => x.current_price, cell: (x, c) => money(x.current_price, c) },
+  { label: 'value', value: (x) => x.value, cell: (x, c) => money(x.value, c) },
+  { label: 'cost', value: (x) => x.spending, cell: (x, c) => money(x.spending, c) },
   {
-    label: 'Profit',
+    label: 'profit',
     value: (x) => x.profit_net,
     cell: (x, c) => money(x.profit_net, c, { signed: true }),
     tone: (x) => direction(x.profit_net),
   },
   {
-    label: 'Profit %',
+    label: 'profit %',
     value: (x) => x.profit_percent,
     cell: (x) => percent(x.profit_percent, { signed: true }),
     tone: (x) => direction(x.profit_net),
   },
-  { label: 'Weight', value: (x) => x.spending_percent, cell: (x) => percent(x.spending_percent) },
-  { label: 'Break-even', value: (x) => x.break_even_price, cell: (x, c) => money(x.break_even_price, c) },
+  { label: 'weight', value: (x) => x.spending_percent, cell: (x) => percent(x.spending_percent) },
+  { label: 'break-even', value: (x) => x.break_even_price, cell: (x, c) => money(x.break_even_price, c) },
 ];
 
 // Kept across visits, like a remembered filter.
@@ -40,8 +40,8 @@ export function holdingsPage(context: Context): Child[] {
   const { portfolio, currency } = context;
   if (portfolio.holdings.length === 0) {
     return [
-      h('h1', null, 'Holdings'),
-      h('p', null, `Nothing is held. Sells made ${money(portfolio.total.realized_profit, currency, { signed: true })}.`),
+      h('h1', null, 'holdings'),
+      h('p', null, `nothing is held. sells made ${money(portfolio.total.realized_profit, currency, { signed: true })}.`),
     ];
   }
   const table = h('div', { class: 'scroll' });
@@ -104,7 +104,7 @@ export function holdingsPage(context: Context): Child[] {
         h(
           'tr',
           null,
-          h('th', { class: 'sticky', scope: 'row' }, 'Total'),
+          h('th', { class: 'sticky', scope: 'row' }, 'total'),
           h('td', null),
           h('td', null),
           h('td', { class: 'num' }, money(total.value, ctx.currency)),
@@ -119,8 +119,8 @@ export function holdingsPage(context: Context): Child[] {
   };
   render();
   return [
-    h('h1', null, 'Holdings'),
-    h('p', { class: 'muted' }, `Prices and values in ${currency}. Cost is what the units still held cost, fees included.`),
+    h('h1', null, 'holdings'),
+    h('p', { class: 'muted' }, `prices and values in ${currency}. cost is what the units still held cost, fees included.`),
     table,
   ];
 }

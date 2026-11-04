@@ -32,15 +32,15 @@ interface Field {
 }
 
 const FIELDS: Field[] = [
-  { key: 'birth_year', label: 'Birth year', empty: Number.NaN },
-  { key: 'retirement_age', label: 'Retirement age', empty: Number.NaN },
-  { key: 'cash', label: 'Cash', hint: 'Added to the start value', empty: 0 },
-  { key: 'income', label: 'Income', hint: 'Yearly', empty: 0 },
-  { key: 'income_growth', label: 'Income growth %', hint: 'A year', empty: 0 },
-  { key: 'invest_percent', label: 'Invested %', hint: 'Of income', empty: 0 },
-  { key: 'yearly_return', label: 'Return %', hint: 'A year, before fees', empty: Number.NaN },
-  { key: 'fees', label: 'Fees %', hint: 'A year', empty: 0 },
-  { key: 'inflation', label: 'Inflation %', hint: 'Optional: adds today’s money', empty: null },
+  { key: 'birth_year', label: 'birth year', empty: Number.NaN },
+  { key: 'retirement_age', label: 'retirement age', empty: Number.NaN },
+  { key: 'cash', label: 'cash', hint: 'added to the start value', empty: 0 },
+  { key: 'income', label: 'income', hint: 'yearly', empty: 0 },
+  { key: 'income_growth', label: 'income growth %', hint: 'a year', empty: 0 },
+  { key: 'invest_percent', label: 'invested %', hint: 'of income', empty: 0 },
+  { key: 'yearly_return', label: 'return %', hint: 'a year, before fees', empty: Number.NaN },
+  { key: 'fees', label: 'fees %', hint: 'a year', empty: 0 },
+  { key: 'inflation', label: 'inflation %', hint: 'optional: adds today’s money', empty: null },
 ];
 
 function startYearOf(snapshot: Snapshot): number {
@@ -88,9 +88,9 @@ export function projectionPage(context: Context): Child[] {
   const startChoice = h(
     'select',
     { id: 'start' },
-    h('option', { value: 'portfolio' }, `Real portfolio (${money(portfolioValues.portfolio, currency)})`),
+    h('option', { value: 'portfolio' }, `real portfolio (${money(portfolioValues.portfolio, currency)})`),
     snapshot.imaginary.map((p) => h('option', { value: p.name }, `${p.name}, imaginary (${money(p.total.value, currency)})`)),
-    h('option', { value: '' }, 'A fixed amount'),
+    h('option', { value: '' }, 'a fixed amount'),
   );
   const fixedAmount = h('input', { id: 'start-amount', type: 'number', step: 'any', inputmode: 'decimal' });
   const plan = h('textarea', { id: 'plan', rows: 3, spellcheck: 'false', placeholder: '2030: -15000' });
@@ -147,7 +147,7 @@ export function projectionPage(context: Context): Child[] {
     h(
       'div',
       { class: 'field' },
-      h('label', { for: 'start' }, 'Start from'),
+      h('label', { for: 'start' }, 'start from'),
       startChoice,
       fixedAmount,
     ),
@@ -165,9 +165,9 @@ export function projectionPage(context: Context): Child[] {
     h(
       'div',
       { class: 'field wide' },
-      h('label', { for: 'plan' }, 'Deposits and withdrawals'),
+      h('label', { for: 'plan' }, 'deposits and withdrawals'),
       plan,
-      h('span', { class: 'hint' }, 'One "year: amount" per line; negative amounts are withdrawals.'),
+      h('span', { class: 'hint' }, 'one "year: amount" per line; negative amounts are withdrawals.'),
     ),
     h(
       'div',
@@ -182,7 +182,7 @@ export function projectionPage(context: Context): Child[] {
             update();
           },
         },
-        snapshot.projection ? 'Back to the config’s values' : 'Clear',
+        snapshot.projection ? 'back to the config’s values' : 'clear',
       ),
     ),
   );
@@ -191,18 +191,18 @@ export function projectionPage(context: Context): Child[] {
   update();
 
   return [
-    h('h1', null, 'Projection'),
+    h('h1', null, 'projection'),
     h(
       'p',
       { class: 'muted' },
       snapshot.projection
-        ? 'Starts from the config’s projection block. Change any input to see what happens; nothing is saved, and the config stays as it is.'
-        : 'The config has no projection block, so fill in at least your birth year. Nothing is saved.',
+        ? 'starts from the config’s projection block. change any input to see what happens; nothing is saved, and the config stays as it is.'
+        : 'the config has no projection block, so fill in at least your birth year. nothing is saved.',
     ),
     h(
       'p',
       { class: 'muted' },
-      `Invested in the 12 months to the snapshot: ${money(investedLast12Months(snapshot), currency)}.`,
+      `invested in the 12 months to the snapshot: ${money(investedLast12Months(snapshot), currency)}.`,
     ),
     form,
     problem,
@@ -221,41 +221,41 @@ function outcome(
   if (!last) return [];
   const real = inputs.inflation !== null;
   const series = [
-    { name: 'Net worth', values: rows.map((r) => r.net_worth_before_fees) },
-    { name: 'After fees', values: rows.map((r) => r.net_worth_after_fees) },
+    { name: 'net worth', values: rows.map((r) => r.net_worth_before_fees) },
+    { name: 'after fees', values: rows.map((r) => r.net_worth_after_fees) },
   ];
-  if (real) series.push({ name: 'After fees, today’s money', values: rows.map((r) => r.net_worth_real ?? 0) });
+  if (real) series.push({ name: 'after fees, today’s money', values: rows.map((r) => r.net_worth_real ?? 0) });
   const yaml = projectionYaml(inputs);
-  const copy = h('button', { type: 'button', class: 'button quiet' }, 'Copy');
+  const copy = h('button', { type: 'button', class: 'button quiet' }, 'copy');
   copy.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(yaml);
-      copy.textContent = 'Copied';
+      copy.textContent = 'copied';
     } catch {
-      copy.textContent = 'Select the text to copy it';
+      copy.textContent = 'select the text to copy it';
     }
   });
   return [
     h(
       'p',
       { class: 'headline' },
-      `At ${last.age}, in ${last.year}: `,
+      `at ${last.age}, in ${last.year}: `,
       h('strong', null, money(last.net_worth_after_fees, currency)),
       ` after fees`,
       real ? `, ${money(last.net_worth_real, currency)} in today’s money` : '',
-      `. Before fees: ${money(last.net_worth_before_fees, currency)}.`,
+      `. before fees: ${money(last.net_worth_before_fees, currency)}.`,
     ),
     h(
       'p',
       { class: 'muted' },
-      `Starts at ${money(startValue, currency)} and invests ${money(rows[0]?.contribution, currency)} in ${rows[0]?.year}. Snapshot of ${snapshot.generated_at.slice(0, 10)}.`,
+      `starts at ${money(startValue, currency)} and invests ${money(rows[0]?.contribution, currency)} in ${rows[0]?.year}. snapshot of ${snapshot.generated_at.slice(0, 10)}.`,
     ),
     h(
       'section',
       { class: 'card' },
-      h('h2', null, 'Net worth by year'),
+      h('h2', null, 'net worth by year'),
       lineChart({
-        label: 'Projected net worth by year',
+        label: 'projected net worth by year',
         x: rows.map((r) => r.year),
         xTick: (year) => String(year),
         xReadout: (year) => `${year}, age ${year - inputs.birth_year}`,
@@ -265,7 +265,7 @@ function outcome(
         zero: true,
       }),
       tableView(
-        ['Year', 'Age', 'Income', 'Invested', 'Deposit/withdrawal', 'Return', 'Net worth', 'Return after fees', 'After fees', ...(real ? ['Today’s money'] : [])],
+        ['year', 'age', 'income', 'invested', 'deposit/withdrawal', 'return', 'net worth', 'return after fees', 'after fees', ...(real ? ['today’s money'] : [])],
         rows.map((r) => [
           String(r.year),
           String(r.age),
@@ -283,7 +283,7 @@ function outcome(
     h(
       'details',
       { class: 'card yaml' },
-      h('summary', null, 'As a projection block for the config'),
+      h('summary', null, 'as a projection block for the config'),
       h('pre', null, yaml),
       copy,
     ),

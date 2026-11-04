@@ -19,29 +19,29 @@ export function overviewPage(context: Context): Child[] {
   const total = portfolio.total;
   const nothingHeld = portfolio.holdings.length === 0;
   return [
-    h('h1', null, 'Overview'),
+    h('h1', null, 'overview'),
     h(
       'div',
       { class: 'tiles' },
-      tile('Value', money(total.value, currency), { hero: true, note: nothingHeld ? 'Nothing is held.' : undefined }),
-      tile('Invested', money(total.spending, currency), { note: 'What the holdings cost' }),
-      tile('Profit', money(total.profit_net, currency, { signed: true }), {
+      tile('value', money(total.value, currency), { hero: true, note: nothingHeld ? 'nothing is held.' : undefined }),
+      tile('invested', money(total.spending, currency), { note: 'what the holdings cost' }),
+      tile('profit', money(total.profit_net, currency, { signed: true }), {
         note: percent(total.profit_percent, { signed: true }),
         tone: direction(total.profit_net),
       }),
-      tile('Realized profit', money(total.realized_profit, currency, { signed: true }), {
-        note: 'From sells',
+      tile('realized profit', money(total.realized_profit, currency, { signed: true }), {
+        note: 'from sells',
         tone: direction(total.realized_profit),
       }),
     ),
     h(
       'dl',
       { class: 'facts' },
-      h('dt', null, 'First trade'),
+      h('dt', null, 'first trade'),
       h('dd', null, `${number(total.time_interval_years, 1)} years ago`),
-      h('dt', null, 'Average yearly profit'),
+      h('dt', null, 'average yearly profit'),
       h('dd', null, `${percent(total.avg_year_roi, { signed: true })} (profit % spread evenly over the years)`),
-      h('dt', null, 'Value less 5%'),
+      h('dt', null, 'value less 5%'),
       h('dd', null, money(total.cash_out, currency)),
     ),
     valuationSection(portfolio, currency),
@@ -55,21 +55,21 @@ function valuationSection(portfolio: Portfolio, currency: string): HTMLElement {
   return h(
     'section',
     { class: 'card' },
-    h('h2', null, 'Value at each month end'),
-    h('p', { class: 'muted' }, 'What the holdings of the time were worth at the month’s last close.'),
+    h('h2', null, 'value at each month end'),
+    h('p', { class: 'muted' }, 'what the holdings of the time were worth at the month’s last close.'),
     lineChart({
-      label: 'Value at each month end',
+      label: 'value at each month end',
       x: months.map((m) => monthDate(m.month).getTime()),
       xTick: (x) => monthLabel(new Date(x)),
       xReadout: (x) => monthLabel(new Date(x), 'long'),
       yTick: (y) => money(y, currency, { compact: true }),
       yReadout: (y) => money(y, currency),
-      series: [{ name: 'Value', values: months.map((m) => m.value) }],
+      series: [{ name: 'value', values: months.map((m) => m.value) }],
       area: true,
       zero: true,
     }),
     tableView(
-      ['Month', 'Value'],
+      ['month', 'value'],
       months.map((m) => [monthLabel(m.month, 'long'), money(m.value, currency)]),
     ),
   );
@@ -80,10 +80,10 @@ function spendingSection(portfolio: Portfolio, currency: string): HTMLElement {
   return h(
     'section',
     { class: 'card' },
-    h('h2', null, 'Invested each month'),
-    h('p', { class: 'muted' }, 'Buys with their fees, in the default currency.'),
+    h('h2', null, 'invested each month'),
+    h('p', { class: 'muted' }, 'buys with their fees, in the default currency.'),
     columnChart({
-      label: 'Invested each month',
+      label: 'invested each month',
       values: months.map((m) => m.amount),
       tick: (i) => monthLabel(months[i]?.month ?? ''),
       readout: (i) => monthLabel(months[i]?.month ?? '', 'long'),
@@ -91,7 +91,7 @@ function spendingSection(portfolio: Portfolio, currency: string): HTMLElement {
       yReadout: (y) => money(y, currency),
     }),
     tableView(
-      ['Month', 'Invested'],
+      ['month', 'invested'],
       months.map((m) => [monthLabel(m.month, 'long'), money(m.amount, currency)]),
     ),
   );
@@ -100,13 +100,13 @@ function spendingSection(portfolio: Portfolio, currency: string): HTMLElement {
 function comparison(context: Context): HTMLElement {
   const { snapshot, currency } = context;
   const rows = [
-    { name: 'Real portfolio', link: href('', 'overview'), total: snapshot.portfolio.total },
+    { name: 'real portfolio', link: href('', 'overview'), total: snapshot.portfolio.total },
     ...snapshot.imaginary.map((p) => ({ name: p.name, link: href(p.name, 'overview'), total: p.total })),
   ];
   return h(
     'section',
     { class: 'card' },
-    h('h2', null, 'Imaginary portfolios'),
+    h('h2', null, 'imaginary portfolios'),
     h(
       'div',
       { class: 'scroll' },
@@ -116,7 +116,7 @@ function comparison(context: Context): HTMLElement {
         h(
           'thead',
           null,
-          h('tr', null, h('th', null, 'Portfolio'), ['Invested', 'Value', 'Profit', 'Profit %'].map((name) => h('th', { class: 'num' }, name))),
+          h('tr', null, h('th', null, 'portfolio'), ['invested', 'value', 'profit', 'profit %'].map((name) => h('th', { class: 'num' }, name))),
         ),
         h(
           'tbody',

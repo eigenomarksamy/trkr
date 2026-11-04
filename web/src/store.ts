@@ -15,8 +15,8 @@ export interface Loaded {
 
 export async function loadDemo(): Promise<Loaded> {
   const response = await fetch('/demo-snapshot.json');
-  if (!response.ok) throw new Error(`The demo could not be loaded (${response.status}).`);
-  return { snapshot: parseSnapshot(await response.text()), origin: 'demo', name: 'Demo', remembered: false };
+  if (!response.ok) throw new Error(`the demo could not be loaded (${response.status}).`);
+  return { snapshot: parseSnapshot(await response.text()), origin: 'demo', name: 'demo', remembered: false };
 }
 
 export async function loadFile(file: File, remember: boolean): Promise<Loaded> {
