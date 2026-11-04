@@ -26,6 +26,8 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-04: the owner asked for the web app to deploy on push. `.github/workflows/deploy-web.yml` runs `npm ci`, `npm run check` and `npm run deploy` on pushes to `main` that change `web/`. It passes no `--domain`, because the domain attached on 2026-11-02 stays attached, and it hides the `workers.dev` address, because the repo's Actions logs are public. The owner adds the token and account ID as repository secrets. The push that added the workflow (`c49b1a0`) started no run, though Actions was on and the path filter matched; no cause was found. A manual run then deployed `c49b1a0`, and the domain stayed attached. The next push that changed `web/` (`485d732`) started the workflow and deployed.
 
+2026-11-04: the owner asked for a button in the web app's footer that goes to eigenomar.com. W10 plans it, and nothing is built yet.
+
 ## Status (2026-11-04)
 
 | Area | State |
@@ -381,6 +383,12 @@ Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) an
 ### W9: Setup wizard (owner's call)
 
 - [ ] The sheet generator's questions as a multi-step form that ends with the files and the YAML as downloads. Ticker search needs `yf.Search`, so the Worker would proxy Yahoo's search (see W5). Same rows as `trkr init`, checked by shared fixtures.
+
+### W10: Button to eigenomar.com (owner, 2026-11-04)
+
+- [ ] A footer with a link to `https://eigenomar.com`, labelled `eigenomar.com` and styled with `.button`. The app has no footer yet: `shell()` in `web/src/app.ts` has a header and a main, and `landing()` in `web/src/views/landing.ts` stands in for them until a snapshot is open, so both need it.
+- [ ] It opens in a new tab (`target="_blank" rel="noopener"`). An open snapshot stays in the page unless the owner chose to remember it, so leaving in the same tab would drop it.
+- [ ] It stays a link, not a form, because the CSP has `form-action 'none'`. A link needs no change to the CSP in `web/src/worker.ts`.
 
 ### Not planned
 
