@@ -92,3 +92,5 @@ git add web/public/demo-snapshot.json
 - `src/projection.ts`: a port of `src/projection.py` and the projection checks in `src/cfg_mngr.py`, so the projection can be recomputed as you type.
 - `src/worker.ts`: the Worker. It serves `dist/` through the `ASSETS` binding, adds the security headers, and answers `/api/health`.
 - `src/app.ts`: the shell and the hash router. Pages are in `src/views/`, charts in `src/chart.ts` (SVG, no library). The DOM is built with `src/dom.ts`, which only ever inserts text, so values from your sheets can't inject HTML.
+
+## Testing
