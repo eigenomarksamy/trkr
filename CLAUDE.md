@@ -26,7 +26,7 @@ Personal investment-portfolio tracker. Reads a transactions CSV (local file or a
 - Don't edit `config/cfg.yml` or `config/cfg_bat.yml` without asking.
 - A real end-to-end run hits the owner's live sheets. Ask before running it.
 - A `snapshot.json` holds holdings and transactions. Never copy one into `web/`; the only snapshot there is `web/public/demo-snapshot.json`, made from `config/demo-cfg.yml`.
-- Deploying the web app (`npm run deploy`, `wrangler deploy`) publishes it. Leave that to the owner unless asked, and never write the owner's domain into tracked files: the repo is public.
+- Deploying the web app (`npm run deploy`, `wrangler deploy`) publishes it, and so does a push to `main` that changes `web/` (`.github/workflows/deploy-web.yml`). Leave both to the owner unless asked, and never write the owner's domain into tracked files or Actions logs: the repo and its logs are public.
 
 ## Pipeline (`run.py` → `exec`)
 

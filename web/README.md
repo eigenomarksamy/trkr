@@ -11,8 +11,8 @@ A page that shows the `snapshot.json` a trkr run writes: totals, holdings with a
   - a built file contains a sheet address from your local `config/*.yml`, or your home directory;
   - `dist/` holds any trkr snapshot other than the demo, or the demo was made from a Google Sheet or has unstaged changes.
 
-  `wrangler dev` and `wrangler deploy` both run the build first (`build.command` in `wrangler.jsonc`), so a plain `npx wrangler deploy` is checked too.
-- **No domain in the repo.** The repo is public, so the custom domain is passed on the command line rather than written into `wrangler.jsonc`.
+  `wrangler dev` and `wrangler deploy` both run the build first (`build.command` in `wrangler.jsonc`), so a plain `npx wrangler deploy` is checked too. The deploy workflow runs the same check, but it has no local configs, so the sheet-address part has nothing to compare against. It builds only tracked files, which the push has already made public.
+- **No domain in the repo.** The repo is public, so the custom domain is passed on the command line rather than written into `wrangler.jsonc`. Its Actions logs are public too, so the deploy workflow doesn't pass the domain and hides the `workers.dev` address.
 - **No telemetry from Wrangler**: `send_metrics` is off in `wrangler.jsonc`.
 
 A snapshot holds your holdings and transactions. Keep it in `data/`, which is gitignored, and don't put it in `web/`.
@@ -37,9 +37,20 @@ All from `web/`:
 | Build to `dist/` (type-check, Vite, privacy check) | `npm run build` |
 | Page only, with live reload (no Worker headers) | `npm run dev` |
 | Page and Worker locally, as deployed, on <http://127.0.0.1:8787> | `npm run preview` |
-| Deploy | `npm run deploy` |
+| Deploy by hand | `npm run deploy` |
 
 ## Deploy
+
+A push to `main` that changes `web/` deploys the app. `.github/workflows/deploy-web.yml` runs `npm ci`, `npm run check` and `npm run deploy`, so a failing test stops the deploy. To deploy without a push, use **Run workflow** on the repo's Actions tab. `npx wrangler deployments list` shows the commit behind each deploy.
+
+The workflow needs two repository secrets, added once under **Settings > Secrets and variables > Actions**:
+
+| Secret | Value |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | An account API token made from the **Edit Cloudflare Workers** template, limited to your account and the domain's zone. |
+| `CLOUDFLARE_ACCOUNT_ID` | Your account ID, shown by `npx wrangler whoami`. |
+
+### By hand
 
 Once per machine, sign in to Cloudflare:
 
@@ -53,13 +64,13 @@ Then deploy to `trkr.<your-subdomain>.workers.dev`:
 npm run deploy
 ```
 
-To serve it from your own domain as well, the domain's zone must be on the same Cloudflare account. Pass the hostname each time you deploy:
+To serve it from your own domain as well, the domain's zone must be on the same Cloudflare account. Pass the hostname once:
 
 ```sh
 npm run deploy -- --domain trkr.example.com
 ```
 
-Wrangler creates the DNS record and the certificate. Check a deploy with `https://<host>/api/health`, which answers `{"ok":true,"snapshot_schema_version":1}`. To serve only the custom domain, set `"workers_dev": false` in `wrangler.jsonc`.
+Wrangler creates the DNS record and the certificate, and later deploys leave the domain attached. Check a deploy with `https://<host>/api/health`, which answers `{"ok":true,"snapshot_schema_version":1}`. To serve only the custom domain, set `"workers_dev": false` in `wrangler.jsonc`.
 
 New files under `src/` or `public/` must be staged (`git add`) before they build, because of the privacy check.
 

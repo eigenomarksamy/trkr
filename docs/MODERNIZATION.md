@@ -24,7 +24,9 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-04: the owner asked for all text in the web app to be lower case, except acronyms, trading symbols and words that would confuse. The strings in `web/` were rewritten at the source rather than with CSS `text-transform`, which would lowercase tickers and miss the page title, alerts and `aria-label`s. Months are lowered in `lowerMonth` (`web/src/format.ts`). Snapshot values stay as written. The rule is in `CLAUDE.md`. 18 web tests pass.
 
-## Status (2026-11-02)
+2026-11-04: the owner asked for the web app to deploy on push. `.github/workflows/deploy-web.yml` runs `npm ci`, `npm run check` and `npm run deploy` on pushes to `main` that change `web/`. It passes no `--domain`, because the domain attached on 2026-11-02 stays attached, and it hides the `workers.dev` address, because the repo's Actions logs are public. The owner adds the token and account ID as repository secrets.
+
+## Status (2026-11-04)
 
 | Area | State |
 |---|---|
@@ -33,12 +35,12 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 | Holdings snapshot, bug 13, sheet tab links | Done and committed (`c45f7c3`). 106 tests pass. The demo run and a live run with a snapshot dated today both exit 0. |
 | Phase 1, bugs 1-14 | Done (`bb62641`..`8ff5e1c`; bug 13 in `c45f7c3`) and merged into `main` (`c7bc1fb`). |
 | Phases 2-4 | Not started. |
-| Web app | A Cloudflare Worker app in `web/`, not committed yet. W0's snapshot, W1's viewer and most of W4 are done; it is not deployed. 175 Python tests and 16 web tests pass. |
+| Web app | A Cloudflare Worker app in `web/`, committed and deployed by hand on 2026-11-02, with its custom domain attached. W0's snapshot, W1's viewer and most of W4 are done. A push to `main` that changes `web/` deploys it, once the owner adds the secrets. 175 Python tests and 18 web tests pass. |
 | Broker import, sheet generator | Planned only. The importer waits on sample exports from the owner. |
 
 Waiting on the owner:
 
-- deploying the web app (`web/README.md`: `npx wrangler login`, then `npm run deploy -- --domain <host>`), and whether a hosted app should get the latest snapshot without the file (decisions table);
+- the deploy workflow's two repository secrets (`web/README.md`, "Deploy"), and whether a hosted app should get the latest snapshot without the file (decisions table);
 - a holdings tab in the transactions sheet, and the `positions:` block in `cfg.yml` and `cfg_bat.yml`;
 - one export per broker, for the importer;
 - the new defaults in the decisions table: web editing of holdings, Google Sheets for the generator, and what "prompts" means.
@@ -361,7 +363,9 @@ Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) an
 
 - [x] Build and deploy commands: `npm ci`, `npm run check`, `npm run build`, `npx wrangler login`, `npm run deploy [-- --domain <host>]` (`web/README.md`). Wrangler metrics are off (`send_metrics: false`).
 - [x] A "Web app" section in the README.
-- [ ] Owner: deploy, and attach the domain (its zone must be on the same Cloudflare account).
+- [x] Owner: deploy, and attach the domain (its zone must be on the same Cloudflare account). Done 2026-11-02.
+- [x] Deploy on push: `.github/workflows/deploy-web.yml` publishes pushes to `main` that change `web/`, after `npm run check`.
+- [ ] Owner: add the workflow's `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets.
 - [ ] The GitHub Actions job (Phase 3) runs `npm ci && npm run check` in `web/` along with pytest. The privacy check needs no secrets: in CI it finds no local configs and checks the rest.
 
 ### W7: Holdings snapshot from the browser

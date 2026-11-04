@@ -1,6 +1,6 @@
-// The Worker that serves the web app. Deploy with `npm run deploy`; see README.md.
-// No custom domain here, because this file is public: pass yours on each deploy with
-// `npm run deploy -- --domain <host>`.
+// The Worker that serves the web app. A push to main deploys it; see README.md.
+// No custom domain here, because this file is public: attach yours once with
+// `npm run deploy -- --domain <host>`. Later deploys leave it attached.
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "trkr",

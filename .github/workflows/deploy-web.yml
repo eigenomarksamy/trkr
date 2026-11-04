@@ -1,0 +1,47 @@
+# Publishes the web app when a push to main changes it. Setup: "Deploy" in web/README.md.
+name: deploy web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - web/**
+      - .github/workflows/deploy-web.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time, in push order.
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        # Naming bash turns on pipefail, so a failed deploy still fails through the sed below.
+        shell: bash
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      # Wrangler runs the build and its privacy check first (build.command in wrangler.jsonc).
+      # This repo's Actions logs are public. No --domain, because the custom domain stays
+      # attached without it, and sed hides the workers.dev address Wrangler prints.
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run deploy -- --message "$GITHUB_SHA" 2>&1 | sed -E 's#https://[^[:space:]]*workers\.dev#<workers.dev address>#g'
