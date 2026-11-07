@@ -28,7 +28,9 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-04: the owner asked for a button in the web app's footer that goes to eigenomar.com. W10 plans it, and nothing is built yet.
 
-## Status (2026-11-04)
+2026-11-07: the web app is committed and deployed. It has been on `main` since 2026-11-02 (`d3b7cab`), and the owner deployed it by hand that day, with its domain attached. Since 2026-11-04, a push to `main` that changes `web/` deploys it. From `1050c64` to `c49b1a0`, the Status table said it was neither committed nor deployed. "Built, not yet committed" in the 2026-11-02 note was true when written. Checked on 2026-11-07: the app, its demo and its health route answer, and 175 Python tests and 18 web tests pass.
+
+## Status (2026-11-07)
 
 | Area | State |
 |---|---|
@@ -37,7 +39,7 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 | Holdings snapshot, bug 13, sheet tab links | Done and committed (`c45f7c3`). 106 tests pass. The demo run and a live run with a snapshot dated today both exit 0. |
 | Phase 1, bugs 1-14 | Done (`bb62641`..`8ff5e1c`; bug 13 in `c45f7c3`) and merged into `main` (`c7bc1fb`). |
 | Phases 2-4 | Not started. |
-| Web app | A Cloudflare Worker app in `web/`, committed and deployed by hand on 2026-11-02, with its custom domain attached. W0's snapshot, W1's viewer and most of W4 are done. A push to `main` that changes `web/` deploys it through `.github/workflows/deploy-web.yml`. 175 Python tests and 18 web tests pass. |
+| Web app | A Cloudflare Worker app in `web/`, committed (`d3b7cab`) and deployed by hand on 2026-11-02, with its custom domain attached. W0's snapshot (`1050c64`), W1's viewer and most of W4 are done. A push to `main` that changes `web/` deploys it through `.github/workflows/deploy-web.yml`. 175 Python tests and 18 web tests pass. |
 | Broker import, sheet generator | Planned only. The importer waits on sample exports from the owner. |
 
 Waiting on the owner:
