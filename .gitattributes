@@ -1,2 +1,4 @@
+* text=auto eol=lf
+
 # The mirror sheets keep the CRLF line endings Google Sheets exports.
 tests/fixtures/mirror/*.csv -text

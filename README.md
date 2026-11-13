@@ -10,6 +10,8 @@ Python 3.11 or newer. From the project's home directory:
 
 ``$ .venv/Scripts/python.exe -m pip install -r requirements.txt``
 
+These are the Windows spellings. On Linux, create the venv with `python3 -m venv .venv`, and write `.venv/bin/python` wherever this README writes `.venv/Scripts/python.exe`.
+
 `requirements.txt` pins the versions locked in `uv.lock`. Then run:
 
 ``$ .venv/Scripts/python.exe run.py --cfg config/cfg.yml``
@@ -180,7 +182,7 @@ Then open `data/demo-run/report.html`.
 
 ``$ .venv/Scripts/python.exe -m ruff format .``
 
-The tests run offline. When a change to the output is intended, regenerate the golden files in `tests/golden/` with `TRKR_UPDATE_GOLDEN=1` and review the diff.
+On Linux, the venv's Python is `.venv/bin/python` (see [Setup](#setup)). The tests run offline. When a change to the output is intended, regenerate the golden files in `tests/golden/` with `TRKR_UPDATE_GOLDEN=1` and review the diff.
 
 Dependencies are declared in `pyproject.toml` and locked in `uv.lock`. After changing them, run `uv lock`, then regenerate `requirements.txt` with:
 

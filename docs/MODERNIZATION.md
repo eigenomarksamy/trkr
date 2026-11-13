@@ -34,6 +34,8 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-13: trkr is being onboarded to the eigenomar ecosystem, whose contract lives in `meta-eigenomar`. That changes nothing in how trkr is built, tested or deployed. The owner's target capabilities and release gate are planned as X1-X3 ("Release gate"), and the onboarding steps as EO1-EO10 ("Ecosystem onboarding"). `project.yaml` and the shared import on `CLAUDE.md`'s first line are added, not yet committed.
 
+2026-11-14: the onboarding's first steps are in `c8fcf62`, and W11's slice 1 and W1's guide page, which the 2026-11-13 notes call not yet committed, are in `382507c`, pushed and deployed that day. The owner answered the onboarding's questions: no standing approval for commits (EO3), EO10's priorities, and W5 closed, since W11 does its work. EO6-EO9 close the portability gaps: LF line endings, `npm run check` from either spelling of the drive letter, the venv's Python on Linux, and the C++ tool by its repository. 175 Python tests and 36 web tests pass.
+
 ## Status (2026-11-07)
 
 | Area | State |
@@ -162,7 +164,7 @@ Ordered by impact. Line numbers are as of commit `c1d28fe`.
 
 ## Feature: net-worth projection and imaginary portfolios
 
-A port of the owner's C++ tool at `C:\dev_ws\networth_projection` (`src/networth/`, `src/portfolio/`), which lives outside this repo. Landed 2026-10-23, before Phase 2, so the report sections are inline strings in `report_mngr.py` like the rest; they move with the other templates. Build fixtures from made-up numbers: don't use that project's `gen/` files or its `fillDefaults()` values.
+A port of the owner's C++ tool, the public repo `eigenomarksamy/networth_projection` (`src/networth/`, `src/portfolio/`), which lives outside this repo. Landed 2026-10-23, before Phase 2, so the report sections are inline strings in `report_mngr.py` like the rest; they move with the other templates. Build fixtures from made-up numbers: don't use that project's `gen/` files or its `fillDefaults()` values.
 
 ### What the C++ projection computes
 
@@ -312,6 +314,8 @@ Each feature of the CLI, and where it ends up in the app:
 | Broker import | `trkr import` (planned) | Upload page, owner's call | W8 |
 | Setup | `trkr init` (planned) | Wizard, owner's call | W9 |
 
+<a id="w0"></a>
+
 ### W0: Core seam (CLI only, no web code)
 
 - [x] Every run writes `<gen-dir>/snapshot.json`, plus a copy at `<gen-dir>/snapshots/<YYYYmmdd_HHMMSS>.json`. Each is written to a temp file and renamed, so a reader never sees half a file. Every copy is kept: at tens of KB per run, a year of daily runs is a few MB. (`src/snapshot.py`, called last in `exec`)
@@ -328,6 +332,8 @@ Each feature of the CLI, and where it ends up in the app:
 - [ ] The trades that positions replaced (`merge_positions` returns them), for W7.
 - [ ] Split computation from output: `process_portfolio` and `process_projection` return data only, and a separate `write_outputs(run, directories)` writes the files. No longer needed by the app; it would let a test build a snapshot without writing PNGs.
 
+<a id="w1"></a>
+
 ### W1: Viewer on a Worker
 
 - [x] `web/`: TypeScript with no framework, built by Vite into `dist/`, served by a Worker through the `ASSETS` binding with `run_worker_first`, so every response gets the headers: a CSP limiting the page to its own origin (`connect-src 'self'`, no inline script or style), `frame-ancestors 'none'`, `noindex`, `no-referrer`, HSTS. Hashed assets are cached as immutable. `/api/health` reports the snapshot version the app reads.
@@ -338,7 +344,9 @@ Each feature of the CLI, and where it ends up in the app:
 - [x] Privacy check: `web/scripts/check-private.mjs` ends `npm run build`, which `wrangler dev` and `wrangler deploy` run first. It refuses a build whose inputs git doesn't know, whose output holds a sheet address from the local configs or the home directory, or that holds any snapshot other than the demo made from local files.
 - [x] Tests (`npm run check`, vitest): parsing the CLI's golden snapshot and the demo, the error messages, the Worker's headers and routes, and the projection port against the rows the CLI computed for the demo.
 - [ ] A symbol table that links sold positions too (only held ones have pages from Holdings today).
-- [x] A page on how to make a `snapshot.json` (owner, 2026-11-13): `#/make-a-snapshot`, in `web/src/views/guide.ts`, linked under the landing's open button. It needs no snapshot, so the router shows it before anything else. Five steps: install, a transactions CSV, a minimal `config/cfg.yml` (Yahoo tickers, so no symbol map), run, open. That config was checked with a run on made-up trades, which wrote a snapshot. Checked at 390 px wide (no sideways scroll) and in light and dark mode. Not yet committed.
+- [x] A page on how to make a `snapshot.json` (owner, 2026-11-13): `#/make-a-snapshot`, in `web/src/views/guide.ts`, linked under the landing's open button. It needs no snapshot, so the router shows it before anything else. Five steps: install, a transactions CSV, a minimal `config/cfg.yml` (Yahoo tickers, so no symbol map), run, open. That config was checked with a run on made-up trades, which wrote a snapshot. Checked at 390 px wide (no sideways scroll) and in light and dark mode. Committed in `382507c`.
+
+<a id="w2"></a>
 
 ### W2: Snapshot history (was: runs from the browser)
 
@@ -347,6 +355,8 @@ A Worker can't start the CLI, so "Run now", run status and the run lock are drop
 - [ ] Open several snapshots from `snapshots/` at once and chart total value across them: a value-over-time series at each run's current prices.
 - [ ] Owner's call: get the latest snapshot to the app without the file (decisions table, "getting the snapshot to a hosted app").
 
+<a id="w3"></a>
+
 ### W3: Interactive charts
 
 - [x] Hover and keyboard readout on every chart (W1).
@@ -354,6 +364,8 @@ A Worker can't start the CLI, so "Run now", run status and the run lock are drop
 - [ ] Legend toggles and date-range zoom; price targets on symbol charts.
 - [ ] Imaginary portfolios overlaid on the real one's value.
 - [ ] Phase 4's interactive-report item could reuse these charts in the static report. Until the owner decides on that, the CLI report keeps its PNGs.
+
+<a id="w4"></a>
 
 ### W4: Projection playground
 
@@ -370,7 +382,9 @@ Decided 2026-11-13: the second way, through W11. The owner wants every snapshot 
 Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) and the Worker would have to proxy. Two ways, both for the owner to choose:
 
 - [ ] The app writes a transactions CSV for download, to add to the config as an imaginary portfolio (the CLI prices it on its next run). Needs nothing new on the server.
-- [ ] The Worker proxies Yahoo for the tickers asked, and the browser values the portfolio. That puts portfolio math in TypeScript, a second copy of `Portfolio.calculate`, so it needs the same characterization tests.
+- [x] The Worker proxies Yahoo for the tickers asked, and the browser values the portfolio. Chosen 2026-11-13; the work is W11, so W5 has nothing left of its own. That puts portfolio math in TypeScript, a second copy of `Portfolio.calculate`, so it needs the same characterization tests.
+
+<a id="w6"></a>
 
 ### W6: Running it day to day
 
@@ -382,18 +396,26 @@ Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) an
 - [x] See a push to `main` that changes `web/` start the workflow: `485d732` did, on 2026-11-04. The push that added the workflow did not, and the cause is unknown.
 - [ ] The GitHub Actions job (Phase 3) runs `npm ci && npm run check` in `web/` along with pytest. The privacy check needs no secrets: in CI it finds no local configs and checks the rest.
 
+<a id="w7"></a>
+
 ### W7: Holdings snapshot from the browser
 
 - [ ] A Holdings page section lists the positions rows with their current value and P&L, and flags rows more than three months old. Each row shows the trades it replaced (W0's open item).
 - [ ] Rows can be edited, added and deleted in the browser and downloaded as a positions CSV, checked with the same rules as `build_positions` (ported, with tests against the Python messages). The hosted app can't write the local file, so the owner saves the download over it or pastes it into the sheet tab. A change to a row's quantity or cost also sets its date to today, unless the owner picks one.
 
+<a id="w8"></a>
+
 ### W8: Broker import from the browser (owner's call)
 
 - [ ] The importer is Python (`src/importers/`). In the hosted app it would need a TypeScript copy of each parser, or a Worker running Python. Until the owner decides, the importer stays a CLI command.
 
+<a id="w9"></a>
+
 ### W9: Setup wizard (owner's call)
 
 - [ ] The sheet generator's questions as a multi-step form that ends with the files and the YAML as downloads. Ticker search needs `yf.Search`, so the Worker would proxy Yahoo's search (see W5). Same rows as `trkr init`, checked by shared fixtures.
+
+<a id="w10"></a>
 
 ### W10: Button to eigenomar.com (owner, 2026-11-04)
 
@@ -401,11 +423,13 @@ Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) an
 - [ ] It opens in a new tab (`target="_blank" rel="noopener"`). An open snapshot stays in the page unless the owner chose to remember it, so leaving in the same tab would drop it.
 - [ ] It stays a link, not a form, because the CSP has `form-action 'none'`. A link needs no change to the CSP in `web/src/worker.ts`.
 
+<a id="w11"></a>
+
 ### W11: Make a snapshot in the app (owner, 2026-11-13)
 
 Anyone can make their snapshot in the web app, with nothing to install. They enter old trades by hand, one at a time or in bulk, with their fees, and later can fetch a trade's price for its date. Each slice ships on its own; the defaults are the "Web app: snapshots made in the browser" and "prices for the browser" rows in the decisions table.
 
-- [x] **1. The money math in the browser** (no visible change). `web/src/market.ts` ports `MarketDataYahoo`'s lite history and `convert_currencies`: the last weekly close of each month, today's price for a month with no bar yet (bug 13), minor units, and each currency's own pair. `web/src/portfolio.ts` ports `Portfolio.calculate`, `compute_spending_history`, `get_entry_points_months` and `compute_historical_valuation`, and builds a snapshot's portfolio. Same order of trades and sums as the Python, so the figures match to the last digit. `web/test/portfolio.test.ts` rebuilds `tests/conftest.py`'s made-up market and checks the port against `tests/golden/exec/snapshot.json`, exactly. The golden has no sells, so a second case pins the figures the CLI's `Portfolio` printed for made-up partial sells with fees and exchange rates, one closing only through `isclose`. A change in the order of a sell's arithmetic fails it. The cases of `tests/test_portfolio.py` and `tests/test_market.py` are repeated: oversells, dust, pence, each currency's pair, a missing pair. One deliberate difference: a weekly bar with no close is skipped, where the CLI carries the NaN into its figures.
+- [x] **1. The money math in the browser** (no visible change). `web/src/market.ts` ports `MarketDataYahoo`'s lite history and `convert_currencies`: the last weekly close of each month, today's price for a month with no bar yet (bug 13), minor units, and each currency's own pair. `web/src/portfolio.ts` ports `Portfolio.calculate`, `compute_spending_history`, `get_entry_points_months` and `compute_historical_valuation`, and builds a snapshot's portfolio. Same order of trades and sums as the Python, so the figures match to the last digit. `web/test/portfolio.test.ts` rebuilds `tests/conftest.py`'s made-up market and checks the port against `tests/golden/exec/snapshot.json`, exactly. The golden has no sells, so a second case pins the figures the CLI's `Portfolio` printed for made-up partial sells with fees and exchange rates, one closing only through `isclose`. A change in the order of a sell's arithmetic fails it. The cases of `tests/test_portfolio.py` and `tests/test_market.py` are repeated: oversells, dust, pence, each currency's pair, a missing pair. One deliberate difference: a weekly bar with no close is skipped, where the CLI carries the NaN into its figures. Committed in `382507c`.
 - [ ] **2. Prices from the Worker.** `GET /api/prices?ticker=<t>&from=<YYYY-MM-DD>` answers `{currency, price, closes}`, weekly closes in the ticker's own currency: the input `market.ts` takes. Yahoo's chart API, split- and dividend-adjusted like `yfinance`. Only same-origin requests (`Sec-Fetch-Site`), a ticker pattern, a cap on the date range, and an hour in Cloudflare's cache. The landing's privacy note and `web/README.md` change with it. First check after the deploy: does Yahoo answer a Worker?
 - [ ] **3. Trades by hand, and a snapshot from them** (the first visible slice). A "make a snapshot" page: default currency, a form for one trade with all eleven columns, checked as the CLI reads them, and a table to edit and delete. Trades are kept on this device. "Make snapshot" fetches each ticker and currency pair, computes, and opens the result in the viewer, with downloads of `snapshot.json` and `transactions.csv`. The landing links to it next to the guide.
 - [ ] **4. Trades in bulk.** Paste rows or open a CSV file in trkr's column order, header optional, as the sheet or a broker export rearranged. A preview flags each bad row with the reason, then the good rows are added.
@@ -486,22 +510,22 @@ Compared on 2026-11-04, with W11 (2026-11-13) added. trkr is a Python CLI that r
 
 Each step is small and lands between feature work. Each says what it waits on.
 
-- [x] <a id="eo1"></a>**EO1: `project.yaml`.** At the repo root, pointing at the documents above, and checked with the ecosystem's validator (0 errors, 0 warnings). `links.deployment` is `null`: the app is deployed, but its domain stays out of tracked files (owner, 2026-11-13). Not yet committed.
-- [x] <a id="eo2"></a>**EO2: The shared rules.** `CLAUDE.md`'s first line imports the ecosystem's shared rules, and nothing else in it moved, so it still says how to build and test without the import. Not yet committed.
-- [ ] <a id="eo3"></a>**EO3: Standing approval for commits.** Sessions here committed Phase 1 on the working branch `phase-1-bugs`, but `CLAUDE.md` grants no standing approval, and the shared rules accept only a written one. If the owner grants it, `CLAUDE.md` gets a "Commits" section: commit on a working branch once the work is verified, never on `main`, and never push, merge or deploy without the owner. A push to `main` that changes `web/` deploys, so the merge stays the owner's. Otherwise every commit waits for the owner, as now. Done when: `CLAUDE.md` holds the grant, or this item records that there is none. Waits on: the owner's call.
-- [x] <a id="eo4"></a>**EO4: X1-X3.** The owner's target capabilities and release gate, with X1-X3, are in "Release gate" above. Their done-whens are new and wait for the owner's review. Not yet committed.
+- [x] <a id="eo1"></a>**EO1: `project.yaml`.** At the repo root, pointing at the documents above, and checked with the ecosystem's validator (0 errors, 0 warnings). `links.deployment` is `null`: the app is deployed, but its domain stays out of tracked files (owner, 2026-11-13). `c8fcf62`.
+- [x] <a id="eo2"></a>**EO2: The shared rules.** `CLAUDE.md`'s first line imports the ecosystem's shared rules, and nothing else in it moved, so it still says how to build and test without the import. `c8fcf62`.
+- [x] <a id="eo3"></a>**EO3: Standing approval for commits.** None (owner, 2026-11-14): every commit waits for the owner, and `CLAUDE.md` grants nothing. Sessions here committed Phase 1 on the working branch `phase-1-bugs`, but work since 2026-11-02 goes straight to `main`, which a grant never covers. If the owner grants it later, `CLAUDE.md` gets a "Commits" section: commit on a working branch once the work is verified, never on `main`, and never push, merge or deploy without the owner. A push to `main` that changes `web/` deploys, so the merge stays the owner's.
+- [x] <a id="eo4"></a>**EO4: X1-X3.** The owner's target capabilities and release gate, with X1-X3, are in "Release gate" above. Their done-whens are new and wait for the owner's review. `c8fcf62`.
 - [x] <a id="eo5"></a>**EO5: Confidential work.** This plan's opening says confidential work never goes in this file, and the shared rules say where. Nothing in this plan is marked confidential (owner, 2026-11-13).
-- [ ] <a id="eo6"></a>**EO6: `.gitattributes` with LF line endings.** Add `* text=auto eol=lf` as its first rule, above the mirror's `-text` line, so the mirror's CSVs keep their CRLF. Then run `git add --renormalize .`, which should stage nothing: every other text file is LF in the index. If it stages files, commit them on their own. Done when: the rule is committed and the renormalize stages nothing. Waits on: nothing.
-- [ ] <a id="eo7"></a>**EO7: `npm run check` from a lowercase drive letter.** VS Code opens the folder as `c:\`. Started from `web/` with a lowercase drive letter (`cmd /c "cd /d c:\<path>\trkr\web && npm run check"`), vitest fails all 6 test files without running a test; from `C:\` all 36 tests pass. pytest passes from both (175 tests). Fix it in `web/vite.config.ts` if vitest allows; otherwise say in `web/README.md` how to start the tests. Done when: `npm run check` passes from either spelling, or `web/README.md` says what to do. Waits on: nothing.
-- [ ] <a id="eo8"></a>**EO8: The Python commands on Linux.** `README.md` and `CLAUDE.md` spell every command `.venv/Scripts/python.exe`, the venv's Windows layout; on Linux it is `.venv/bin/python`. Say so in the README's Setup and Development, once. Linux coverage: the deploy workflow runs `npm run check` on `ubuntu-latest`, which covers the web app, and nothing runs pytest on Linux until Phase 3's GitHub Actions item does. Done when: the README gives the Linux spelling. Waits on: nothing.
-- [ ] <a id="eo9"></a>**EO9: The C++ tool by its repository.** `CLAUDE.md` and "Feature: net-worth projection" locate the owner's C++ tool by a local absolute path, outside this repo, which means nothing on another machine. Name it by its public repository, `eigenomarksamy/networth_projection`, instead. Done when: no tracked file gives a local path for it. Waits on: nothing.
-- [ ] <a id="eo10"></a>**EO10: An issue for every open ticket.** On the ecosystem's GitHub Project, only with the owner's approval, and with each issue's text shown first, since the repo is public. Each ticket first gets a stable anchor (`<a id="w11"></a>` above its heading). The issue's title starts with the ticket's id, its body links the ticket's section, and each need becomes a blocked-by link (X2 on X1, X3 on X2). The open tickets on 2026-11-13: the W milestones with an open item (W0-W4, W6-W11), X1-X3, and EO3 and EO6-EO9. Items without an id (Phases 2-4, the projection's "Later", the broker import, the sheet generator) aren't tickets, so they get no issue unless they get an id. Waits on: the owner's approval.
+- [x] <a id="eo6"></a>**EO6: `.gitattributes` with LF line endings.** `* text=auto eol=lf` is its first rule, above the mirror's `-text` line, so the mirror's CSVs keep their CRLF. Every other text file was already LF in the index (`git ls-files --eol`, 2026-11-14), so `git add --renormalize .` has nothing to stage.
+- [x] <a id="eo7"></a>**EO7: `npm run check` from a lowercase drive letter.** VS Code opens the folder as `c:\`. Vitest's worker loaded its runner from the spelling the command started in, `c:`, while each test file resolved `vitest` to `C:`, so a run from `c:` had two runners and every file failed with no test run. On Windows, `web/vite.config.ts` now points the tests' `vitest` at the copy under the working directory, so there is one. Checked on 2026-11-14 with `cmd /c "cd /d c:\<path>\trkr\web && ..."` and the same from `C:\`: `npm run check` and `npm test` pass from both (36 tests), and `npm run build` passes. pytest passes from both (175 tests).
+- [x] <a id="eo8"></a>**EO8: The Python commands on Linux.** The README's Setup gives the Linux spelling, `python3 -m venv .venv` and `.venv/bin/python` wherever it writes `.venv/Scripts/python.exe`, and Development points there. `CLAUDE.md` keeps the Windows spelling, the owner's machine. Linux coverage: the deploy workflow runs `npm run check` on `ubuntu-latest`, which covers the web app, and nothing runs pytest on Linux until Phase 3's GitHub Actions item does.
+- [x] <a id="eo9"></a>**EO9: The C++ tool by its repository.** `CLAUDE.md` and "Feature: net-worth projection" name it as the public repo `eigenomarksamy/networth_projection`, and no tracked file gives a local path for it.
+- [ ] <a id="eo10"></a>**EO10: An issue for every open ticket.** On the ecosystem's GitHub Project, only with the owner's approval, and with each issue's text shown first, since the repo is public. Each ticket has a stable anchor above its heading (W0-W4 and W6-W11 since 2026-11-14). The issue's title starts with the ticket's id, its body links the ticket's section, and each need becomes a blocked-by link (X2 on X1, X3 on X2). The open tickets on 2026-11-14 are 14: W0-W4, W6-W11 and X1-X3. W5 closes without one, since W11 does its work, and W11 is one issue, with its slices as its list (owner, 2026-11-14). A W milestone is done when every item in its list is ticked or dropped. Priorities (owner, 2026-11-14): W11 P1; W8 and W9, the owner's calls, P3; the rest P2. Items without an id (Phases 2-4, the projection's "Later", the broker import, the sheet generator) aren't tickets, so they get no issue unless they get an id. Waits on: the owner's approval of the issue texts, once this plan is pushed so their links resolve.
 
 No documents are planned beyond this one: `CLAUDE.md`, the README and `web/README.md` already cover the architecture and the engineering.
 
-Open questions, for the owner:
+Open questions, answered by the owner on 2026-11-14:
 
-- EO3: standing approval for commits on a working branch, or none?
-- EO10: priorities. Proposed: W11's next slice P1; the rest P2; W8 and W9, the owner's calls, P3.
-- EO10: W5 is decided ("through W11") and its work is W11's slice 7. Does it close without an issue?
-- X1-X3: are the new done-whens right?
+- EO3: no standing approval for commits (EO3).
+- EO10: W11 P1; W8 and W9 P3; the rest P2 (EO10).
+- EO10: W5 closes without an issue, since W11 does its work (W5, EO10).
+- X1-X3: the new done-whens are reviewed with EO10's issue texts. Still open.
