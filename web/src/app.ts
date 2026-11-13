@@ -6,6 +6,7 @@ import { ageInDays, runTime } from './format';
 import { portfolioNamed, type Portfolio, type Snapshot } from './snapshot';
 import { forget, loadDemo, loadRemembered, type Loaded } from './store';
 import { dataPage } from './views/data';
+import { GUIDE_PAGE, guide } from './views/guide';
 import { holdingsPage } from './views/holdings';
 import { landing, openFileButton } from './views/landing';
 import { overviewPage } from './views/overview';
@@ -52,6 +53,10 @@ function parseRoute(hash: string): Route {
   return { portfolio: GLOBAL_PAGES.includes(page) ? '' : portfolio, page, arg: parts[1] };
 }
 
+export function isGuide(hash: string): boolean {
+  return hash.replace(/^#\/?/, '').replace(/\/$/, '') === GUIDE_PAGE;
+}
+
 export function href(portfolio: string, page: Page, arg?: string): string {
   const parts = portfolio && !GLOBAL_PAGES.includes(page) ? ['imaginary', portfolio] : [];
   if (page !== 'overview' || arg) parts.push(page);
@@ -68,6 +73,12 @@ export function start(root: HTMLElement): void {
     window.scrollTo(0, 0);
   };
   const render = () => {
+    // The guide needs no snapshot, so it opens with or without one.
+    if (isGuide(location.hash)) {
+      document.title = 'how to make a snapshot.json · trkr';
+      mount(root, guide());
+      return;
+    }
     if (!loaded) {
       document.title = 'trkr';
       mount(root, landing(reload));

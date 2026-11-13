@@ -30,6 +30,8 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-07: the web app is committed and deployed. It has been on `main` since 2026-11-02 (`d3b7cab`), and the owner deployed it by hand that day, with its domain attached. Since 2026-11-04, a push to `main` that changes `web/` deploys it. From `1050c64` to `c49b1a0`, the Status table said it was neither committed nor deployed. "Built, not yet committed" in the 2026-11-02 note was true when written. Checked on 2026-11-07: the app, its demo and its health route answer, and 175 Python tests and 18 web tests pass.
 
+2026-11-13: the owner asked for a page that shows how to make a `snapshot.json` (W1), then for snapshots made in the web app itself, with nothing to install: old trades entered by hand, one at a time or in bulk, fees included, and later each trade's price fetched for its date. It is planned as W11, in slices that ship one at a time. It needs the Worker to fetch prices, so the Worker will see tickers, never quantities, prices paid or fees, and a second copy of the money math in TypeScript, pinned to the CLI's golden snapshot. It replaces W5's open choice. Slice 1, the math, is built and not yet committed.
+
 ## Status (2026-11-07)
 
 | Area | State |
@@ -74,8 +76,10 @@ Claude assumes the defaults below unless told otherwise.
 | Web app: where it runs | A Cloudflare Worker on its own domain (owner, 2026-11-02). It serves static files and stores nothing. The owner opens a `snapshot.json` in the browser, which reads it there, so no holdings reach the server. Until 2026-11-02: on the owner's PC only, on `127.0.0.1`. |
 | Web app: stack | TypeScript without a UI framework, built by Vite, served as the Worker's static assets; vitest for tests. Exact-pinned dev dependencies only (wrangler, vite, vitest, typescript), each at least two weeks old when pinned, locked in `web/package-lock.json`. Replaces FastAPI + Jinja2 + htmx, which a Worker can't run without a Python runtime and the CLI's dependencies. |
 | Web app: charts | Hand-written SVG (`web/src/chart.ts`) on the dataviz palette, drawn from the snapshot. No chart library so far, so nothing to vendor. |
-| Web app: how a run executes | The hosted app can't run the CLI. Runs stay with the scheduled job and the CLI; the app shows what they wrote. |
-| Web app: data contract | Every CLI run writes a versioned `snapshot.json`, the scheduled run included. The app reads snapshots. The only thing it computes itself is projections, with a port of `project_net_worth` tested against the CLI's rows. |
+| Web app: how a run executes | The hosted app can't run the CLI. Runs stay with the scheduled job and the CLI; the app shows what they wrote. From 2026-11-13 the app also makes snapshots itself, from trades typed into it (W11). |
+| Web app: data contract | Every CLI run writes a versioned `snapshot.json`, the scheduled run included. The app reads snapshots. It computes projections, with a port of `project_net_worth` tested against the CLI's rows, and, for W11, whole portfolios, with a port of the money math tested against the CLI's golden snapshot. |
+| Web app: snapshots made in the browser | Anyone can make a snapshot in the app with nothing to install (owner, 2026-11-13). Trades are typed in or pasted, kept in the browser's storage on that device, and download as a transactions CSV in trkr's column order, which the CLI reads too. They are never sent anywhere. Lite (weekly) history only, and symbols are Yahoo tickers, with no symbol map. |
+| Web app: prices for the browser | The browser can't call Yahoo (no CORS, and the CSP allows only the app's own origin), so the Worker fetches prices for the tickers the page asks for (W11, slice 2). It sees tickers and dates, never quantities, prices paid or fees. It keeps no copy beyond Cloudflare's cache of public prices. It answers only the app's own pages and takes only ticker-shaped input, so it isn't a general Yahoo proxy. If Yahoo refuses Cloudflare's servers, the fallback is a price provider with a free API key, held as a Worker secret. |
 | Web app: config | The app never sees the config: the snapshot carries only the currency, the history variant and local/cloud per source. What-ifs live in the browser; the projection page gives a YAML block to paste. |
 | Web app: dependencies | A separate Node project in `web/`. `pyproject.toml`, `requirements.txt` and the scheduled job don't change. |
 | Snapshot date | Required on every row. Defaulting it to the run date would move the date every day, and each later trade would be dropped as already counted. In Sheets, fill the column down. |
@@ -332,6 +336,7 @@ Each feature of the CLI, and where it ends up in the app:
 - [x] Privacy check: `web/scripts/check-private.mjs` ends `npm run build`, which `wrangler dev` and `wrangler deploy` run first. It refuses a build whose inputs git doesn't know, whose output holds a sheet address from the local configs or the home directory, or that holds any snapshot other than the demo made from local files.
 - [x] Tests (`npm run check`, vitest): parsing the CLI's golden snapshot and the demo, the error messages, the Worker's headers and routes, and the projection port against the rows the CLI computed for the demo.
 - [ ] A symbol table that links sold positions too (only held ones have pages from Holdings today).
+- [x] A page on how to make a `snapshot.json` (owner, 2026-11-13): `#/make-a-snapshot`, in `web/src/views/guide.ts`, linked under the landing's open button. It needs no snapshot, so the router shows it before anything else. Five steps: install, a transactions CSV, a minimal `config/cfg.yml` (Yahoo tickers, so no symbol map), run, open. That config was checked with a run on made-up trades, which wrote a snapshot. Checked at 390 px wide (no sideways scroll) and in light and dark mode. Not yet committed.
 
 ### W2: Snapshot history (was: runs from the browser)
 
@@ -357,6 +362,8 @@ A Worker can't start the CLI, so "Run now", run status and the run lock are drop
 - [ ] When the Scenarios item (projection feature, "Later") lands, each scenario becomes its own set of inputs on a shared chart.
 
 ### W5: What-if portfolios from the browser (owner's call)
+
+Decided 2026-11-13: the second way, through W11. The owner wants every snapshot to be possible in the app, so the Worker fetches prices and the browser values the portfolio. A what-if portfolio is then a second trade list (W11, slice 7).
 
 Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) and the Worker would have to proxy. Two ways, both for the owner to choose:
 
@@ -391,6 +398,18 @@ Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) an
 - [ ] A footer with a link to `https://eigenomar.com`, labelled `eigenomar.com` and styled with `.button`. The app has no footer yet: `shell()` in `web/src/app.ts` has a header and a main, and `landing()` in `web/src/views/landing.ts` stands in for them until a snapshot is open, so both need it.
 - [ ] It opens in a new tab (`target="_blank" rel="noopener"`). An open snapshot stays in the page unless the owner chose to remember it, so leaving in the same tab would drop it.
 - [ ] It stays a link, not a form, because the CSP has `form-action 'none'`. A link needs no change to the CSP in `web/src/worker.ts`.
+
+### W11: Make a snapshot in the app (owner, 2026-11-13)
+
+Anyone can make their snapshot in the web app, with nothing to install. They enter old trades by hand, one at a time or in bulk, with their fees, and later can fetch a trade's price for its date. Each slice ships on its own; the defaults are the "Web app: snapshots made in the browser" and "prices for the browser" rows in the decisions table.
+
+- [x] **1. The money math in the browser** (no visible change). `web/src/market.ts` ports `MarketDataYahoo`'s lite history and `convert_currencies`: the last weekly close of each month, today's price for a month with no bar yet (bug 13), minor units, and each currency's own pair. `web/src/portfolio.ts` ports `Portfolio.calculate`, `compute_spending_history`, `get_entry_points_months` and `compute_historical_valuation`, and builds a snapshot's portfolio. Same order of trades and sums as the Python, so the figures match to the last digit. `web/test/portfolio.test.ts` rebuilds `tests/conftest.py`'s made-up market and checks the port against `tests/golden/exec/snapshot.json`, exactly. The golden has no sells, so a second case pins the figures the CLI's `Portfolio` printed for made-up partial sells with fees and exchange rates, one closing only through `isclose`. A change in the order of a sell's arithmetic fails it. The cases of `tests/test_portfolio.py` and `tests/test_market.py` are repeated: oversells, dust, pence, each currency's pair, a missing pair. One deliberate difference: a weekly bar with no close is skipped, where the CLI carries the NaN into its figures.
+- [ ] **2. Prices from the Worker.** `GET /api/prices?ticker=<t>&from=<YYYY-MM-DD>` answers `{currency, price, closes}`, weekly closes in the ticker's own currency: the input `market.ts` takes. Yahoo's chart API, split- and dividend-adjusted like `yfinance`. Only same-origin requests (`Sec-Fetch-Site`), a ticker pattern, a cap on the date range, and an hour in Cloudflare's cache. The landing's privacy note and `web/README.md` change with it. First check after the deploy: does Yahoo answer a Worker?
+- [ ] **3. Trades by hand, and a snapshot from them** (the first visible slice). A "make a snapshot" page: default currency, a form for one trade with all eleven columns, checked as the CLI reads them, and a table to edit and delete. Trades are kept on this device. "Make snapshot" fetches each ticker and currency pair, computes, and opens the result in the viewer, with downloads of `snapshot.json` and `transactions.csv`. The landing links to it next to the guide.
+- [ ] **4. Trades in bulk.** Paste rows or open a CSV file in trkr's column order, header optional, as the sheet or a broker export rearranged. A preview flags each bad row with the reason, then the good rows are added.
+- [ ] **5. A trade's price.** In the form, "fetch price" fills in the close on the trade's date and its currency, and `ex_rate` from the currency pair that day. Fees stay typed in. Needs daily closes for a short window from the price route.
+- [ ] **6. Keep it current.** A snapshot made here carries its trades, so "refresh prices" makes it again, which also answers the stale-snapshot warning. A snapshot the CLI wrote can be opened in the editor to continue in the browser.
+- [ ] **7. Later.** Holdings rows instead of a trade history (a port of `build_positions` and `merge_positions`, with W7), imaginary portfolios as further trade lists (W5), projection inputs, ticker search (W9), daily history.
 
 ### Not planned
 

@@ -1,5 +1,6 @@
 import { h } from '../dom';
 import { loadDemo, loadFile, type Loaded } from '../store';
+import { GUIDE_HREF } from './guide';
 
 type Reload = (loaded: Loaded | null) => void;
 
@@ -39,6 +40,7 @@ export function landing(reload: Reload): HTMLElement {
     { class: 'drop' },
     h('label', { class: 'button primary' }, input, 'open snapshot.json'),
     h('p', { class: 'muted' }, 'or drop the file here'),
+    h('p', null, h('a', { href: GUIDE_HREF }, 'no snapshot.json yet? how to make one')),
   );
   drop.addEventListener('dragover', (event) => {
     event.preventDefault();

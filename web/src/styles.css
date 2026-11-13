@@ -385,6 +385,89 @@ textarea {
   font-size: 0.9rem;
 }
 
+/* Guide: how to make a snapshot.json */
+
+.guide {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  overflow-wrap: anywhere;
+}
+
+.guide .back {
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+.guide code,
+.guide pre {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, Menlo, monospace;
+}
+
+.guide code {
+  font-size: 0.9em;
+  padding: 1px 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.guide pre {
+  overflow-x: auto;
+  overflow-wrap: normal;
+  margin: 8px 0 12px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.steps {
+  margin: 24px 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.steps > li {
+  position: relative;
+  margin-bottom: 28px;
+  padding-left: 40px;
+  counter-increment: step;
+}
+
+.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.steps h2 {
+  line-height: 26px;
+  margin-bottom: 8px;
+}
+
+.steps ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.steps ul li {
+  margin-bottom: 4px;
+}
+
 /* Figures */
 
 .tiles {
