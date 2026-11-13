@@ -1,3 +1,5 @@
+@../meta-eigenomar/standards/claude-ecosystem.md
+
 # trkr
 
 Personal investment-portfolio tracker. Reads a transactions CSV (local file or a public Google Sheet), pulls prices from Yahoo Finance via `yfinance`, computes per-symbol and total P&L, and writes CSV/Markdown tables, matplotlib PNGs, a static HTML report and a `snapshot.json` for the web app in `web/`. Single user, Windows, run on a schedule via `run_script.bat`.

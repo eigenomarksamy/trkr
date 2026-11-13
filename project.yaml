@@ -1,0 +1,39 @@
+schema_version: 1
+
+# trkr's manifest for the eigenomar ecosystem: where its documents are, and how it is
+# delivered. The ecosystem's validator checks it; the shared rules give the command.
+
+id: trkr
+name: trkr
+description: a personal investment-portfolio tracker. a Python CLI prices a transactions CSV or Google Sheet with Yahoo Finance and writes reports and a snapshot, and a web app on a Cloudflare Worker shows the snapshot in the browser
+status: active
+tags: [python, uv, yfinance, matplotlib, jinja2, typescript, vite, vitest, cloudflare-workers]
+
+links:
+  deployment: null                 # deployed, but the domain stays out of tracked files (CLAUDE.md, "Private data")
+
+documents:
+  plan: docs/MODERNIZATION.md
+  architecture:
+    - CLAUDE.md#pipeline-runpy--exec
+    - web/README.md#how-it-fits-together
+    - docs/MODERNIZATION.md#feature-web-app
+  engineering:
+    - CLAUDE.md#running
+    - CLAUDE.md#working-rules
+    - README.md#development
+    - web/README.md#commands
+    - web/README.md#deploy
+  decisions: docs/MODERNIZATION.md#decisions-for-the-owner
+
+delivery:
+  ci: github-actions               # .github/workflows/deploy-web.yml: npm run check, then the deploy
+  releases: none
+  deployment: cloudflare
+  deploys_on: merge                # a push to main that changes web/ deploys the web app
+
+artifacts:
+  diagrams: null
+  test_reports: null
+  coverage: null
+  monitoring: null

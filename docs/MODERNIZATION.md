@@ -1,6 +1,6 @@
 # Modernization plan
 
-A living checklist. Tick items as they land and note the commit hash. Order matters: Phase 0 builds the safety net that makes the later phases safe, because the portfolio math has only end-to-end golden coverage and has confirmed bugs.
+A living checklist. Tick items as they land and note the commit hash. This repo is public, so confidential work never goes in this file; the ecosystem's shared rules, which `CLAUDE.md` imports, say where it goes. Order matters: Phase 0 builds the safety net that makes the later phases safe, because the portfolio math has only end-to-end golden coverage and has confirmed bugs.
 
 State as of 2026-10-22: the last code change was 2025-03; the scheduled job ran successfully through 2025-11-04.
 
@@ -31,6 +31,8 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 2026-11-07: the web app is committed and deployed. It has been on `main` since 2026-11-02 (`d3b7cab`), and the owner deployed it by hand that day, with its domain attached. Since 2026-11-04, a push to `main` that changes `web/` deploys it. From `1050c64` to `c49b1a0`, the Status table said it was neither committed nor deployed. "Built, not yet committed" in the 2026-11-02 note was true when written. Checked on 2026-11-07: the app, its demo and its health route answer, and 175 Python tests and 18 web tests pass.
 
 2026-11-13: the owner asked for a page that shows how to make a `snapshot.json` (W1), then for snapshots made in the web app itself, with nothing to install: old trades entered by hand, one at a time or in bulk, fees included, and later each trade's price fetched for its date. It is planned as W11, in slices that ship one at a time. It needs the Worker to fetch prices, so the Worker will see tickers, never quantities, prices paid or fees, and a second copy of the money math in TypeScript, pinned to the CLI's golden snapshot. It replaces W5's open choice. Slice 1, the math, is built and not yet committed.
+
+2026-11-13: trkr is being onboarded to the eigenomar ecosystem, whose contract lives in `meta-eigenomar`. That changes nothing in how trkr is built, tested or deployed. The owner's target capabilities and release gate are planned as X1-X3 ("Release gate"), and the onboarding steps as EO1-EO10 ("Ecosystem onboarding"). `project.yaml` and the shared import on `CLAUDE.md`'s first line are added, not yet committed.
 
 ## Status (2026-11-07)
 
@@ -423,3 +425,83 @@ Anyone can make their snapshot in the web app, with nothing to install. They ent
 - [ ] Interactive report instead of PNGs. The web app's SVG charts (`web/src/chart.ts`) could be reused, by shipping a script with the report.
 - [ ] Dividends, deposits/withdrawals, transfers.
 - [ ] Money-weighted (XIRR) / time-weighted returns, replacing the linear `profit_percent / days * 365`.
+
+## Release gate: X1-X3 (owner)
+
+What trkr should cover, and the gate it passes before it counts as released. X1-X3 check trkr against both. They were written before this plan, for an app that holds the data itself, so much of them is done here already or planned another way: "Where they meet this plan" maps each part. Don't rebuild what already works. Planned here on 2026-11-13.
+
+- **Target capabilities:** total value, contributions, realized and unrealized gains, allocation and a performance timeline; positions, transactions, dividends, fees, deposits and withdrawals, FX; manual entry, CSV import, export and backups.
+- **Release gate:** calculations are verified, imports are tested, there is no personal data in public builds, and exports work. It holds once X2 and X3 are done: X2 verifies the calculations, and X3 covers the imports, the builds and the exports.
+
+The done-whens below were written on 2026-11-13 from each ticket's own text, adding no work, and wait for the owner's review.
+
+<a id="x1"></a>
+
+### X1: Audit against the target capabilities
+
+- [ ] List what the repo already does against the target capabilities, and record the gaps under this heading. Name the gaps only, and leave what is done to the rest of this plan. "Where they meet this plan" compares plan with plan, so this checks the code and the app themselves.
+- Done when: every target capability is listed here as covered (and where), planned (and by which item), or a gap, and each gap is an item in this plan or one of the owner's calls below.
+
+<a id="x2"></a>
+
+### X2: Tested calculation core (needs X1)
+
+- [ ] Separate the ledger, positions, cost basis (with the method stated explicitly), performance and currency conversion.
+- [ ] Test each against independently checked reference examples.
+- Done when: each of the five is its own part with its method written down, and each has tests against reference examples worked out independently of trkr (by hand or with another tool), passing in `pytest`.
+
+<a id="x3"></a>
+
+### X3: Synthetic demo and privacy boundary (needs X2)
+
+- [ ] A synthetic demo portfolio that loads by default.
+- [ ] Real data stored locally only (local-first), and never shipped in a build.
+- [ ] CSV import with validation and duplicate detection.
+- [ ] Export and backup.
+- Done when: the demo opens without a snapshot (unless the owner drops that, below), real data stays on the device and the privacy check refuses a build that holds it, an import rejects bad rows and skips rows it already has, and an export can be opened again as a backup.
+
+### Where they meet this plan
+
+Compared on 2026-11-04, with W11 (2026-11-13) added. trkr is a Python CLI that reads a Google Sheet or CSV, and its web app shows the `snapshot.json` each run writes; since W11 it can also make a snapshot from trades typed into it.
+
+- **X2** is Phases 0-2. Phase 0's tests and Phase 1's fixes are done, with average cost as the stated method ("Cost basis for sells" in the decisions table) and each currency converted with its own pair (bug 7). Phase 2's structure is not started.
+- **X3's demo** is at `/?demo` (W1), and the landing page asks for a snapshot first, so it doesn't load by default.
+- **X3's local-first storage:** an opened snapshot stays in the browser, on that device only when the owner asks (W1), and W11's trades are kept in the browser's storage on that device. The privacy check keeps everything but the made-up demo out of every build (W1).
+- **X3's CSV import** is the CLI reading the sheet or file, and W11's slice 4 adds pasting rows or opening a CSV in the app, with each bad row flagged. Duplicate detection is part of the planned broker import.
+- **X3's export and backup** are the files each run writes on the owner's PC, which this plan keeps out of the app. W11's slice 3 downloads `snapshot.json` and `transactions.csv`.
+- **Manual entry:** the real transactions stay in the sheet ("Not planned": editing the real transactions). W11's slice 3 adds trades typed into the app, for snapshots made there.
+- **Dividends, deposits and withdrawals** are in Phase 4, optional and the owner's call, so nothing commits to them yet.
+- **The release gate's imports**, for broker exports, wait on a sample export from each broker (broker import).
+
+### Owner's call
+
+- [ ] Whether the demo should load by default.
+- [ ] Whether manual entry in the app, and dividends, deposits and withdrawals, stay target capabilities. W11's typed trades may answer the first. Drop from the target capabilities whatever doesn't stay.
+
+## Ecosystem onboarding (2026-11-13)
+
+**Goal:** make trkr discoverable and coordinated in the eigenomar ecosystem without changing how it is built or delivered. The contract is in `meta-eigenomar`. `project.yaml` says where this repo's documents are, and `CLAUDE.md` imports the ecosystem's shared rules.
+
+**Stays as it is:** the venv, `pyproject.toml`, `uv.lock` and the exported `requirements.txt`; `run_script.bat` and the scheduled job; pytest, ruff and the format hook; the web app's `npm` scripts and privacy check; `.github/workflows/deploy-web.yml`, so a push to `main` that changes `web/` still deploys; work on `main` or a working branch, as now; no releases; and the documents where they are: this plan, `CLAUDE.md`, `README.md` and `web/README.md`.
+
+Each step is small and lands between feature work. Each says what it waits on.
+
+- [x] <a id="eo1"></a>**EO1: `project.yaml`.** At the repo root, pointing at the documents above, and checked with the ecosystem's validator (0 errors, 0 warnings). `links.deployment` is `null`: the app is deployed, but its domain stays out of tracked files (owner, 2026-11-13). Not yet committed.
+- [x] <a id="eo2"></a>**EO2: The shared rules.** `CLAUDE.md`'s first line imports the ecosystem's shared rules, and nothing else in it moved, so it still says how to build and test without the import. Not yet committed.
+- [ ] <a id="eo3"></a>**EO3: Standing approval for commits.** Sessions here committed Phase 1 on the working branch `phase-1-bugs`, but `CLAUDE.md` grants no standing approval, and the shared rules accept only a written one. If the owner grants it, `CLAUDE.md` gets a "Commits" section: commit on a working branch once the work is verified, never on `main`, and never push, merge or deploy without the owner. A push to `main` that changes `web/` deploys, so the merge stays the owner's. Otherwise every commit waits for the owner, as now. Done when: `CLAUDE.md` holds the grant, or this item records that there is none. Waits on: the owner's call.
+- [x] <a id="eo4"></a>**EO4: X1-X3.** The owner's target capabilities and release gate, with X1-X3, are in "Release gate" above. Their done-whens are new and wait for the owner's review. Not yet committed.
+- [x] <a id="eo5"></a>**EO5: Confidential work.** This plan's opening says confidential work never goes in this file, and the shared rules say where. Nothing in this plan is marked confidential (owner, 2026-11-13).
+- [ ] <a id="eo6"></a>**EO6: `.gitattributes` with LF line endings.** Add `* text=auto eol=lf` as its first rule, above the mirror's `-text` line, so the mirror's CSVs keep their CRLF. Then run `git add --renormalize .`, which should stage nothing: every other text file is LF in the index. If it stages files, commit them on their own. Done when: the rule is committed and the renormalize stages nothing. Waits on: nothing.
+- [ ] <a id="eo7"></a>**EO7: `npm run check` from a lowercase drive letter.** VS Code opens the folder as `c:\`. Started from `web/` with a lowercase drive letter (`cmd /c "cd /d c:\<path>\trkr\web && npm run check"`), vitest fails all 6 test files without running a test; from `C:\` all 36 tests pass. pytest passes from both (175 tests). Fix it in `web/vite.config.ts` if vitest allows; otherwise say in `web/README.md` how to start the tests. Done when: `npm run check` passes from either spelling, or `web/README.md` says what to do. Waits on: nothing.
+- [ ] <a id="eo8"></a>**EO8: The Python commands on Linux.** `README.md` and `CLAUDE.md` spell every command `.venv/Scripts/python.exe`, the venv's Windows layout; on Linux it is `.venv/bin/python`. Say so in the README's Setup and Development, once. Linux coverage: the deploy workflow runs `npm run check` on `ubuntu-latest`, which covers the web app, and nothing runs pytest on Linux until Phase 3's GitHub Actions item does. Done when: the README gives the Linux spelling. Waits on: nothing.
+- [ ] <a id="eo9"></a>**EO9: The C++ tool by its repository.** `CLAUDE.md` and "Feature: net-worth projection" locate the owner's C++ tool by a local absolute path, outside this repo, which means nothing on another machine. Name it by its public repository, `eigenomarksamy/networth_projection`, instead. Done when: no tracked file gives a local path for it. Waits on: nothing.
+- [ ] <a id="eo10"></a>**EO10: An issue for every open ticket.** On the ecosystem's GitHub Project, only with the owner's approval, and with each issue's text shown first, since the repo is public. Each ticket first gets a stable anchor (`<a id="w11"></a>` above its heading). The issue's title starts with the ticket's id, its body links the ticket's section, and each need becomes a blocked-by link (X2 on X1, X3 on X2). The open tickets on 2026-11-13: the W milestones with an open item (W0-W4, W6-W11), X1-X3, and EO3 and EO6-EO9. Items without an id (Phases 2-4, the projection's "Later", the broker import, the sheet generator) aren't tickets, so they get no issue unless they get an id. Waits on: the owner's approval.
+
+No documents are planned beyond this one: `CLAUDE.md`, the README and `web/README.md` already cover the architecture and the engineering.
+
+Open questions, for the owner:
+
+- EO3: standing approval for commits on a working branch, or none?
+- EO10: priorities. Proposed: W11's next slice P1; the rest P2; W8 and W9, the owner's calls, P3.
+- EO10: W5 is decided ("through W11") and its work is W11's slice 7. Does it close without an issue?
+- X1-X3: are the new done-whens right?
