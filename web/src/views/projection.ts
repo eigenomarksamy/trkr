@@ -3,6 +3,9 @@ import { lineChart, tableView } from '../chart';
 import { h, mount, type Child } from '../dom';
 import { money, monthDate } from '../format';
 import { projectionProblem, projectionYaml, projectNetWorth, resolveStartValue } from '../projection';
+import { reportFiles } from '../report-files';
+import { portfolioValues as valuesOf, projectionChart, projectionReport, projectionStartYear } from '../reports';
+import { filesMenu } from '../save';
 import type { ProjectionInputs, ProjectionRow, Snapshot } from '../snapshot';
 
 // Used when the config has no projection: block. The form starts with them.
@@ -23,6 +26,11 @@ const BLANK: ProjectionInputs = {
 // The owner's edits, kept while the same snapshot is open.
 let edited: { snapshot: Snapshot; inputs: ProjectionInputs } | null = null;
 
+/** The inputs the page last computed with, else the config's, else null: what a download uses. */
+export function projectionInputsFor(snapshot: Snapshot): ProjectionInputs | null {
+  return edited?.snapshot === snapshot ? edited.inputs : (snapshot.projection?.inputs ?? null);
+}
+
 interface Field {
   key: Exclude<keyof ProjectionInputs, 'start_net_worth' | 'deposits_withdrawals'>;
   label: string;
@@ -42,10 +50,6 @@ const FIELDS: Field[] = [
   { key: 'fees', label: 'fees %', hint: 'a year', empty: 0 },
   { key: 'inflation', label: 'inflation %', hint: 'optional: adds today’s money', empty: null },
 ];
-
-function startYearOf(snapshot: Snapshot): number {
-  return snapshot.projection?.start_year ?? new Date(snapshot.generated_at).getFullYear() + 1;
-}
 
 function investedLast12Months(snapshot: Snapshot): number {
   if (snapshot.projection) return snapshot.projection.invested_last_12_months;
@@ -79,9 +83,8 @@ export function projectionPage(context: Context): Child[] {
   const { snapshot, currency } = context;
   const original = snapshot.projection?.inputs ?? BLANK;
   if (edited?.snapshot !== snapshot) edited = { snapshot, inputs: structuredClone(original) };
-  const startYear = startYearOf(snapshot);
-  const portfolioValues: Record<string, number> = { portfolio: snapshot.portfolio.total.value };
-  for (const p of snapshot.imaginary) portfolioValues[p.name] = p.total.value;
+  const startYear = projectionStartYear(snapshot);
+  const portfolioValues = valuesOf(snapshot);
   const startNames = Object.keys(portfolioValues);
 
   const inputs = new Map<Field['key'], HTMLInputElement>();
@@ -191,7 +194,13 @@ export function projectionPage(context: Context): Child[] {
   update();
 
   return [
-    h('h1', null, 'projection'),
+    h(
+      'div',
+      { class: 'page-head' },
+      h('h1', null, 'projection'),
+      // The rows for the inputs on the page, once they check out.
+      filesMenu(() => reportFiles(projectionReport(snapshot, projectionInputsFor(snapshot)), snapshot)),
+    ),
     h(
       'p',
       { class: 'muted' },
@@ -220,11 +229,6 @@ function outcome(
   const last = rows[rows.length - 1];
   if (!last) return [];
   const real = inputs.inflation !== null;
-  const series = [
-    { name: 'net worth', values: rows.map((r) => r.net_worth_before_fees) },
-    { name: 'after fees', values: rows.map((r) => r.net_worth_after_fees) },
-  ];
-  if (real) series.push({ name: 'after fees, today’s money', values: rows.map((r) => r.net_worth_real ?? 0) });
   const yaml = projectionYaml(inputs);
   const copy = h('button', { type: 'button', class: 'button quiet' }, 'copy');
   copy.addEventListener('click', async () => {
@@ -254,16 +258,7 @@ function outcome(
       'section',
       { class: 'card' },
       h('h2', null, 'net worth by year'),
-      lineChart({
-        label: 'projected net worth by year',
-        x: rows.map((r) => r.year),
-        xTick: (year) => String(year),
-        xReadout: (year) => `${year}, age ${year - inputs.birth_year}`,
-        yTick: (y) => money(y, currency, { compact: true }),
-        yReadout: (y) => money(y, currency),
-        series,
-        zero: true,
-      }),
+      lineChart(projectionChart(inputs, rows, currency)),
       tableView(
         ['year', 'age', 'income', 'invested', 'deposit/withdrawal', 'return', 'net worth', 'return after fees', 'after fees', ...(real ? ['today’s money'] : [])],
         rows.map((r) => [

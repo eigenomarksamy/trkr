@@ -3,14 +3,17 @@
 
 import { h, mount } from './dom';
 import { ageInDays, runTime } from './format';
+import { combinedHtml, combinedZip } from './report-files';
+import { allReports } from './reports';
+import { downloadMenu } from './save';
 import { portfolioNamed, type Portfolio, type Snapshot } from './snapshot';
 import { forget, loadDemo, loadRemembered, type Loaded } from './store';
-import { dataPage } from './views/data';
+import { dataPage, fileLabel } from './views/data';
 import { GUIDE_PAGE, guide } from './views/guide';
 import { holdingsPage } from './views/holdings';
 import { landing, openFileButton } from './views/landing';
 import { overviewPage } from './views/overview';
-import { projectionPage } from './views/projection';
+import { projectionInputsFor, projectionPage } from './views/projection';
 import { symbolPage } from './views/symbol';
 import { transactionsPage } from './views/transactions';
 
@@ -104,11 +107,25 @@ export function start(root: HTMLElement): void {
     render();
     window.scrollTo(0, 0);
   });
+  unfoldTablesForPrint();
   render();
   // ?demo opens the made-up demo, so it can be linked to.
   if (!loaded && new URLSearchParams(location.search).has('demo')) {
     loadDemo().then(reload, () => undefined);
   }
+}
+
+/** A printed page keeps each chart with its table: the folded tables open while printing. */
+function unfoldTablesForPrint(): void {
+  let opened: HTMLDetailsElement[] = [];
+  window.addEventListener('beforeprint', () => {
+    opened = [...document.querySelectorAll<HTMLDetailsElement>('details.table-view:not([open])')];
+    for (const details of opened) details.open = true;
+  });
+  window.addEventListener('afterprint', () => {
+    for (const details of opened) details.open = false;
+    opened = [];
+  });
 }
 
 function shell(context: Context, route: Route): Node[] {
@@ -190,6 +207,7 @@ function shell(context: Context, route: Route): Node[] {
         h(
           'div',
           { class: 'actions' },
+          combinedMenu(context),
           openFileButton(context.reload, loaded.remembered, 'open another'),
           h('button', { class: 'button quiet', type: 'button', onclick: () => context.reload(null) }, 'close'),
         ),
@@ -229,4 +247,20 @@ function shell(context: Context, route: Route): Node[] {
       view,
     ),
   ];
+}
+
+/**
+ * The combined report: every page of every portfolio in the open snapshot, with the
+ * projection page's current inputs, as one offline HTML file or as a zip of the separate files.
+ */
+function combinedMenu(context: Context): HTMLElement {
+  const { snapshot, loaded } = context;
+  const reports = () => allReports(snapshot, { fileLabel: fileLabel(context), projectionInputs: projectionInputsFor(snapshot) });
+  return downloadMenu(
+    () => [
+      { label: 'one html file', make: () => combinedHtml(snapshot, reports(), { demo: loaded.origin === 'demo' }) },
+      { label: 'a zip of the separate files', make: () => combinedZip(snapshot, reports()) },
+    ],
+    'download report',
+  );
 }

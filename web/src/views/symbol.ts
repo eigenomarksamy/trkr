@@ -1,17 +1,12 @@
 import { href, type Context } from '../app';
 import { lineChart, tableView } from '../chart';
 import { h, type Child } from '../dom';
-import { dayDate, dayLabel, direction, money, monthDate, monthLabel, percent, quantity } from '../format';
+import { dayLabel, direction, money, monthLabel, percent, quantity } from '../format';
+import { reportFiles } from '../report-files';
+import { priceChart, symbolReport, TARGETS } from '../reports';
+import { filesMenu } from '../save';
 import { tile } from './overview';
 import { tradesTable } from './transactions';
-
-const TARGETS = [
-  ['price25', '+25%'],
-  ['price50', '+50%'],
-  ['price75', '+75%'],
-  ['price100', '+100%'],
-  ['price150', '+150%'],
-] as const;
 
 export function symbolPage(context: Context, ticker: string): Child[] {
   const { portfolio, currency, snapshot } = context;
@@ -23,10 +18,14 @@ export function symbolPage(context: Context, ticker: string): Child[] {
     return [back, h('h1', null, ticker), h('p', null, 'this snapshot has nothing on this symbol.')];
   }
   const lite = snapshot.config.history_variant === 'lite';
-  const entry = portfolio.entry_points[ticker];
   return [
     back,
-    h('h1', null, ticker, holding?.exchange ? h('span', { class: 'subtitle' }, holding.exchange) : null),
+    h(
+      'div',
+      { class: 'page-head' },
+      h('h1', null, ticker, holding?.exchange ? h('span', { class: 'subtitle' }, holding.exchange) : null),
+      filesMenu(() => reportFiles(symbolReport(snapshot, context.portfolioName, portfolio, ticker), snapshot)),
+    ),
     holding
       ? h(
           'div',
@@ -45,17 +44,7 @@ export function symbolPage(context: Context, ticker: string): Child[] {
       { class: 'card' },
       h('h2', null, 'price'),
       h('p', { class: 'muted' }, lite ? `month-end closes in ${currency}.` : `daily closes in ${currency}.`),
-      lineChart({
-        label: `${ticker} price`,
-        x: prices.map((p) => dayDate(p.date).getTime()),
-        xTick: (x) => monthLabel(new Date(x)),
-        xReadout: (x) => (lite ? monthLabel(new Date(x), 'long') : dayLabel(new Date(x))),
-        yTick: (y) => money(y, currency, { compact: Math.abs(y) >= 10_000 }),
-        yReadout: (y) => money(y, currency),
-        series: [{ name: 'close', values: prices.map((p) => p.close) }],
-        references: holding ? [{ y: holding.break_even_price, label: `break-even ${money(holding.break_even_price, currency)}` }] : [],
-        markers: entry ? [{ x: monthDate(entry).getTime(), label: 'first buy' }] : [],
-      }),
+      lineChart(priceChart(portfolio, ticker, currency, lite)),
       tableView(
         ['date', 'close'],
         prices.map((p) => [lite ? monthLabel(p.date.slice(0, 7), 'long') : dayLabel(p.date), money(p.close, currency)]),

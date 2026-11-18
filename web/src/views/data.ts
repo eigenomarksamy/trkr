@@ -1,6 +1,9 @@
 import type { Context } from '../app';
 import { h, type Child } from '../dom';
 import { runTime } from '../format';
+import { reportFiles } from '../report-files';
+import { dataReport } from '../reports';
+import { filesMenu } from '../save';
 import { forget } from '../store';
 
 const SOURCE_NAMES = { local: 'a local file', cloud: 'a google sheet' } as const;
@@ -11,7 +14,12 @@ export function dataPage(context: Context): Child[] {
   const source = (value: 'local' | 'cloud' | null) => (value ? SOURCE_NAMES[value] : 'not used');
   const map = Object.entries(snapshot.symbol_map).sort(([a], [b]) => a.localeCompare(b));
   return [
-    h('h1', null, 'data'),
+    h(
+      'div',
+      { class: 'page-head' },
+      h('h1', null, 'data'),
+      filesMenu(() => reportFiles(dataReport(snapshot, fileLabel(context)), snapshot)),
+    ),
     h(
       'section',
       { class: 'card' },
@@ -20,7 +28,7 @@ export function dataPage(context: Context): Child[] {
         'dl',
         { class: 'facts' },
         h('dt', null, 'file'),
-        h('dd', null, loaded.origin === 'demo' ? 'the made-up demo' : loaded.name),
+        h('dd', null, fileLabel(context)),
         h('dt', null, 'run'),
         h('dd', null, runTime(snapshot.generated_at)),
         h('dt', null, 'default currency'),
@@ -83,4 +91,9 @@ export function dataPage(context: Context): Child[] {
         )
       : null,
   ];
+}
+
+/** How the page names the open file. */
+export function fileLabel(context: Pick<Context, 'loaded'>): string {
+  return context.loaded.origin === 'demo' ? 'the made-up demo' : context.loaded.name;
 }

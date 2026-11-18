@@ -5,6 +5,7 @@ A page that shows the `snapshot.json` a trkr run writes: totals, holdings with a
 ## How your data stays private
 
 - **Nothing is uploaded.** The page reads the snapshot you open in the browser. The Worker serves the page's files and stores nothing. With "Remember it on this device", the browser keeps a copy in its local storage, and only there.
+- **Downloads are made in the browser.** Each page's "download" menu and the header's "download report" build their CSV, SVG, HTML and zip files from the open snapshot, and the browser saves them. They hold your holdings and transactions, so keep them as private as the snapshot. The combined HTML file loads and runs nothing, so it opens offline.
 - **The page can't send the snapshot anywhere.** The Worker sends a Content-Security-Policy that limits the page to its own files and its own origin. There are no third-party scripts, fonts or analytics.
 - **The deploy holds no private data.** The published files are `dist/`, built from the tracked files in this folder, plus the Worker script. The demo is made from the made-up files in `examples/`. The build ends with `scripts/check-private.mjs`, which stops the build, and so the deploy, when:
   - a file the build reads (`index.html`, `src/`, `public/`) is unknown to git, such as a real `snapshot.json` dropped into `public/`;

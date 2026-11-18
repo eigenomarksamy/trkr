@@ -2,6 +2,7 @@
 // classes (s1-s3, see styles.css), so dark mode restyles them without a redraw.
 
 import { h, s, type Child } from './dom';
+import { m, type MNode } from './markup';
 
 export interface LineSeries {
   name: string;
@@ -68,7 +69,7 @@ function tickIndices(count: number, width: number, spacing = 84): number[] {
 }
 
 interface Frame {
-  svg: SVGSVGElement;
+  svg: MNode;
   left: number;
   right: number;
   top: number;
@@ -87,7 +88,7 @@ function frame(width: number, label: string, yValues: number[], zero: boolean, y
   const top = MARGIN.top;
   const bottom = HEIGHT - MARGIN.bottom;
   const y = (value: number) => bottom - ((value - lo) / (hi - lo || 1)) * (bottom - top);
-  const svg = s('svg', {
+  const svg = m('svg', {
     width,
     height: HEIGHT,
     viewBox: `0 0 ${width} ${HEIGHT}`,
@@ -96,12 +97,21 @@ function frame(width: number, label: string, yValues: number[], zero: boolean, y
   });
   ticks.forEach((tick, i) => {
     const at = y(tick);
-    svg.append(
-      s('line', { class: i === 0 ? 'axis' : 'grid', x1: left, x2: width - MARGIN.right, y1: at, y2: at }),
-      s('text', { class: 'tick', x: left - 8, y: at, 'text-anchor': 'end', 'dominant-baseline': 'middle' }, labels[i]),
+    svg.children.push(
+      m('line', { class: i === 0 ? 'axis' : 'grid', x1: left, x2: width - MARGIN.right, y1: at, y2: at }),
+      m('text', { class: 'tick', x: left - 8, y: at, 'text-anchor': 'end', 'dominant-baseline': 'middle' }, labels[i]),
     );
   });
   return { svg, left, right: width - MARGIN.right, top, bottom, y };
+}
+
+/** Chart markup as DOM, for the page. */
+function toDom(node: MNode): SVGElement {
+  return s(
+    node.tag as keyof SVGElementTagNameMap,
+    node.attrs,
+    node.children.map((child) => (typeof child === 'string' ? child : toDom(child))),
+  );
 }
 
 /**
@@ -191,12 +201,16 @@ export function lineChart(options: LineChartOptions): HTMLElement {
   return h('div', { class: 'chart' }, legend, plot);
 }
 
-function drawLines(plot: HTMLElement, width: number, o: LineChartOptions): void {
+interface LineFigure {
+  svg: MNode;
+  f: Frame;
+  x: (value: number) => number;
+}
+
+/** The line chart's static marks, or null when there is nothing to chart. */
+function lineFigure(width: number, o: LineChartOptions): LineFigure | null {
   const values = o.series.flatMap((series) => series.values.filter((v): v is number => v !== null));
-  if (values.length === 0 || o.x.length === 0) {
-    plot.replaceChildren(h('p', { class: 'muted empty' }, 'no data to chart.'));
-    return;
-  }
+  if (values.length === 0 || o.x.length === 0) return null;
   const yValues = [...values, ...(o.references ?? []).map((r) => r.y)];
   const f = frame(width, o.label, yValues, o.zero ?? false, o.yTick);
   const first = o.x[0] ?? 0;
@@ -205,19 +219,19 @@ function drawLines(plot: HTMLElement, width: number, o: LineChartOptions): void 
 
   for (const i of tickIndices(o.x.length, f.right - f.left)) {
     const at = o.x[i] ?? 0;
-    f.svg.append(s('text', { class: 'tick', x: x(at), y: f.bottom + 18, 'text-anchor': i === 0 ? 'start' : 'middle' }, o.xTick(at)));
+    f.svg.children.push(m('text', { class: 'tick', x: x(at), y: f.bottom + 18, 'text-anchor': i === 0 ? 'start' : 'middle' }, o.xTick(at)));
   }
   for (const marker of o.markers ?? []) {
     if (marker.x < first || marker.x > last) continue;
-    f.svg.append(
-      s('line', { class: 'ref', x1: x(marker.x), x2: x(marker.x), y1: f.top, y2: f.bottom }),
-      s('text', { class: 'ref-label', x: x(marker.x) + 4, y: f.top + 10 }, marker.label),
+    f.svg.children.push(
+      m('line', { class: 'ref', x1: x(marker.x), x2: x(marker.x), y1: f.top, y2: f.bottom }),
+      m('text', { class: 'ref-label', x: x(marker.x) + 4, y: f.top + 10 }, marker.label),
     );
   }
   for (const reference of o.references ?? []) {
-    f.svg.append(
-      s('line', { class: 'ref', x1: f.left, x2: f.right, y1: f.y(reference.y), y2: f.y(reference.y) }),
-      s('text', { class: 'ref-label', x: f.right, y: f.y(reference.y) - 5, 'text-anchor': 'end' }, reference.label),
+    f.svg.children.push(
+      m('line', { class: 'ref', x1: f.left, x2: f.right, y1: f.y(reference.y), y2: f.y(reference.y) }),
+      m('text', { class: 'ref-label', x: f.right, y: f.y(reference.y) - 5, 'text-anchor': 'end' }, reference.label),
     );
   }
 
@@ -237,10 +251,10 @@ function drawLines(plot: HTMLElement, width: number, o: LineChartOptions): void 
       const start = points[0];
       const end = points[points.length - 1];
       if (start && end) {
-        f.svg.append(s('path', { class: `area s${i + 1}`, d: `${path}L${x(end[0]).toFixed(1)},${f.bottom}L${x(start[0]).toFixed(1)},${f.bottom}Z` }));
+        f.svg.children.push(m('path', { class: `area s${i + 1}`, d: `${path}L${x(end[0]).toFixed(1)},${f.bottom}L${x(start[0]).toFixed(1)},${f.bottom}Z` }));
       }
     }
-    f.svg.append(s('path', { class: `line s${i + 1}`, d: path }));
+    f.svg.children.push(m('path', { class: `line s${i + 1}`, d: path }));
   });
 
   // A single series gets its last value as a direct label.
@@ -250,20 +264,30 @@ function drawLines(plot: HTMLElement, width: number, o: LineChartOptions): void 
     const value = series?.values[j];
     if (series && value !== null && value !== undefined) {
       const at = x(o.x[j] ?? 0);
-      f.svg.append(
-        s('circle', { class: 'dot s1', cx: at, cy: f.y(value), r: 4 }),
-        s('text', { class: 'end-label', x: at - 8, y: f.y(value) - 10, 'text-anchor': 'end' }, o.yReadout(value)),
+      f.svg.children.push(
+        m('circle', { class: 'dot s1', cx: at, cy: f.y(value), r: 4 }),
+        m('text', { class: 'end-label', x: at - 8, y: f.y(value) - 10, 'text-anchor': 'end' }, o.yReadout(value)),
       );
     }
   }
+  return { svg: f.svg, f, x };
+}
 
+function drawLines(plot: HTMLElement, width: number, o: LineChartOptions): void {
+  const figure = lineFigure(width, o);
+  if (!figure) {
+    plot.replaceChildren(empty());
+    return;
+  }
+  const { f, x } = figure;
+  const svg = toDom(figure.svg) as SVGSVGElement;
   const crosshair = s('line', { class: 'crosshair', y1: f.top, y2: f.bottom, visibility: 'hidden' });
   const dots = o.series.map((_, i) => s('circle', { class: `dot s${i + 1}`, r: 4, visibility: 'hidden' }));
-  f.svg.append(crosshair, ...dots);
-  plot.replaceChildren(f.svg);
+  svg.append(crosshair, ...dots);
+  plot.replaceChildren(svg);
   readout(
     plot,
-    f.svg,
+    svg,
     o.x.length,
     (px) => {
       let best = 0;
@@ -307,20 +331,24 @@ export function columnChart(options: ColumnChartOptions): HTMLElement {
   return h('div', { class: 'chart' }, plot);
 }
 
-function drawColumns(plot: HTMLElement, width: number, o: ColumnChartOptions): void {
-  if (o.values.length === 0) {
-    plot.replaceChildren(h('p', { class: 'muted empty' }, 'no data to chart.'));
-    return;
-  }
+interface ColumnFigure {
+  svg: MNode;
+  centre: (index: number) => number;
+  indexAt: (x: number) => number;
+}
+
+/** The column chart's marks, or null when there is nothing to chart. */
+function columnFigure(width: number, o: ColumnChartOptions): ColumnFigure | null {
+  if (o.values.length === 0) return null;
   const f = frame(width, o.label, o.values, true, o.yTick);
   const band = (f.right - f.left) / o.values.length;
   // Columns are at most 24px wide, with at least a 2px gap between neighbours.
   const barWidth = Math.max(1, Math.min(24, band - 2));
   const centre = (i: number) => f.left + band * (i + 0.5);
   for (const i of tickIndices(o.values.length, f.right - f.left)) {
-    f.svg.append(s('text', { class: 'tick', x: centre(i), y: f.bottom + 18, 'text-anchor': 'middle' }, o.tick(i)));
+    f.svg.children.push(m('text', { class: 'tick', x: centre(i), y: f.bottom + 18, 'text-anchor': 'middle' }, o.tick(i)));
   }
-  const bars = o.values.map((value, i) => {
+  o.values.forEach((value, i) => {
     const x0 = centre(i) - barWidth / 2;
     const top = f.y(Math.max(0, value));
     const height = f.bottom - top;
@@ -330,18 +358,28 @@ function drawColumns(plot: HTMLElement, width: number, o: ColumnChartOptions): v
       height <= 0
         ? ''
         : `M${x0},${f.bottom}V${top + r}Q${x0},${top} ${x0 + r},${top}H${x0 + barWidth - r}Q${x0 + barWidth},${top} ${x0 + barWidth},${top + r}V${f.bottom}Z`;
-    const bar = s('path', { class: 'bar s1', d });
-    f.svg.append(bar);
-    return bar;
+    f.svg.children.push(m('path', { class: 'bar s1', d }));
   });
-  plot.replaceChildren(f.svg);
+  return { svg: f.svg, centre, indexAt: (px) => Math.floor((px - f.left) / band) };
+}
+
+function drawColumns(plot: HTMLElement, width: number, o: ColumnChartOptions): void {
+  const figure = columnFigure(width, o);
+  if (!figure) {
+    plot.replaceChildren(empty());
+    return;
+  }
+  const svg = toDom(figure.svg) as SVGSVGElement;
+  // One bar per value, in order.
+  const bars = Array.from(svg.querySelectorAll<SVGPathElement>('path.bar'));
+  plot.replaceChildren(svg);
   let active: SVGPathElement | undefined;
   readout(
     plot,
-    f.svg,
+    svg,
     o.values.length,
-    (px) => Math.floor((px - f.left) / band),
-    centre,
+    figure.indexAt,
+    figure.centre,
     (i) => {
       active?.classList.remove('active');
       active = bars[i];
@@ -350,6 +388,10 @@ function drawColumns(plot: HTMLElement, width: number, o: ColumnChartOptions): v
     },
     () => active?.classList.remove('active'),
   );
+}
+
+function empty(): HTMLElement {
+  return h('p', { class: 'muted empty' }, 'no data to chart.');
 }
 
 /** The chart's numbers as a table, folded away under it. */
@@ -368,5 +410,85 @@ export function tableView(headers: string[], rows: Child[][]): HTMLElement {
         h('tbody', null, rows.map((row) => h('tr', null, row.map((cell, i) => h('td', { class: i === 0 ? '' : 'num' }, cell))))),
       ),
     ),
+  );
+}
+
+export type ChartSpec = { kind: 'line'; options: LineChartOptions } | { kind: 'column'; options: ColumnChartOptions };
+
+// The chart's look for a file. Each colour is the page's token with the light value as its
+// fallback, so a chart in the combined report follows its light and dark tokens, and a lone
+// .svg file, which has no tokens, is light.
+export const CHART_CSS = [
+  'svg { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }',
+  '.bg { fill: var(--surface, #fcfcfb); }',
+  '.grid { stroke: var(--grid, #e1e0d9); stroke-width: 1; }',
+  '.axis { stroke: var(--axis, #c3c2b7); stroke-width: 1; }',
+  '.tick { fill: var(--ink-2, #52514e); font-size: 11px; font-variant-numeric: tabular-nums; }',
+  '.line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }',
+  '.line.s1, .key-line.s1 { stroke: var(--series-1, #2a78d6); }',
+  '.line.s2, .key-line.s2 { stroke: var(--series-2, #eb6834); }',
+  '.line.s3, .key-line.s3 { stroke: var(--series-3, #1baf7a); }',
+  '.key-line { stroke-width: 2; stroke-linecap: round; }',
+  '.legend-label { fill: var(--ink-2, #52514e); font-size: 12px; }',
+  '.area.s1 { fill: var(--series-1, #2a78d6); fill-opacity: 0.1; stroke: none; }',
+  '.bar.s1 { fill: var(--series-1, #2a78d6); }',
+  '.dot { stroke: var(--surface, #fcfcfb); stroke-width: 2; }',
+  '.dot.s1 { fill: var(--series-1, #2a78d6); }',
+  '.ref { stroke: var(--ink-2, #52514e); stroke-width: 1; stroke-dasharray: 4 3; }',
+  '.ref-label { fill: var(--ink-2, #52514e); font-size: 11px; }',
+  '.end-label { fill: var(--ink, #0b0b0b); font-size: 12px; font-weight: 600; }',
+].join('\n');
+
+const LEGEND_HEIGHT = 24;
+const EDGE = 32;
+
+/**
+ * A chart drawn at a fixed width for a download, with no readout. Its legend, for two or
+ * more series, is inside the svg. A standalone chart, for an .svg file, also carries its
+ * stylesheet and a background; one for the combined report takes the report's stylesheet.
+ */
+export function chartMarkup(spec: ChartSpec, width: number, standalone: boolean): MNode | null {
+  // The page lets a label at the right edge spill over the plot; a file clips it, so the
+  // chart is drawn narrower than the file, and its labels may spill into the margin.
+  const plotWidth = width - EDGE;
+  const figure = spec.kind === 'line' ? lineFigure(plotWidth, spec.options) : columnFigure(plotWidth, spec.options);
+  if (!figure) return null;
+  figure.svg.attrs.overflow = 'visible';
+  const series = spec.kind === 'line' ? spec.options.series : [];
+  const legendHeight = series.length > 1 ? LEGEND_HEIGHT : 0;
+  const height = HEIGHT + legendHeight;
+  let at = 0;
+  const legend = series.length > 1
+    ? m(
+        'g',
+        { class: 'legend' },
+        series.map((item, i) => {
+          const x = at;
+          at += item.name.length * 7 + 36;
+          return [
+            m('line', { class: `key-line s${i + 1}`, x1: x + 1, x2: x + 15, y1: 12, y2: 12 }),
+            m('text', { class: 'legend-label', x: x + 21, y: 12, 'dominant-baseline': 'middle' }, item.name),
+          ];
+        }),
+      )
+    : null;
+  figure.svg.attrs.y = legendHeight;
+  delete figure.svg.attrs.role;
+  delete figure.svg.attrs['aria-label'];
+  return m(
+    'svg',
+    {
+      xmlns: standalone ? 'http://www.w3.org/2000/svg' : null,
+      width,
+      height,
+      viewBox: `0 0 ${width} ${height}`,
+      role: 'img',
+      'aria-label': spec.options.label,
+    },
+    m('title', null, spec.options.label),
+    standalone ? m('style', null, CHART_CSS) : null,
+    standalone ? m('rect', { class: 'bg', width, height }) : null,
+    legend,
+    figure.svg,
   );
 }

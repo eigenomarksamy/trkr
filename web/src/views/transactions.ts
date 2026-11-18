@@ -1,6 +1,9 @@
 import type { Context } from '../app';
 import { h, mount, type Child } from '../dom';
 import { dayLabel, number, quantity } from '../format';
+import { reportFiles } from '../report-files';
+import { transactionsReport } from '../reports';
+import { filesMenu } from '../save';
 import type { Transaction } from '../snapshot';
 
 // The platform build_positions gives the rows of a positions file.
@@ -79,13 +82,15 @@ export function transactionsPage(context: Context): Child[] {
   const trades = context.portfolio.transactions;
   const distinct = (pick: (t: Transaction) => string) => [...new Set(trades.map(pick))].sort();
   const results = h('div');
-  const render = () => {
-    const shown = trades.filter(
+  const matching = () =>
+    trades.filter(
       (t) =>
         (!filters.symbol || t.symbol === filters.symbol) &&
         (!filters.type || t.type === filters.type) &&
         (!filters.platform || t.platform === filters.platform),
     );
+  const render = () => {
+    const shown = matching();
     mount(results, h('p', { class: 'muted' }, `${shown.length} of ${trades.length} trades`), tradesTable(shown, true));
   };
   const controls = h(
@@ -97,7 +102,13 @@ export function transactionsPage(context: Context): Child[] {
   );
   render();
   return [
-    h('h1', null, 'transactions'),
+    h(
+      'div',
+      { class: 'page-head' },
+      h('h1', null, 'transactions'),
+      // The rows the filters show.
+      filesMenu(() => reportFiles(transactionsReport(context.portfolioName, context.portfolio, matching()), context.snapshot)),
+    ),
     h(
       'p',
       { class: 'muted' },

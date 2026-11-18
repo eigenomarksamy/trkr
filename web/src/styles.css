@@ -774,6 +774,61 @@ tfoot td {
   margin-top: 8px;
 }
 
+/* Downloads (W12) */
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 0.5rem 0 1rem;
+}
+
+.page-head h1 {
+  margin: 0;
+}
+
+.downloads {
+  position: relative;
+}
+
+.downloads summary {
+  list-style: none;
+}
+
+.downloads summary::-webkit-details-marker {
+  display: none;
+}
+
+.downloads summary::after {
+  content: '▾';
+  font-size: 0.8em;
+}
+
+.download-list {
+  position: absolute;
+  right: 0;
+  z-index: 2;
+  min-width: 220px;
+  max-width: calc(100vw - 32px);
+  margin: 6px 0 0;
+  padding: 8px 12px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.download-list li {
+  padding: 4px 0;
+}
+
+.download-list .button.link {
+  text-align: left;
+}
+
 /* Projection */
 
 .projection-form {
@@ -827,5 +882,57 @@ tfoot td {
 
   .facts dd {
     margin-bottom: 6px;
+  }
+}
+
+/* Print, or save as PDF: the page's content in light colours, without the controls. */
+@media print {
+  :root {
+    color-scheme: light;
+    --page: #ffffff;
+    --surface: #ffffff;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11, 11, 11, 0.1);
+    --accent: #1c5cab;
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --up: #006300;
+    --down: #c03030;
+  }
+
+  .top,
+  .downloads,
+  .yaml,
+  .table-view summary,
+  .readout,
+  .crosshair {
+    display: none !important;
+  }
+
+  .page {
+    max-width: none;
+    padding: 0;
+  }
+
+  .card,
+  .tile {
+    break-inside: avoid;
+  }
+
+  h1,
+  h2 {
+    break-after: avoid;
+  }
+
+  .scroll {
+    overflow: visible;
+  }
+
+  .holdings .sticky {
+    position: static;
   }
 }

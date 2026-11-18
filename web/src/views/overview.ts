@@ -1,7 +1,10 @@
 import { href, type Context } from '../app';
 import { columnChart, lineChart, tableView } from '../chart';
 import { h, type Child } from '../dom';
-import { direction, money, monthDate, monthLabel, number, percent } from '../format';
+import { direction, money, monthLabel, number, percent } from '../format';
+import { reportFiles } from '../report-files';
+import { overviewReport, spendingChart, valuationChart } from '../reports';
+import { filesMenu } from '../save';
 import type { Portfolio } from '../snapshot';
 
 export function tile(label: string, value: string, options: { note?: string; tone?: string; hero?: boolean } = {}): HTMLElement {
@@ -15,11 +18,16 @@ export function tile(label: string, value: string, options: { note?: string; ton
 }
 
 export function overviewPage(context: Context): Child[] {
-  const { portfolio, currency } = context;
+  const { portfolio, currency, snapshot, portfolioName } = context;
   const total = portfolio.total;
   const nothingHeld = portfolio.holdings.length === 0;
   return [
-    h('h1', null, 'overview'),
+    h(
+      'div',
+      { class: 'page-head' },
+      h('h1', null, 'overview'),
+      filesMenu(() => reportFiles(overviewReport(snapshot, portfolioName, portfolio), snapshot)),
+    ),
     h(
       'div',
       { class: 'tiles' },
@@ -57,17 +65,7 @@ function valuationSection(portfolio: Portfolio, currency: string): HTMLElement {
     { class: 'card' },
     h('h2', null, 'value at each month end'),
     h('p', { class: 'muted' }, 'what the holdings of the time were worth at the month’s last close.'),
-    lineChart({
-      label: 'value at each month end',
-      x: months.map((m) => monthDate(m.month).getTime()),
-      xTick: (x) => monthLabel(new Date(x)),
-      xReadout: (x) => monthLabel(new Date(x), 'long'),
-      yTick: (y) => money(y, currency, { compact: true }),
-      yReadout: (y) => money(y, currency),
-      series: [{ name: 'value', values: months.map((m) => m.value) }],
-      area: true,
-      zero: true,
-    }),
+    lineChart(valuationChart(portfolio, currency)),
     tableView(
       ['month', 'value'],
       months.map((m) => [monthLabel(m.month, 'long'), money(m.value, currency)]),
@@ -82,14 +80,7 @@ function spendingSection(portfolio: Portfolio, currency: string): HTMLElement {
     { class: 'card' },
     h('h2', null, 'invested each month'),
     h('p', { class: 'muted' }, 'buys with their fees, in the default currency.'),
-    columnChart({
-      label: 'invested each month',
-      values: months.map((m) => m.amount),
-      tick: (i) => monthLabel(months[i]?.month ?? ''),
-      readout: (i) => monthLabel(months[i]?.month ?? '', 'long'),
-      yTick: (y) => money(y, currency, { compact: true }),
-      yReadout: (y) => money(y, currency),
-    }),
+    columnChart(spendingChart(portfolio, currency)),
     tableView(
       ['month', 'invested'],
       months.map((m) => [monthLabel(m.month, 'long'), money(m.amount, currency)]),

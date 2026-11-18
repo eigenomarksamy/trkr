@@ -1,6 +1,9 @@
 import { href, type Context } from '../app';
 import { h, mount, type Child } from '../dom';
 import { direction, money, percent, quantity } from '../format';
+import { reportFiles } from '../report-files';
+import { holdingsReport } from '../reports';
+import { filesMenu } from '../save';
 import type { Holding } from '../snapshot';
 
 interface Column {
@@ -36,6 +39,17 @@ const COLUMNS: Column[] = [
 let sortBy = 3;
 let descending = true;
 
+/** The holdings in the table's current order. */
+function sorted(holdings: Holding[]): Holding[] {
+  const column = COLUMNS[sortBy] ?? COLUMNS[0]!;
+  return [...holdings].sort((a, b) => {
+    const x = column.value(a);
+    const y = column.value(b);
+    const order = typeof x === 'string' || typeof y === 'string' ? String(x).localeCompare(String(y)) : (x ?? 0) - (y ?? 0);
+    return descending ? -order : order;
+  });
+}
+
 export function holdingsPage(context: Context): Child[] {
   const { portfolio, currency } = context;
   if (portfolio.holdings.length === 0) {
@@ -47,13 +61,7 @@ export function holdingsPage(context: Context): Child[] {
   const table = h('div', { class: 'scroll' });
   const render = () => mount(table, holdingsTable(context));
   const holdingsTable = (ctx: Context): HTMLElement => {
-    const column = COLUMNS[sortBy] ?? COLUMNS[0]!;
-    const rows = [...ctx.portfolio.holdings].sort((a, b) => {
-      const x = column.value(a);
-      const y = column.value(b);
-      const order = typeof x === 'string' || typeof y === 'string' ? String(x).localeCompare(String(y)) : (x ?? 0) - (y ?? 0);
-      return descending ? -order : order;
-    });
+    const rows = sorted(ctx.portfolio.holdings);
     const total = ctx.portfolio.total;
     return h(
       'table',
@@ -119,7 +127,14 @@ export function holdingsPage(context: Context): Child[] {
   };
   render();
   return [
-    h('h1', null, 'holdings'),
+    h(
+      'div',
+      { class: 'page-head' },
+      h('h1', null, 'holdings'),
+      filesMenu(() =>
+        reportFiles(holdingsReport(context.portfolioName, context.portfolio, sorted(context.portfolio.holdings)), context.snapshot),
+      ),
+    ),
     h('p', { class: 'muted' }, `prices and values in ${currency}. cost is what the units still held cost, fees included.`),
     table,
   ];
