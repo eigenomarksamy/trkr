@@ -36,6 +36,8 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-14: the onboarding's first steps are in `c8fcf62`, and W11's slice 1 and W1's guide page, which the 2026-11-13 notes call not yet committed, are in `382507c`, pushed and deployed that day. The owner answered the onboarding's questions: no standing approval for commits (EO3), EO10's priorities, and W5 closed, since W11 does its work. EO6-EO9 close the portability gaps: LF line endings, `npm run check` from either spelling of the drive letter, the venv's Python on Linux, and the C++ tool by its repository. 175 Python tests and 36 web tests pass.
 
+2026-11-18: the owner asked for trkr to adopt two standards the ecosystem is adding, once each is designed in `meta-eigenomar`: the documents every repository keeps, and its SCM strategy. They are planned as DOC1 and SCM1 ("Ecosystem standards"), and nothing is built yet.
+
 ## Status (2026-11-07)
 
 | Area | State |
@@ -501,6 +503,24 @@ Compared on 2026-11-04, with W11 (2026-11-13) added. trkr is a Python CLI that r
 
 - [ ] Whether the demo should load by default.
 - [ ] Whether manual entry in the app, and dividends, deposits and withdrawals, stay target capabilities. W11's typed trades may answer the first. Drop from the target capabilities whatever doesn't stay.
+
+## Ecosystem standards: DOC1 and SCM1 (owner, 2026-11-18)
+
+The ecosystem's contract, in `meta-eigenomar`, is adding two standards that every repository adopts: the documents each one keeps, and how each one manages its source and delivers it. DOC1 and SCM1 adopt them here, each once its standard is designed. Until then, their issues stay in the backlog. Both revisit what the onboarding kept as it was, at the owner's request.
+
+<a id="doc1"></a>
+
+### DOC1: The product's documents (needs the ecosystem's document standard)
+
+- [ ] Write or gather trkr's product vision, architecture, design, testing strategy, and verification and validation (V&V) documents, in the shape the ecosystem's document standard (`meta-eigenomar` ST1) sets. Where a file or section already covers one, name it rather than copy it. Today the architecture is `CLAUDE.md`'s pipeline, `web/README.md`'s "How it fits together" and "Feature: web app" above. The target capabilities and release gate (X1-X3) are the nearest thing to a vision and a V&V plan. The tests are pytest, with the golden and mirror snapshots, and the web app's Vitest suite, with its privacy check on every build.
+- Done when: each of the five documents exists, or names the file or section that holds it, and follows the standard's outline. `project.yaml` names them under the standard's keys, and the ecosystem's validator passes. Nothing in them is confidential, since this repo is public.
+
+<a id="scm1"></a>
+
+### SCM1: The ecosystem's SCM strategy (needs the ecosystem's SCM strategy)
+
+- [ ] Adopt the ecosystem's SCM strategy (`meta-eigenomar` ST2) through its adoption checklist: CI, branching, protection of `main`, versioning and releases, the health report and dependency updates. Today `.github/workflows/deploy-web.yml` runs `npm run check` and deploys on pushes to `main` that change `web/`, nothing runs pytest or ruff in CI, work goes to `main` or a working branch, and there are no releases. Phase 3's GitHub Actions item, ruff and pytest on pushes and PRs, is done by this ticket if the strategy's CI covers it. The repo and its Actions logs are public, so no workflow writes the owner's domain or real data.
+- Done when: every item on the checklist is applied here, or recorded here as an exception the strategy allows, with its reason. `project.yaml`'s `delivery` and `CLAUDE.md` say what runs, every workflow passes on `main`, and the ecosystem's validator passes.
 
 ## Ecosystem onboarding (2026-11-13)
 
