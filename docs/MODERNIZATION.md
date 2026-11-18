@@ -306,12 +306,12 @@ Each feature of the CLI, and where it ends up in the app:
 | Price history per ticker with entry points | `plots/stocks/*.png`, `figs_historical.html` | Symbol pages, with the break-even line | W1, done |
 | Transactions list | `transactions.html` | Transactions, filterable by symbol, type and platform | W1, done |
 | Symbol map, entry points, historical valuation | `misc_tables.html` | Data (symbol map); entry points on symbol charts; valuation as a table under its chart | W1, done |
-| Generated files: `portfolio.csv`, `total.md`, `entries.md`, `projection.csv`, `projection.md` | `generated/` | Not in the app: they stay on the PC | none |
+| Generated files: `portfolio.csv`, `total.md`, `entries.md`, `projection.csv`, `projection.md` | `generated/` | The files stay on the PC; each page's tables download as CSV and its charts as SVG | W12 |
 | Imaginary portfolios and the comparison table | `imaginary/<name>/report.html`, main report | The same views per portfolio; the comparison on Overview | W1, done |
 | Net-worth projection | `report.html`, `projection.html` | Projection page with editable inputs | W4, done in part |
 | Scheduled run | `run_script.bat` | Unchanged; each run writes a snapshot to open | W0, done |
 | Logs and exit codes | `log/`, console | Not in the app | none |
-| Static HTML report | `report.html` | Still written by the CLI | none |
+| Static HTML report | `report.html` | Still written by the CLI; the app downloads a self-contained combined report | W12 |
 | Holdings snapshot | `positions:` file or sheet tab | Positions are marked in Transactions; editing is W7 | W7 |
 | Broker import | `trkr import` (planned) | Upload page, owner's call | W8 |
 | Setup | `trkr init` (planned) | Wizard, owner's call | W9 |
@@ -439,6 +439,20 @@ Anyone can make their snapshot in the web app, with nothing to install. They ent
 - [ ] **6. Keep it current.** A snapshot made here carries its trades, so "refresh prices" makes it again, which also answers the stale-snapshot warning. A snapshot the CLI wrote can be opened in the editor to continue in the browser.
 - [ ] **7. Later.** Holdings rows instead of a trade history (a port of `build_positions` and `merge_positions`, with W7), imaginary portfolios as further trade lists (W5), projection inputs, ticker search (W9), daily history.
 
+<a id="w12"></a>
+
+### W12: Export and download reports (owner, 2026-11-18)
+
+The app shows every report but can't hand one out. Today the only exports are the CLI's files on the owner's PC, and its `report.html` links its images with `file://` URIs, so it opens only on the machine that wrote it. W12 lets the viewer download what the app shows, one report at a time or all of them together. Each file is built in the browser from the open snapshot: nothing is uploaded, and the Worker receives nothing.
+
+- [ ] **Separately.** Every page with a report gets a download button: Overview, Holdings, each symbol page, Transactions, Projection and Data. A table downloads as CSV, with the columns and order shown on screen, and with plain numbers and dates (`YYYY-MM-DD`), not the formatted numbers on screen. A chart downloads as SVG. A page with filters, such as Transactions, downloads the rows it shows. The Projection page downloads the rows for its current inputs.
+- [ ] **Combined.** One download holds every page of the open portfolio. By default it is a single self-contained HTML file: styles and SVG charts inline, tables under each chart, no scripts and no outside requests. That way it opens offline on any machine. A zip of the separate files is the alternative (owner's call, below).
+- [ ] **Print.** A print stylesheet hides the navigation and buttons and keeps each chart with its table, so the browser's "save as PDF" gives a clean copy of a page or of the combined report.
+- [ ] Built with the app's rules: DOM through `h()`/`s()`, no third-party requests, and text in lower case except tickers, currency codes and acronyms. File names give the portfolio, the report and the snapshot's run time, such as `trkr-holdings-2026-11-18.csv`. A file is saved through an object URL and a link with the `download` attribute, and the CSP in `web/src/worker.ts` changes only if that turns out to need it.
+- [ ] Tests (vitest): each CSV against the demo snapshot's figures, the combined file has every page and nothing that needs the network, and the file names.
+- [ ] Owner's call: the combined format (one HTML file, a zip of the separate files, or both). Whether "combined" means the open portfolio or every portfolio in the snapshot, imaginary ones too. Whether the CLI should also write the self-contained HTML file next to `report.html`, so the scheduled job's report opens anywhere.
+- Done when: every page listed above downloads its tables and charts, the combined report opens offline in a browser on another machine with every page and chart, printing a page gives no navigation, and `npm run check` passes.
+
 ### Not planned
 
 - Accounts or a database. There is one user, and snapshots are files. If the owner picks the stored-snapshot option, Cloudflare Access does the login.
@@ -494,7 +508,7 @@ Compared on 2026-11-04, with W11 (2026-11-13) added. trkr is a Python CLI that r
 - **X3's demo** is at `/?demo` (W1), and the landing page asks for a snapshot first, so it doesn't load by default.
 - **X3's local-first storage:** an opened snapshot stays in the browser, on that device only when the owner asks (W1), and W11's trades are kept in the browser's storage on that device. The privacy check keeps everything but the made-up demo out of every build (W1).
 - **X3's CSV import** is the CLI reading the sheet or file, and W11's slice 4 adds pasting rows or opening a CSV in the app, with each bad row flagged. Duplicate detection is part of the planned broker import.
-- **X3's export and backup** are the files each run writes on the owner's PC, which this plan keeps out of the app. W11's slice 3 downloads `snapshot.json` and `transactions.csv`.
+- **X3's export and backup** are the files each run writes on the owner's PC, which this plan keeps out of the app. W11's slice 3 downloads `snapshot.json` and `transactions.csv`, the backup that can be opened again. W12 downloads the reports, each page on its own or all of them combined.
 - **Manual entry:** the real transactions stay in the sheet ("Not planned": editing the real transactions). W11's slice 3 adds trades typed into the app, for snapshots made there.
 - **Dividends, deposits and withdrawals** are in Phase 4, optional and the owner's call, so nothing commits to them yet.
 - **The release gate's imports**, for broker exports, wait on a sample export from each broker (broker import).
