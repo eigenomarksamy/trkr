@@ -2,6 +2,8 @@
 
 A living checklist. Tick items as they land and note the commit hash. This repo is public, so confidential work never goes in this file; the ecosystem's shared rules, which `CLAUDE.md` imports, say where it goes. Order matters: Phase 0 builds the safety net that makes the later phases safe, because the portfolio math has only end-to-end golden coverage and has confirmed bugs.
 
+Each open ticket's heading ends in its size, the same value as its issue's `Size` in the ecosystem's GitHub Project, on the ecosystem's scale: xxs takes minutes, xs under an hour, s an hour or two, m about a session, l two or three, xl four to six and xxl more. tbd means an owner's call, a decision or work not yet planned decides it. A change to one is made to the other in the same session.
+
 State as of 2026-10-22: the last code change was 2025-03; the scheduled job ran successfully through 2025-11-04.
 
 2026-10-23: the net-worth projection and imaginary portfolios landed, ahead of the phases, at the owner's request. They brought part of Phase 0 with them: offline test fixtures, the golden end-to-end test and the demo config.
@@ -318,7 +320,7 @@ Each feature of the CLI, and where it ends up in the app:
 
 <a id="w0"></a>
 
-### W0: Core seam (CLI only, no web code)
+### W0: Core seam (CLI only, no web code) · s
 
 - [x] Every run writes `<gen-dir>/snapshot.json`, plus a copy at `<gen-dir>/snapshots/<YYYYmmdd_HHMMSS>.json`. Each is written to a temp file and renamed, so a reader never sees half a file. Every copy is kept: at tens of KB per run, a year of daily runs is a few MB. (`src/snapshot.py`, called last in `exec`)
 - [x] The snapshot holds what any page needs, with `schema` and `schema_version` (1):
@@ -336,7 +338,7 @@ Each feature of the CLI, and where it ends up in the app:
 
 <a id="w1"></a>
 
-### W1: Viewer on a Worker
+### W1: Viewer on a Worker · s
 
 - [x] `web/`: TypeScript with no framework, built by Vite into `dist/`, served by a Worker through the `ASSETS` binding with `run_worker_first`, so every response gets the headers: a CSP limiting the page to its own origin (`connect-src 'self'`, no inline script or style), `frame-ancestors 'none'`, `noindex`, `no-referrer`, HSTS. Hashed assets are cached as immutable. `/api/health` reports the snapshot version the app reads.
 - [x] Landing page: open `snapshot.json` (picker or drop), "Remember it on this device" (localStorage, off by default), and a made-up demo, also at `/?demo`. A file that is not a snapshot, or of another version, gets a message saying what to do.
@@ -350,7 +352,7 @@ Each feature of the CLI, and where it ends up in the app:
 
 <a id="w2"></a>
 
-### W2: Snapshot history (was: runs from the browser)
+### W2: Snapshot history (was: runs from the browser) · m
 
 A Worker can't start the CLI, so "Run now", run status and the run lock are dropped from the hosted app. The scheduled job and the CLI make the runs.
 
@@ -359,7 +361,7 @@ A Worker can't start the CLI, so "Run now", run status and the run lock are drop
 
 <a id="w3"></a>
 
-### W3: Interactive charts
+### W3: Interactive charts · m
 
 - [x] Hover and keyboard readout on every chart (W1).
 - [ ] Spending % and profit % per holding as charts (bars, ranked).
@@ -369,7 +371,7 @@ A Worker can't start the CLI, so "Run now", run status and the run lock are drop
 
 <a id="w4"></a>
 
-### W4: Projection playground
+### W4: Projection playground · s
 
 - [x] A form filled in from the snapshot's projection inputs, or blank when the config has none. `start-net-worth` is a choice between the real portfolio, each imaginary one and a fixed amount, with their current values. Deposits and withdrawals are "year: amount" lines.
 - [x] Each change is validated with the rules and messages of `parse_projection_cfg` and recomputed by `web/src/projection.ts`, a port of `project_net_worth` checked against the CLI's rows. An invalid input dims the last good result and shows the message.
@@ -388,7 +390,7 @@ Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) an
 
 <a id="w6"></a>
 
-### W6: Running it day to day
+### W6: Running it day to day · xs
 
 - [x] Build and deploy commands: `npm ci`, `npm run check`, `npm run build`, `npx wrangler login`, `npm run deploy [-- --domain <host>]` (`web/README.md`). Wrangler metrics are off (`send_metrics: false`).
 - [x] A "Web app" section in the README.
@@ -400,26 +402,26 @@ Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) an
 
 <a id="w7"></a>
 
-### W7: Holdings snapshot from the browser
+### W7: Holdings snapshot from the browser · l
 
 - [ ] A Holdings page section lists the positions rows with their current value and P&L, and flags rows more than three months old. Each row shows the trades it replaced (W0's open item).
 - [ ] Rows can be edited, added and deleted in the browser and downloaded as a positions CSV, checked with the same rules as `build_positions` (ported, with tests against the Python messages). The hosted app can't write the local file, so the owner saves the download over it or pastes it into the sheet tab. A change to a row's quantity or cost also sets its date to today, unless the owner picks one.
 
 <a id="w8"></a>
 
-### W8: Broker import from the browser (owner's call)
+### W8: Broker import from the browser (owner's call) · tbd
 
 - [ ] The importer is Python (`src/importers/`). In the hosted app it would need a TypeScript copy of each parser, or a Worker running Python. Until the owner decides, the importer stays a CLI command.
 
 <a id="w9"></a>
 
-### W9: Setup wizard (owner's call)
+### W9: Setup wizard (owner's call) · tbd
 
 - [ ] The sheet generator's questions as a multi-step form that ends with the files and the YAML as downloads. Ticker search needs `yf.Search`, so the Worker would proxy Yahoo's search (see W5). Same rows as `trkr init`, checked by shared fixtures.
 
 <a id="w10"></a>
 
-### W10: Button to eigenomar.com (owner, 2026-11-04)
+### W10: Button to eigenomar.com (owner, 2026-11-04) · xs
 
 - [ ] A footer with a link to `https://eigenomar.com`, labelled `eigenomar.com` and styled with `.button`. The app has no footer yet: `shell()` in `web/src/app.ts` has a header and a main, and `landing()` in `web/src/views/landing.ts` stands in for them until a snapshot is open, so both need it.
 - [ ] It opens in a new tab (`target="_blank" rel="noopener"`). An open snapshot stays in the page unless the owner chose to remember it, so leaving in the same tab would drop it.
@@ -427,7 +429,7 @@ Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) an
 
 <a id="w11"></a>
 
-### W11: Make a snapshot in the app (owner, 2026-11-13)
+### W11: Make a snapshot in the app (owner, 2026-11-13) · xl
 
 Anyone can make their snapshot in the web app, with nothing to install. They enter old trades by hand, one at a time or in bulk, with their fees, and later can fetch a trade's price for its date. Each slice ships on its own; the defaults are the "Web app: snapshots made in the browser" and "prices for the browser" rows in the decisions table.
 
@@ -477,14 +479,14 @@ The done-whens below were written on 2026-11-13 from each ticket's own text, add
 
 <a id="x1"></a>
 
-### X1: Audit against the target capabilities
+### X1: Audit against the target capabilities · s
 
 - [ ] List what the repo already does against the target capabilities, and record the gaps under this heading. Name the gaps only, and leave what is done to the rest of this plan. "Where they meet this plan" compares plan with plan, so this checks the code and the app themselves.
 - Done when: every target capability is listed here as covered (and where), planned (and by which item), or a gap, and each gap is an item in this plan or one of the owner's calls below.
 
 <a id="x2"></a>
 
-### X2: Tested calculation core (needs X1)
+### X2: Tested calculation core (needs X1) · l
 
 - [ ] Separate the ledger, positions, cost basis (with the method stated explicitly), performance and currency conversion.
 - [ ] Test each against independently checked reference examples.
@@ -492,7 +494,7 @@ The done-whens below were written on 2026-11-13 from each ticket's own text, add
 
 <a id="x3"></a>
 
-### X3: Synthetic demo and privacy boundary (needs X2)
+### X3: Synthetic demo and privacy boundary (needs X2) · tbd
 
 - [ ] A synthetic demo portfolio that loads by default.
 - [ ] Real data stored locally only (local-first), and never shipped in a build.
@@ -524,14 +526,14 @@ The ecosystem's contract, in `meta-eigenomar`, is adding two standards that ever
 
 <a id="doc1"></a>
 
-### DOC1: The product's documents (needs the ecosystem's document standard)
+### DOC1: The product's documents (needs the ecosystem's document standard) · tbd
 
 - [ ] Write or gather trkr's product vision, architecture, design, testing strategy, and verification and validation (V&V) documents, in the shape the ecosystem's document standard (`meta-eigenomar` ST1) sets. Where a file or section already covers one, name it rather than copy it. Today the architecture is `CLAUDE.md`'s pipeline, `web/README.md`'s "How it fits together" and "Feature: web app" above. The target capabilities and release gate (X1-X3) are the nearest thing to a vision and a V&V plan. The tests are pytest, with the golden and mirror snapshots, and the web app's Vitest suite, with its privacy check on every build.
 - Done when: each of the five documents exists, or names the file or section that holds it, and follows the standard's outline. `project.yaml` names them under the standard's keys, and the ecosystem's validator passes. Nothing in them is confidential, since this repo is public.
 
 <a id="scm1"></a>
 
-### SCM1: The ecosystem's SCM strategy (needs the ecosystem's SCM strategy)
+### SCM1: The ecosystem's SCM strategy (needs the ecosystem's SCM strategy) · tbd
 
 - [ ] Adopt the ecosystem's SCM strategy (`meta-eigenomar` ST2) through its adoption checklist: CI, branching, protection of `main`, versioning and releases, the health report and dependency updates. Today `.github/workflows/deploy-web.yml` runs `npm run check` and deploys on pushes to `main` that change `web/`, nothing runs pytest or ruff in CI, work goes to `main` or a working branch, and there are no releases. Phase 3's GitHub Actions item, ruff and pytest on pushes and PRs, is done by this ticket if the strategy's CI covers it. The repo and its Actions logs are public, so no workflow writes the owner's domain or real data.
 - Done when: every item on the checklist is applied here, or recorded here as an exception the strategy allows, with its reason. `project.yaml`'s `delivery` and `CLAUDE.md` say what runs, every workflow passes on `main`, and the ecosystem's validator passes.
