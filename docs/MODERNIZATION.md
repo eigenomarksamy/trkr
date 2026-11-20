@@ -40,6 +40,8 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-18: the owner asked for trkr to adopt two standards the ecosystem is adding, once each is designed in `meta-eigenomar`: the documents every repository keeps, and its SCM strategy. They are planned as DOC1 and SCM1 ("Ecosystem standards"), and nothing is built yet.
 
+2026-11-20: the owner asked for every app under eigenomar.com to share one tab icon, eigenomar.com's lambda with its colors swapped. W13 replaces the web app's chart line with it, and nothing is built yet.
+
 ## Status (2026-11-07)
 
 | Area | State |
@@ -454,6 +456,16 @@ The app shows every report but can't hand one out. Today the only exports are th
 - [x] Tests (vitest, 25 new, 64 in all): CSV quoting and formula-injection guard, file names, the zip read back entry by entry, escaping, each report against the golden and demo snapshots, the projection against the CLI's rows, and the combined file: every report, no script, link, source or URL. Checked on 2026-11-18 in headless Chrome against `npm run preview` with the demo: every menu's 21 files downloaded, no CSP violation or console error, the HTML file opened from disk with the network off and made no request, and it has no sideways scroll at 390 px.
 - [x] Owner's call, decided 2026-11-18: both formats, offered side by side; every portfolio in the open snapshot, as the session has it; no change to the CLI.
 - Done when: every page listed above downloads its tables and charts, the combined report opens offline in a browser on another machine with every page and chart, printing a page gives no navigation, and `npm run check` passes.
+
+<a id="w13"></a>
+
+### W13: The ecosystem's tab icon (owner, 2026-11-20) · xs
+
+Every app under eigenomar.com shows the same tab icon: eigenomar.com's lambda with its two colors swapped, a light-blue tile and a near-black lambda (shared decision SD5).
+
+- [ ] Replace `web/public/favicon.svg`, the chart line, with it. `web/index.html` already links that file, so nothing else changes. The file is already tracked, so `check-private.mjs` lets the build through.
+- [ ] The icon is served by the Worker like any other asset, so the CSP in `web/src/worker.ts` doesn't change.
+- Done when: the deployed app's tab shows the icon in a light and a dark browser theme, the demo's too, and `npm run check` and `npm run build` pass.
 
 ### Not planned
 
