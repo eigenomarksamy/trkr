@@ -15,6 +15,7 @@ import { landing, openFileButton } from './views/landing';
 import { overviewPage } from './views/overview';
 import { projectionInputsFor, projectionPage } from './views/projection';
 import { symbolPage } from './views/symbol';
+import { TRADES_HREF, TRADES_PAGE, tradesPage } from './views/trades';
 import { transactionsPage } from './views/transactions';
 
 export type Page = 'overview' | 'holdings' | 'symbol' | 'transactions' | 'projection' | 'data';
@@ -56,8 +57,14 @@ function parseRoute(hash: string): Route {
   return { portfolio: GLOBAL_PAGES.includes(page) ? '' : portfolio, page, arg: parts[1] };
 }
 
+const pageOf = (hash: string) => hash.replace(/^#\/?/, '').replace(/\/$/, '');
+
 export function isGuide(hash: string): boolean {
-  return hash.replace(/^#\/?/, '').replace(/\/$/, '') === GUIDE_PAGE;
+  return pageOf(hash) === GUIDE_PAGE;
+}
+
+export function isTrades(hash: string): boolean {
+  return pageOf(hash) === TRADES_PAGE;
 }
 
 export function href(portfolio: string, page: Page, arg?: string): string {
@@ -80,6 +87,12 @@ export function start(root: HTMLElement): void {
     if (isGuide(location.hash)) {
       document.title = 'how to make a snapshot.json · trkr';
       mount(root, guide());
+      return;
+    }
+    // So does making one from typed trades.
+    if (isTrades(location.hash)) {
+      document.title = 'make a snapshot here · trkr';
+      mount(root, tradesPage(reload));
       return;
     }
     if (!loaded) {
@@ -208,6 +221,7 @@ function shell(context: Context, route: Route): Node[] {
           'div',
           { class: 'actions' },
           combinedMenu(context),
+          loaded.origin === 'made' ? h('a', { class: 'button quiet', href: TRADES_HREF }, 'edit trades') : null,
           openFileButton(context.reload, loaded.remembered, 'open another'),
           h('button', { class: 'button quiet', type: 'button', onclick: () => context.reload(null) }, 'close'),
         ),

@@ -4,7 +4,9 @@
 export const SCHEMA = 'trkr-snapshot';
 export const SCHEMA_VERSION = 1;
 
-export type Source = 'local' | 'cloud' | null;
+// 'browser' is a snapshot made in the app from trades typed into it (src/trades.ts). The CLI
+// writes only the others, so the format version stays.
+export type Source = 'local' | 'cloud' | 'browser' | null;
 
 export interface Holding {
   symbol: string;

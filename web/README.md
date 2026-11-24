@@ -1,12 +1,13 @@
 # trkr web app
 
-A page that shows the `snapshot.json` a trkr run writes: totals, holdings with a page per investment, transactions, imaginary portfolios, and a net-worth projection whose inputs can be edited. A Cloudflare Worker serves it, so it can have its own domain.
+A page that shows the `snapshot.json` a trkr run writes: totals, holdings with a page per investment, transactions, imaginary portfolios, and a net-worth projection whose inputs can be edited. It can also make a snapshot from trades typed into it, with nothing installed (`#/trades`). A Cloudflare Worker serves it, so it can have its own domain.
 
 ## How your data stays private
 
-- **Nothing is uploaded.** The page reads the snapshot you open in the browser. The Worker serves the page's files and stores nothing. With "Remember it on this device", the browser keeps a copy in its local storage, and only there.
+- **Nothing is uploaded.** The page reads the snapshot you open in the browser. The Worker serves the page's files and stores nothing. With "Remember it on this device", the browser keeps a copy in its local storage, and only there. Trades typed into "make a snapshot here" are kept in the same storage, on that device, and leave it only as the files you download.
 - **Downloads are made in the browser.** Each page's "download" menu and the header's "download report" build their CSV, SVG, HTML and zip files from the open snapshot, and the browser saves them. They hold your holdings and transactions, so keep them as private as the snapshot. The combined HTML file loads and runs nothing, so it opens offline.
 - **The page can't send the snapshot anywhere.** The Worker sends a Content-Security-Policy that limits the page to its own files and its own origin. There are no third-party scripts, fonts or analytics.
+- **Prices come through the Worker, by ticker only.** To price trades typed into the app (W11 in `docs/MODERNIZATION.md`), the page asks the Worker's `/api/prices` for one ticker at a time, with the day its history starts. The Worker asks Yahoo Finance's chart API and answers the ticker's currency, its price now and its weekly closes. Quantities, prices paid and fees stay in the browser. The Worker keeps nothing: on a custom domain, Cloudflare's cache holds Yahoo's public answer for up to an hour. The route answers only requests that a browser marks as coming from the app's own pages (`Sec-Fetch-Site: same-origin`), takes only ticker-shaped input and at most 50 years of history, so it is no general proxy to Yahoo.
 - **The deploy holds no private data.** The published files are `dist/`, built from the tracked files in this folder, plus the Worker script. The demo is made from the made-up files in `examples/`. The build ends with `scripts/check-private.mjs`, which stops the build, and so the deploy, when:
   - a file the build reads (`index.html`, `src/`, `public/`) is unknown to git, such as a real `snapshot.json` dropped into `public/`;
   - a built file contains a sheet address from your local `config/*.yml`, or your home directory;
@@ -71,7 +72,13 @@ To serve it from your own domain as well, the domain's zone must be on the same 
 npm run deploy -- --domain trkr.example.com
 ```
 
-Wrangler creates the DNS record and the certificate, and later deploys leave the domain attached. Check a deploy with `https://<host>/api/health`, which answers `{"ok":true,"snapshot_schema_version":1}`. To serve only the custom domain, set `"workers_dev": false` in `wrangler.jsonc`.
+Wrangler creates the DNS record and the certificate, and later deploys leave the domain attached. Check a deploy with `https://<host>/api/health`, which answers `{"ok":true,"snapshot_schema_version":1}`. To check that Yahoo answers the Worker, ask for a public ticker the way the page does:
+
+```sh
+curl -H "Sec-Fetch-Site: same-origin" "https://<host>/api/prices?ticker=AAPL&from=2025-01-06"
+```
+
+It answers `{"currency":"USD","price":…,"closes":[…]}`. A 502 that names Yahoo's status, such as 429, means Yahoo refuses Cloudflare's servers. To serve only the custom domain, set `"workers_dev": false` in `wrangler.jsonc`.
 
 New files under `src/` or `public/` must be staged (`git add`) before they build, because of the privacy check.
 
@@ -91,7 +98,9 @@ git add web/public/demo-snapshot.json
 
 - `src/snapshot.ts`: the snapshot's types and `parseSnapshot`. The CLI writes it in `src/snapshot.py`. A change to its shape bumps `SCHEMA_VERSION` in both.
 - `src/projection.ts`: a port of `src/projection.py` and the projection checks in `src/cfg_mngr.py`, so the projection can be recomputed as you type.
-- `src/worker.ts`: the Worker. It serves `dist/` through the `ASSETS` binding, adds the security headers, and answers `/api/health`.
+- `src/worker.ts`: the Worker. It serves `dist/` through the `ASSETS` binding, adds the security headers, and answers `/api/health` and `/api/prices`.
+- `src/yahoo.ts`: the price route. It checks the request, asks Yahoo's chart API for weekly bars from the given day to today, adjusted for splits and dividends as `yfinance` is, dates each bar where its exchange is, and answers the `Quote` that `src/market.ts` takes. `src/prices.ts` is the page's side of it.
+- `src/trades.ts` and `src/views/trades.ts`: a snapshot made in the browser. Each typed trade is checked as the CLI reads a transactions row, and `makeSnapshot` prices the trades through the route and computes them with `src/portfolio.ts` and `src/market.ts`, the port of the CLI's money math.
 - `src/app.ts`: the shell and the hash router. Pages are in `src/views/`, charts in `src/chart.ts` (SVG, no library). The DOM is built with `src/dom.ts`, which only ever inserts text, so values from your sheets can't inject HTML.
 
 ## Testing

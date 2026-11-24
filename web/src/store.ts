@@ -7,8 +7,9 @@ const REMEMBERED = 'trkr.snapshot';
 
 export interface Loaded {
   snapshot: Snapshot;
-  // 'demo' for the made-up demo, otherwise the file's name.
-  origin: 'demo' | 'file';
+  // 'demo' for the made-up demo, 'made' for a snapshot made here from typed trades (W11).
+  origin: 'demo' | 'file' | 'made';
+  // The file's name, or what the page calls the demo or a snapshot made here.
   name: string;
   remembered: boolean;
 }

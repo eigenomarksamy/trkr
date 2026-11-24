@@ -269,6 +269,10 @@ p {
   cursor: pointer;
 }
 
+a.button {
+  text-decoration: none;
+}
+
 .button:hover {
   background: var(--page);
 }
@@ -831,7 +835,8 @@ tfoot td {
 
 /* Projection */
 
-.projection-form {
+.projection-form,
+.trade-form {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px 16px;
@@ -842,12 +847,65 @@ tfoot td {
   border-radius: 10px;
 }
 
-.projection-form .wide {
+.projection-form .wide,
+.trade-form .wide {
   grid-column: 1 / -1;
 }
 
-.projection-form .buttons {
+.projection-form .buttons,
+.trade-form .buttons {
   flex-direction: row;
+}
+
+/* Make a snapshot here: the trade form and the trades so far. */
+
+.guide.trades {
+  max-width: 1040px;
+}
+
+.trades .buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.trades .field.inline {
+  flex-wrap: wrap;
+}
+
+.trades .field.inline input {
+  width: 5em;
+}
+
+.trades [aria-invalid='true'] {
+  border-color: var(--error-ink);
+  outline: 1px solid var(--error-ink);
+}
+
+.error-text {
+  color: var(--error-ink);
+}
+
+.trades .notice ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+/* The table scrolls on its own: its hidden header label stays inside it, and tickers don't break. */
+.trades .scroll {
+  position: relative;
+}
+
+.trades table {
+  overflow-wrap: normal;
+}
+
+.trades tr.editing td {
+  background: var(--page);
+}
+
+.trades .make {
+  margin-top: 24px;
 }
 
 .results.stale {

@@ -1,6 +1,7 @@
 import { h } from '../dom';
 import { loadDemo, loadFile, type Loaded } from '../store';
 import { GUIDE_HREF } from './guide';
+import { TRADES_HREF } from './trades';
 
 type Reload = (loaded: Loaded | null) => void;
 
@@ -40,7 +41,15 @@ export function landing(reload: Reload): HTMLElement {
     { class: 'drop' },
     h('label', { class: 'button primary' }, input, 'open snapshot.json'),
     h('p', { class: 'muted' }, 'or drop the file here'),
-    h('p', null, h('a', { href: GUIDE_HREF }, 'no snapshot.json yet? how to make one')),
+    h(
+      'p',
+      null,
+      'no snapshot.json yet? ',
+      h('a', { href: TRADES_HREF }, 'make one here from your trades'),
+      ', or ',
+      h('a', { href: GUIDE_HREF }, 'make one with trkr on your computer'),
+      '.',
+    ),
   );
   drop.addEventListener('dragover', (event) => {
     event.preventDefault();
@@ -78,7 +87,7 @@ export function landing(reload: Reload): HTMLElement {
     h(
       'p',
       { class: 'privacy' },
-      'the file is read in this browser and never uploaded. this site stores nothing, and the page loads nothing from anywhere else.',
+      "the file is read in this browser and never uploaded. this site stores nothing, and the page loads nothing from anywhere else. to price trades typed in here, it asks this site for each ticker's prices, and sends nothing else.",
     ),
     demo,
     h(

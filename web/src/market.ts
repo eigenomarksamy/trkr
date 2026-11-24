@@ -21,6 +21,10 @@ export interface Market {
 
 export class MarketError extends Error {}
 
+// Yahoo's tickers: letters and digits, with . - = ^ & as in VWCE.DE, BRK-B, USDEUR=X, ^GSPC, M&M.NS.
+// The Worker's price route takes nothing else, and the trade form checks symbols with it.
+export const TICKER = /^[A-Za-z0-9^][A-Za-z0-9.^=&-]{0,23}$/;
+
 // Yahoo quotes some listings in a minor unit, such as most London listings in pence.
 const MINOR_UNITS: Record<string, [string, number]> = {
   GBp: ['GBP', 100],
@@ -38,6 +42,18 @@ export function rateTicker(currency: string, target: string): string {
 
 function unitOf(currency: string): [string, number] {
   return MINOR_UNITS[currency] ?? [currency.toUpperCase(), 1];
+}
+
+/** The currency pairs priceMarket needs for these quotes, such as USDEUR=X for USD into EUR. */
+export function pairsFor(quotes: Iterable<Quote>, target: string): string[] {
+  const want = target.toUpperCase();
+  const pairs = new Set<string>();
+  for (const quote of quotes) {
+    if (!quote.currency) continue;
+    const [currency] = unitOf(quote.currency);
+    if (currency !== want) pairs.add(rateTicker(currency, want));
+  }
+  return [...pairs];
 }
 
 /**

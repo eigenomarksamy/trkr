@@ -478,12 +478,12 @@ export function projectionReport(snapshot: Snapshot, inputs: ProjectionInputs | 
   return report;
 }
 
-const SOURCE_NAMES = { local: 'a local file', cloud: 'a google sheet' } as const;
+export const SOURCE_NAMES = { local: 'a local file', cloud: 'a google sheet', browser: 'trades typed into this app' } as const;
 
 /** The data page: facts about the snapshot and its symbol map. fileLabel names the open file. */
 export function dataReport(snapshot: Snapshot, fileLabel: string): Report {
   const { sources } = snapshot.config;
-  const source = (value: 'local' | 'cloud' | null) => (value ? SOURCE_NAMES[value] : 'not used');
+  const source = (value: keyof typeof SOURCE_NAMES | null) => (value ? SOURCE_NAMES[value] : 'not used');
   const map = Object.entries(snapshot.symbol_map).sort(([a], [b]) => a.localeCompare(b));
   const parts: Part[] = [
     {

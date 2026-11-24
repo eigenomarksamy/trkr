@@ -1,7 +1,9 @@
 // The Cloudflare Worker: serves the built page from dist/ and adds the security headers.
 // It stores nothing and receives no portfolio data: snapshots are opened in the browser.
+// Its price route (src/yahoo.ts) sees the tickers and dates a page asks for, nothing more.
 
 import { SCHEMA_VERSION } from './snapshot';
+import { pricesRoute } from './yahoo';
 
 export interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
@@ -37,6 +39,8 @@ export default {
     let response: Response;
     if (pathname === '/api/health') {
       response = Response.json({ ok: true, snapshot_schema_version: SCHEMA_VERSION });
+    } else if (pathname === '/api/prices') {
+      response = await pricesRoute(request);
     } else if (pathname.startsWith('/api/')) {
       response = Response.json({ error: 'Not found.' }, { status: 404 });
     } else {
