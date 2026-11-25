@@ -46,6 +46,8 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-24: W11's slices 2 and 3 are built and not yet committed: the Worker's price route, and "make a snapshot here", the first slice anyone can see. A push to `main` deploys them, and the first check after that deploy is whether Yahoo answers Cloudflare's servers (W11). 175 Python tests and 87 web tests pass.
 
+2026-11-25: the owner split W11 so each part is picked on its own. Slices 1-3 are W11a, done, and slices 4-6 are W11b-W11d, each `m` and with its own issue, W11b on W11's. Slice 7's items stay under W11 without ids. W11c fills in a trade's price as traded, not adjusted (X1, gap 4).
+
 ## Status (2026-11-07)
 
 | Area | State |
@@ -93,7 +95,7 @@ Claude assumes the defaults below unless told otherwise.
 | Web app: how a run executes | The hosted app can't run the CLI. Runs stay with the scheduled job and the CLI; the app shows what they wrote. From 2026-11-13 the app also makes snapshots itself, from trades typed into it (W11). |
 | Web app: data contract | Every CLI run writes a versioned `snapshot.json`, the scheduled run included. The app reads snapshots. It computes projections, with a port of `project_net_worth` tested against the CLI's rows, and, for W11, whole portfolios, with a port of the money math tested against the CLI's golden snapshot. |
 | Web app: snapshots made in the browser | Anyone can make a snapshot in the app with nothing to install (owner, 2026-11-13). Trades are typed in or pasted, kept in the browser's storage on that device, and download as a transactions CSV in trkr's column order, which the CLI reads too. They are never sent anywhere. Lite (weekly) history only, and symbols are Yahoo tickers, with no symbol map. |
-| Web app: prices for the browser | The browser can't call Yahoo (no CORS, and the CSP allows only the app's own origin), so the Worker fetches prices for the tickers the page asks for (W11, slice 2). It sees tickers and dates, never quantities, prices paid or fees. It keeps no copy beyond Cloudflare's cache of public prices. It answers only the app's own pages and takes only ticker-shaped input, so it isn't a general Yahoo proxy. If Yahoo refuses Cloudflare's servers, the fallback is a price provider with a free API key, held as a Worker secret. |
+| Web app: prices for the browser | The browser can't call Yahoo (no CORS, and the CSP allows only the app's own origin), so the Worker fetches prices for the tickers the page asks for (W11a, slice 2). It sees tickers and dates, never quantities, prices paid or fees. It keeps no copy beyond Cloudflare's cache of public prices. It answers only the app's own pages and takes only ticker-shaped input, so it isn't a general Yahoo proxy. If Yahoo refuses Cloudflare's servers, the fallback is a price provider with a free API key, held as a Worker secret. |
 | Web app: config | The app never sees the config: the snapshot carries only the currency, the history variant and local/cloud per source. What-ifs live in the browser; the projection page gives a YAML block to paste. |
 | Web app: dependencies | A separate Node project in `web/`. `pyproject.toml`, `requirements.txt` and the scheduled job don't change. |
 | Snapshot date | Required on every row. Defaulting it to the run date would move the date every day, and each later trade would be dropped as already counted. In Sheets, fill the column down. |
@@ -389,7 +391,7 @@ A Worker can't start the CLI, so "Run now", run status and the run lock are drop
 
 ### W5: What-if portfolios from the browser (owner's call)
 
-Decided 2026-11-13: the second way, through W11. The owner wants every snapshot to be possible in the app, so the Worker fetches prices and the browser values the portfolio. A what-if portfolio is then a second trade list (W11, slice 7).
+Decided 2026-11-13: the second way, through W11. The owner wants every snapshot to be possible in the app, so the Worker fetches prices and the browser values the portfolio. A what-if portfolio is then a second trade list (W11's later items).
 
 Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) and the Worker would have to proxy. Two ways, both for the owner to choose:
 
@@ -437,18 +439,50 @@ Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) an
 
 <a id="w11"></a>
 
-### W11: Make a snapshot in the app (owner, 2026-11-13) · xl
+### W11a-W11d: Make a snapshot in the app (owner, 2026-11-13)
 
 Anyone can make their snapshot in the web app, with nothing to install. They enter old trades by hand, one at a time or in bulk, with their fees, and later can fetch a trade's price for its date. Each slice ships on its own; the defaults are the "Web app: snapshots made in the browser" and "prices for the browser" rows in the decisions table.
+
+Split on 2026-11-25 by the owner, so each part is picked on its own: W11a is slices 1-3, done, W11b took W11's issue, and W11c and W11d have issues of their own. Until then W11 was one ticket, `xl`, with its slices as its list. None of the three needs another: W11b goes first, and W11d after it, since both load many trades into the editor at once. The later items at the end have no id until each is scoped, and W7 and W9 decide two of them.
+
+<a id="w11a"></a>
+
+#### W11a: The money math, prices from the Worker, and trades by hand
+
+Slices 1-3, done by 2026-11-24 and deployed in `0724797`.
 
 - [x] **1. The money math in the browser** (no visible change). `web/src/market.ts` ports `MarketDataYahoo`'s lite history and `convert_currencies`: the last weekly close of each month, today's price for a month with no bar yet (bug 13), minor units, and each currency's own pair. `web/src/portfolio.ts` ports `Portfolio.calculate`, `compute_spending_history`, `get_entry_points_months` and `compute_historical_valuation`, and builds a snapshot's portfolio. Same order of trades and sums as the Python, so the figures match to the last digit. `web/test/portfolio.test.ts` rebuilds `tests/conftest.py`'s made-up market and checks the port against `tests/golden/exec/snapshot.json`, exactly. The golden has no sells, so a second case pins the figures the CLI's `Portfolio` printed for made-up partial sells with fees and exchange rates, one closing only through `isclose`. A change in the order of a sell's arithmetic fails it. The cases of `tests/test_portfolio.py` and `tests/test_market.py` are repeated: oversells, dust, pence, each currency's pair, a missing pair. One deliberate difference: a weekly bar with no close is skipped, where the CLI carries the NaN into its figures. Committed in `382507c`.
 - [x] **2. Prices from the Worker.** `GET /api/prices?ticker=<t>&from=<YYYY-MM-DD>` answers `{currency, price, closes}`, weekly closes in the ticker's own currency: the input `market.ts` takes. Yahoo's chart API, split- and dividend-adjusted like `yfinance`. Only same-origin requests (`Sec-Fetch-Site`), a ticker pattern, a cap on the date range, and an hour in Cloudflare's cache. The landing's privacy note and `web/README.md` change with it. Built 2026-11-24 in `web/src/yahoo.ts`, with the page's side in `web/src/prices.ts`. Like `yfinance`, it asks for weekly bars from the given day to today, today not included, takes the adjusted close, and dates each bar in its exchange's time zone; a history that starts today has no closes, as in the CLI. It refuses anything a browser doesn't mark `same-origin` (403), other methods (405), a ticker outside the pattern shared with the trade form, a day that isn't one, after today or more than 50 years back (400). Yahoo's 404 is a 404, any other failure a 502 that names Yahoo's status, and only 2xx and 404 answers are cached. Tests (13, vitest): the route on a made-up Yahoo answer, the time zones, the fallbacks, every refusal, and the page's parsing. Checked under `npm run preview` against Yahoo on 2026-11-24: a quote, a currency pair, an unknown ticker and a request without the header, and VWCE.DE's 65 weekly closes from 2025-09-01 are the dates and values `yfinance` gives. The landing's privacy note changed with slice 3, the first page that asks for prices.
   - [x] After the deploy: does Yahoo answer the Worker from Cloudflare's servers? `web/README.md` ("Deploy") has the `curl`. If not, the fallback in the decisions table. Yes, checked on 2026-11-24 after `0724797` deployed: AAPL, VWCE.DE, IWDA.L and USDEUR=X answered with their weekly closes in under half a second, an unknown ticker 404 and a request without the header 403. The same walk-through as slice 3's, on the deployed app, made a snapshot with live prices.
 - [x] **3. Trades by hand, and a snapshot from them** (the first visible slice). A "make a snapshot" page: default currency, a form for one trade with all eleven columns, checked as the CLI reads them, and a table to edit and delete. Trades are kept on this device. "Make snapshot" fetches each ticker and currency pair, computes, and opens the result in the viewer, with downloads of `snapshot.json` and `transactions.csv`. The landing links to it next to the guide. Built 2026-11-24: `#/trades` ("make a snapshot here", `web/src/views/trades.ts`), which, like the guide, opens with or without a snapshot, and `web/src/trades.ts` with no DOM. A trade is checked as `Transaction` reads it and as the money math needs it: buy or sell, a real day not after today, numbers as `float()` reads them but finite, quantity and ex_rate above 0, price and fees not negative, a three-letter currency, a ticker, and exchange and platform at most 40 characters, on one line, not starting like a spreadsheet formula. Each problem is listed and its field marked. Empty fees and ex_fees are 0, an empty ex_rate 1, and symbols and currencies are upper-cased. Trades and the default currency are kept in local storage (`trkr.trades`), with a warning when the browser refuses. "make snapshot" fetches each ticker from the first trade's day, then each currency pair the quotes need, four at a time, and opens the result as a snapshot "made in this browser" (`config.sources.transactions: browser`, a value only the app writes, so the format version stays 1). The header then links back to the trades, and the data page downloads `snapshot.json` and `transactions.csv`, which the trades page also offers. Tests (10, vitest): every check, the CSV, storage, and `makeSnapshot` on the golden snapshot's own trades and `tests/conftest.py`'s market gives the golden portfolio exactly. Checked on 2026-11-24 in headless Chrome against `npm run preview`, with made-up trades in public tickers: adding, a bad row's messages, editing, the trades after a reload, making the snapshot with live prices, its overview, holdings and data pages, and the back button, with no console error or CSP report, and no sideways scroll at 390 px in light and dark mode.
-- [ ] **4. Trades in bulk.** Paste rows or open a CSV file in trkr's column order, header optional, as the sheet or a broker export rearranged. A preview flags each bad row with the reason, then the good rows are added.
-- [ ] **5. A trade's price.** In the form, "fetch price" fills in the close on the trade's date and its currency, and `ex_rate` from the currency pair that day. Fees stay typed in. Needs daily closes for a short window from the price route.
-- [ ] **6. Keep it current.** A snapshot made here carries its trades, so "refresh prices" makes it again, which also answers the stale-snapshot warning. A snapshot the CLI wrote can be opened in the editor to continue in the browser.
-- [ ] **7. Later.** Holdings rows instead of a trade history (a port of `build_positions` and `merge_positions`, with W7), imaginary portfolios as further trade lists (W5), projection inputs, ticker search (W9), daily history.
+<a id="w11b"></a>
+
+#### W11b: Trades in bulk (was slice 4) · m
+
+- [ ] Paste rows or open a CSV file in trkr's column order, header optional, as the sheet or a broker export rearranged. A preview flags each bad row with the reason, then the good rows are added.
+- [ ] Each row is checked as W11a's form checks one trade (`web/src/trades.ts`), so a `transactions.csv` the trades page downloaded opens again here. Duplicates aren't detected: that is X3's.
+- Done when: pasted rows and an opened CSV file, each with and without a header, add their good rows to the trades; each bad row is listed with its reasons and isn't added; the trades page's own `transactions.csv` reads back as the same trades; and `npm run check` passes.
+
+<a id="w11c"></a>
+
+#### W11c: A trade's price (was slice 5) · m
+
+- [ ] In the form, "fetch price" fills in the close on the trade's date and its currency, and `ex_rate` from the currency pair that day. Fees stay typed in.
+- [ ] The price route answers daily closes for a short window, beside the weekly history it gives now, with the same refusals and cache.
+- [ ] The close it fills in is as traded, not adjusted for later splits and dividends like the history's (X1, gap 4), since it stands for what was paid.
+- Done when: "fetch price" fills a made-up trade in a public ticker with that day's close, currency and `ex_rate`, as `yfinance` gives them unadjusted; the route's tests cover the daily window and its refusals; and `npm run check` passes.
+
+<a id="w11d"></a>
+
+#### W11d: Keep it current (was slice 6) · m
+
+- [ ] A snapshot carries its trades, all eleven columns, so "refresh prices" makes a snapshot made here again, which also answers the stale-snapshot warning.
+- [ ] A snapshot the CLI wrote can be opened in the editor to continue in the browser. Its trades include the positions file's rows, as buys with the platform `positions file` (`merge_positions`), so the editor shows them as trades.
+- Done when: "refresh prices" on a snapshot made here gives the same trades with today's prices and clears the stale-snapshot warning; the golden snapshot opens in the editor with its trades, and making it again gives the golden portfolio for the same market; and `npm run check` passes.
+
+Later, with no id until each is scoped:
+
+- [ ] Holdings rows instead of a trade history (a port of `build_positions` and `merge_positions`, with W7), imaginary portfolios as further trade lists (W5), projection inputs, ticker search (W9), daily history.
 
 <a id="w12"></a>
 
@@ -510,16 +544,16 @@ The done-whens below were written on 2026-11-13 from each ticket's own text, add
 | Realized and unrealized gains | Covered, gap 3 | `profit_net` and `profit_percent` for what is held, `realized_profit` for what sells made, on average cost with fees (bug 1): Overview's tiles, Holdings and `portfolio.csv`. The snapshot lists only held positions, so a closed position's realized profit shows only in the total. |
 | Allocation | Covered in part, gap 2 | Each holding's share of the cost (`spending_percent`): Holdings' "weight" and the report's spending pie. Nothing shows each holding's share of the current value, or groups holdings. |
 | Performance timeline | Covered in part, gaps 1 and 4 | The holdings' value at each month end (`compute_historical_valuation`: the report's valuation chart and Overview's "value at each month end"), and each symbol's price history with its first buy. New money lifts the value line as much as gains do, and nothing beside it shows what was put in. The only return figure is the profit % spread evenly over the years (`avg_year_roi`). XIRR or time-weighted returns are Phase 4's. |
-| Positions | Covered, gap 4 | The Holdings table and a page per symbol, and the CLI's holdings snapshot and opening positions (`build_positions`, `merge_positions`). Planned: pages for sold positions (W1), editing positions rows (W7), and positions in the app's own snapshots (W11, slice 7). |
-| Transactions | Covered | The transactions CSV or sheet for the CLI, the Transactions page with its filters (W1), and the app's trades page (W11, slice 3). |
+| Positions | Covered, gap 4 | The Holdings table and a page per symbol, and the CLI's holdings snapshot and opening positions (`build_positions`, `merge_positions`). Planned: pages for sold positions (W1), editing positions rows (W7), and positions in the app's own snapshots (W11's later items). |
+| Transactions | Covered | The transactions CSV or sheet for the CLI, the Transactions page with its filters (W1), and the app's trades page (W11a). |
 | Dividends | Gap, owner's call | No transaction type records one. The CLI reads any `type` and skips every row that isn't `buy` or `sell` without a word, and the app's trade form refuses one. Phase 4 and the owner's call below. |
 | Fees | Covered, gap 3 | Each trade's `fees` and `ex_fees` are added to its cost or taken off its proceeds, and Transactions shows them. Nothing adds up the fees paid: `Portfolio.wallet_fees` is set and never used. |
 | Deposits and withdrawals | Gap, owner's call | trkr tracks investments, not cash, so there is no cash balance. `TransType.DEPOSIT` and `WITHDRAW` are unused (Phase 2's dead code), and the projection's `deposits-withdrawals` are planned amounts, not records. Phase 4 and the owner's call below. |
 | FX | Covered | Each currency with its own Yahoo pair, history at each date's rate, and minor units (bug 7: `convert_currencies`, and `web/src/market.ts`), and each trade's cost at its own `ex_rate`. A trade's `currency` column is read but no figure uses it, and nothing checks it against the currency Yahoo gives the ticker: X3's import validation. |
-| Manual entry | Covered | The sheet or CSV for the CLI. In the app, the trades page, one trade at a time with all eleven columns, checked as the CLI reads them (W11, slice 3). |
-| CSV import | Covered in part, planned | The CLI reads the transactions CSV or sheet, and the positions file by column name with its checks (400). The transactions reader goes by column order and drops the first row whatever it holds (Phase 2's `csv.DictReader` item), and it checks nothing: a mistyped `type` is skipped, and a bad number or date stops the run with a traceback (exit 1). Nothing detects duplicates. Planned: pasting or opening a CSV in the app with bad rows flagged (W11, slice 4), validation and duplicate detection (X3), and broker exports (broker import). |
+| Manual entry | Covered | The sheet or CSV for the CLI. In the app, the trades page, one trade at a time with all eleven columns, checked as the CLI reads them (W11a). |
+| CSV import | Covered in part, planned | The CLI reads the transactions CSV or sheet, and the positions file by column name with its checks (400). The transactions reader goes by column order and drops the first row whatever it holds (Phase 2's `csv.DictReader` item), and it checks nothing: a mistyped `type` is skipped, and a bad number or date stops the run with a traceback (exit 1). Nothing detects duplicates. Planned: pasting or opening a CSV in the app with bad rows flagged (W11b), validation and duplicate detection (X3), and broker exports (broker import). |
 | Export | Covered | The CLI's files (`generated/`, `report.html`, `snapshot.json`), and in the app each page's tables and charts and the combined report (W12). |
-| Backups | Covered in part, planned | The CLI keeps every snapshot in `snapshots/`, and the sheet or CSV is the record. The app downloads `snapshot.json` and `transactions.csv` (W11, slice 3), and a snapshot opens again in the viewer. A downloaded `transactions.csv` can't be loaded back into the trades page yet: W11's slice 4 opens one, and slice 6 continues a snapshot in the browser. |
+| Backups | Covered in part, planned | The CLI keeps every snapshot in `snapshots/`, and the sheet or CSV is the record. The app downloads `snapshot.json` and `transactions.csv` (W11a), and a snapshot opens again in the viewer. A downloaded `transactions.csv` can't be loaded back into the trades page yet: W11b opens one, and W11d continues a snapshot in the browser. |
 
 The gaps, each now an item in this plan:
 
@@ -554,9 +588,9 @@ Compared on 2026-11-04, with W11 (2026-11-13) added. trkr is a Python CLI that r
 - **X2** is Phases 0-2. Phase 0's tests and Phase 1's fixes are done, with average cost as the stated method ("Cost basis for sells" in the decisions table) and each currency converted with its own pair (bug 7). Phase 2's structure is not started.
 - **X3's demo** is at `/?demo` (W1), and the landing page asks for a snapshot first, so it doesn't load by default.
 - **X3's local-first storage:** an opened snapshot stays in the browser, on that device only when the owner asks (W1), and W11's trades are kept in the browser's storage on that device. The privacy check keeps everything but the made-up demo out of every build (W1).
-- **X3's CSV import** is the CLI reading the sheet or file, and W11's slice 4 adds pasting rows or opening a CSV in the app, with each bad row flagged. Duplicate detection is part of the planned broker import.
-- **X3's export and backup** are the files each run writes on the owner's PC, which this plan keeps out of the app. W11's slice 3 downloads `snapshot.json` and `transactions.csv`, the backup that can be opened again. W12 downloads the reports, each page on its own or all of them combined.
-- **Manual entry:** the real transactions stay in the sheet ("Not planned": editing the real transactions). W11's slice 3 adds trades typed into the app, for snapshots made there.
+- **X3's CSV import** is the CLI reading the sheet or file, and W11b adds pasting rows or opening a CSV in the app, with each bad row flagged. Duplicate detection is part of the planned broker import.
+- **X3's export and backup** are the files each run writes on the owner's PC, which this plan keeps out of the app. W11a downloads `snapshot.json` and `transactions.csv`, the backup that can be opened again. W12 downloads the reports, each page on its own or all of them combined.
+- **Manual entry:** the real transactions stay in the sheet ("Not planned": editing the real transactions). W11a adds trades typed into the app, for snapshots made there.
 - **Dividends, deposits and withdrawals** are in Phase 4, optional and the owner's call, so nothing commits to them yet.
 - **The release gate's imports**, for broker exports, wait on a sample export from each broker (broker import).
 
