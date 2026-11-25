@@ -162,7 +162,7 @@ Known bugs are listed in [docs/MODERNIZATION.md](docs/MODERNIZATION.md).
 
 `web/` is a web page that shows a `snapshot.json`: totals, holdings with a page per investment, transactions, imaginary portfolios, and a projection you can edit. It is served by a Cloudflare Worker, so it can live on its own domain. You open the snapshot in the browser, and it is read there: the site stores nothing and receives no portfolio data. `/?demo` opens it on made-up data.
 
-Without trkr installed, "make one here from your trades" on its first page makes a snapshot in the browser: you type your trades, they stay in that browser, and the Worker fetches each ticker's prices from Yahoo Finance, seeing only the ticker and a date. It downloads as `snapshot.json`, and the trades as a `transactions.csv` that trkr reads too.
+Without trkr installed, "make one here from your trades" on its first page makes a snapshot in the browser: you type your trades, or paste rows or open a CSV file in the transactions columns above, they stay in that browser, and the Worker fetches each ticker's prices from Yahoo Finance, seeing only the ticker and a date. It downloads as `snapshot.json`, and the trades as a `transactions.csv` that trkr reads too.
 
 Building, running it locally and deploying are in [web/README.md](web/README.md).
 

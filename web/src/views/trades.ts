@@ -1,6 +1,6 @@
-// Make a snapshot here (W11): trades typed in one at a time, kept on this device, priced
-// through the Worker and opened in the viewer. It needs no snapshot, so the router shows it
-// before anything is open.
+// Make a snapshot here (W11): trades typed in one at a time or pasted in bulk, kept on this
+// device, priced through the Worker and opened in the viewer. It needs no snapshot, so the
+// router shows it before anything is open.
 
 import { h, mount } from '../dom';
 import { dayLabel, number, quantity } from '../format';
@@ -16,9 +16,11 @@ import {
   loadKept,
   localDay,
   makeSnapshot,
+  readTrades,
   saveKept,
   tradeFields,
   tradesCsv,
+  type Bulk,
   type Column,
   type TradeFields,
 } from '../trades';
@@ -69,6 +71,162 @@ function browserStorage(): Storage | undefined {
 }
 
 const message = (problem: unknown) => (problem instanceof Error ? problem.message : String(problem));
+
+// A trade's columns in the tables, the trades so far and the rows to add.
+const tradeHeads = () => [
+  h('th', null, 'date'),
+  h('th', null, 'type'),
+  h('th', null, 'symbol'),
+  h('th', { class: 'num' }, 'quantity'),
+  h('th', { class: 'num' }, 'price'),
+  h('th', null, 'currency'),
+  ['fees', 'ex. rate', 'ex. fees'].map((name) => h('th', { class: 'num' }, name)),
+  h('th', null, 'exchange'),
+  h('th', null, 'platform'),
+];
+
+const tradeCells = (t: Transaction) => [
+  h('td', { class: 'nowrap' }, dayLabel(t.date)),
+  h('td', null, t.type),
+  h('td', null, t.symbol),
+  h('td', { class: 'num' }, quantity(t.quantity)),
+  h('td', { class: 'num' }, number(t.price, 4)),
+  h('td', null, t.currency),
+  h('td', { class: 'num' }, number(t.fees)),
+  h('td', { class: 'num' }, number(t.ex_rate, 6)),
+  h('td', { class: 'num' }, number(t.ex_fees)),
+  h('td', null, t.exchange),
+  h('td', null, t.platform),
+];
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * Trades in bulk (W11b): rows pasted into the box or a CSV file opened into it, checked, and
+ * previewed with each bad row and its reasons. add gets the good rows' trades. The bad rows
+ * stay in the box, to fix and check again.
+ */
+function bulkForm(today: string, add: (trades: Transaction[]) => void): HTMLElement {
+  const box = h('textarea', {
+    id: 'bulk-text',
+    rows: 6,
+    wrap: 'off',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    'aria-describedby': 'bulk-hint',
+    placeholder: 'buy,2024-01-08,10,1,105.20,EUR,VWCE.DE,XETRA,broker-a,1,0',
+  });
+  const file = h('input', { type: 'file', accept: '.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain', class: 'visually-hidden' });
+  const preview = h('div', { class: 'bulk-preview', hidden: true });
+  const status = h('p', { class: 'notice', role: 'status', hidden: true });
+  let read: Bulk | null = null;
+
+  const close = () => {
+    read = null;
+    preview.hidden = true;
+    preview.replaceChildren();
+  };
+  const say = (text: string | null) => {
+    status.textContent = text ?? '';
+    status.hidden = text === null;
+  };
+
+  const check = () => {
+    say(null);
+    read = readTrades(box.value, today);
+    const { header, good, bad } = read;
+    const rows = good.length + bad.length;
+    const summary =
+      rows === 0
+        ? 'there are no rows to add in the text.'
+        : `${plural(rows, 'row', 'rows')}: ${good.length} to add, ${bad.length} with problems.`;
+    const addButton = h('button', { type: 'button', class: 'button primary', onclick: () => commit() }, `add ${plural(good.length, 'trade', 'trades')}`);
+    mount(
+      preview,
+      h('p', null, summary, header ? ' the first row was read as a header, and left out.' : null),
+      bad.length > 0
+        ? h(
+            'div',
+            { class: 'notice error' },
+            h('p', null, bad.length === 1 ? "this row isn't added:" : "these rows aren't added:"),
+            h(
+              'ul',
+              null,
+              bad.map((row) =>
+                h('li', null, h('strong', null, `line ${row.line}`), ' ', h('code', null, row.source), h('ul', null, row.problems.map((problem) => h('li', null, problem)))),
+              ),
+            ),
+          )
+        : null,
+      good.length > 0
+        ? h(
+            'div',
+            { class: 'scroll' },
+            h('table', null, h('thead', null, h('tr', null, h('th', { class: 'num' }, 'line'), tradeHeads())), h('tbody', null, good.map((row) => h('tr', null, h('td', { class: 'num' }, row.line), tradeCells(row.trade))))),
+          )
+        : null,
+      h('p', { class: 'buttons' }, good.length > 0 ? addButton : null, h('button', { type: 'button', class: 'button quiet', onclick: close }, 'cancel')),
+    );
+    preview.hidden = false;
+    (good.length > 0 ? addButton : box).focus();
+  };
+
+  const commit = () => {
+    if (!read) return;
+    const { good, bad } = read;
+    add(good.map((row) => row.trade));
+    box.value = bad.map((row) => row.source).join('\n');
+    close();
+    say(
+      `added ${plural(good.length, 'trade', 'trades')}.` +
+        (bad.length > 0 ? ` the ${plural(bad.length, 'row', 'rows')} with problems ${bad.length === 1 ? 'is' : 'are'} left in the box, to fix and check again.` : ''),
+    );
+    box.focus();
+  };
+
+  // A preview is of the text it was made from, so a change in the box closes it.
+  box.addEventListener('input', () => {
+    close();
+    say(null);
+  });
+  file.addEventListener('change', async () => {
+    const chosen = file.files?.[0];
+    file.value = '';
+    if (!chosen) return;
+    try {
+      box.value = await chosen.text();
+      check();
+    } catch {
+      close();
+      say(`${chosen.name} couldn't be read.`);
+    }
+  });
+
+  return h(
+    'section',
+    { class: 'bulk', 'aria-labelledby': 'bulk-heading' },
+    h('h2', { id: 'bulk-heading' }, 'add trades in bulk'),
+    h(
+      'div',
+      { class: 'field' },
+      h('label', { for: 'bulk-text' }, 'rows of trades'),
+      box,
+      h(
+        'span',
+        { class: 'hint', id: 'bulk-hint' },
+        `paste rows from a spreadsheet or a CSV file, or open the file. the columns go in trkr's order: ${COLUMNS.join(', ')}, as transactions.csv below has them. a header row is optional.`,
+      ),
+    ),
+    h(
+      'p',
+      { class: 'buttons' },
+      h('button', { type: 'button', class: 'button quiet', onclick: check }, 'check the rows'),
+      h('label', { class: 'button quiet' }, file, 'open a CSV file'),
+    ),
+    preview,
+    status,
+  );
+}
 
 export function tradesPage(reload: Reload): HTMLElement {
   const today = localDay(new Date());
@@ -213,17 +371,7 @@ export function tradesPage(reload: Reload): HTMLElement {
       h(
         'tr',
         { class: t === editing ? 'editing' : null },
-        h('td', { class: 'nowrap' }, dayLabel(t.date)),
-        h('td', null, t.type),
-        h('td', null, t.symbol),
-        h('td', { class: 'num' }, quantity(t.quantity)),
-        h('td', { class: 'num' }, number(t.price, 4)),
-        h('td', null, t.currency),
-        h('td', { class: 'num' }, number(t.fees)),
-        h('td', { class: 'num' }, number(t.ex_rate, 6)),
-        h('td', { class: 'num' }, number(t.ex_fees)),
-        h('td', null, t.exchange),
-        h('td', null, t.platform),
+        tradeCells(t),
         h(
           'td',
           { class: 'nowrap' },
@@ -279,20 +427,7 @@ export function tradesPage(reload: Reload): HTMLElement {
           h(
             'thead',
             null,
-            h(
-              'tr',
-              null,
-              h('th', null, 'date'),
-              h('th', null, 'type'),
-              h('th', null, 'symbol'),
-              h('th', { class: 'num' }, 'quantity'),
-              h('th', { class: 'num' }, 'price'),
-              h('th', null, 'currency'),
-              ['fees', 'ex. rate', 'ex. fees'].map((name) => h('th', { class: 'num' }, name)),
-              h('th', null, 'exchange'),
-              h('th', null, 'platform'),
-              h('th', null, h('span', { class: 'visually-hidden' }, 'actions')),
-            ),
+            h('tr', null, tradeHeads(), h('th', null, h('span', { class: 'visually-hidden' }, 'actions'))),
           ),
           h('tbody', null, byDate(kept.trades).map(row)),
         ),
@@ -361,7 +496,7 @@ export function tradesPage(reload: Reload): HTMLElement {
     h(
       'p',
       { class: 'lede' },
-      'type your trades, and this page prices them with yahoo finance and makes a snapshot you can open, download and come back to. there is nothing to install.',
+      'type or paste your trades, and this page prices them with yahoo finance and makes a snapshot you can open, download and come back to. there is nothing to install.',
     ),
     h(
       'p',
@@ -384,6 +519,12 @@ export function tradesPage(reload: Reload): HTMLElement {
     h('h2', null, 'add a trade'),
     form,
     status,
+    bulkForm(today, (trades) => {
+      kept.trades.push(...trades);
+      persist();
+      say(status, null);
+      refresh();
+    }),
     h('h2', null, 'trades ', count),
     table,
     tradeActions,

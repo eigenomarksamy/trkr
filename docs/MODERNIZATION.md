@@ -459,8 +459,8 @@ Slices 1-3, done by 2026-11-24 and deployed in `0724797`.
 
 #### W11b: Trades in bulk (was slice 4) · m
 
-- [ ] Paste rows or open a CSV file in trkr's column order, header optional, as the sheet or a broker export rearranged. A preview flags each bad row with the reason, then the good rows are added.
-- [ ] Each row is checked as W11a's form checks one trade (`web/src/trades.ts`), so a `transactions.csv` the trades page downloaded opens again here. Duplicates aren't detected: that is X3's.
+- [x] Paste rows or open a CSV file in trkr's column order, header optional, as the sheet or a broker export rearranged. A preview flags each bad row with the reason, then the good rows are added. Built 2026-11-25: "add trades in bulk" on `#/trades`, a box to paste into and "open a CSV file", which reads the file into the box. "check the rows" previews them: how many rows, how many to add, whether the first row was read as a header, each bad row with its line, its text and its reasons, and the good rows as a table. "add" adds the good rows and leaves the bad ones in the box, to fix and check again. `web/src/csv.ts` reads the text: commas, or tabs when the first line has one, as rows copied from a spreadsheet are; quoting as Python's `csv` reads it; a byte order mark and blank rows skipped; each row numbered by the line it starts on.
+- [x] Each row is checked as W11a's form checks one trade (`web/src/trades.ts`), so a `transactions.csv` the trades page downloaded opens again here. Duplicates aren't detected: that is X3's. `readTrades` takes the first row as a header when its type, date and quantity cells none of them read as a trade's, so a header with other names, such as a sheet's, is left out too, and a bad first trade is still flagged. A row needs eleven columns: empty cells after them are allowed, as a spreadsheet adds them, but a value there is flagged, since the CLI would ignore it and it usually means another column order. A quote that never closes is flagged too. Tests (11, vitest, 98 in all): the reader's quoting, separators, blank rows and line numbers; rows with and without a header, from a spreadsheet, every kind of bad row, the page's own CSV back as the same trades, and `examples/transactions.csv`. Checked on 2026-11-25 in headless Chrome against `npm run preview`, with made-up trades in public tickers: pasted rows without a header and spreadsheet rows with one, a CSV file with a header and one without, bad rows flagged and left in the box, the trades after a reload, the downloaded `transactions.csv` opened again as the same five trades, and a snapshot made from them with live prices, with no console error or CSP report, and no sideways scroll at 390 px in light and dark mode.
 - Done when: pasted rows and an opened CSV file, each with and without a header, add their good rows to the trades; each bad row is listed with its reasons and isn't added; the trades page's own `transactions.csv` reads back as the same trades; and `npm run check` passes.
 
 <a id="w11c"></a>
@@ -482,7 +482,7 @@ Slices 1-3, done by 2026-11-24 and deployed in `0724797`.
 
 Later, with no id until each is scoped:
 
-- [ ] Holdings rows instead of a trade history (a port of `build_positions` and `merge_positions`, with W7), imaginary portfolios as further trade lists (W5), projection inputs, ticker search (W9), daily history.
+- [ ] Holdings rows instead of a trade history (a port of `build_positions` and `merge_positions`, with W7, which can read a positions CSV with `web/src/csv.ts`), imaginary portfolios as further trade lists (W5), projection inputs, ticker search (W9), daily history.
 
 <a id="w12"></a>
 

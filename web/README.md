@@ -1,6 +1,6 @@
 # trkr web app
 
-A page that shows the `snapshot.json` a trkr run writes: totals, holdings with a page per investment, transactions, imaginary portfolios, and a net-worth projection whose inputs can be edited. It can also make a snapshot from trades typed into it, with nothing installed (`#/trades`). A Cloudflare Worker serves it, so it can have its own domain.
+A page that shows the `snapshot.json` a trkr run writes: totals, holdings with a page per investment, transactions, imaginary portfolios, and a net-worth projection whose inputs can be edited. It can also make a snapshot from trades typed or pasted into it, with nothing installed (`#/trades`). A Cloudflare Worker serves it, so it can have its own domain.
 
 ## How your data stays private
 
@@ -100,7 +100,7 @@ git add web/public/demo-snapshot.json
 - `src/projection.ts`: a port of `src/projection.py` and the projection checks in `src/cfg_mngr.py`, so the projection can be recomputed as you type.
 - `src/worker.ts`: the Worker. It serves `dist/` through the `ASSETS` binding, adds the security headers, and answers `/api/health` and `/api/prices`.
 - `src/yahoo.ts`: the price route. It checks the request, asks Yahoo's chart API for weekly bars from the given day to today, adjusted for splits and dividends as `yfinance` is, dates each bar where its exchange is, and answers the `Quote` that `src/market.ts` takes. `src/prices.ts` is the page's side of it.
-- `src/trades.ts` and `src/views/trades.ts`: a snapshot made in the browser. Each typed trade is checked as the CLI reads a transactions row, and `makeSnapshot` prices the trades through the route and computes them with `src/portfolio.ts` and `src/market.ts`, the port of the CLI's money math.
+- `src/trades.ts` and `src/views/trades.ts`: a snapshot made in the browser. Each typed trade is checked as the CLI reads a transactions row, and so is each row pasted or opened in bulk, which `src/csv.ts` reads as comma- or tab-separated text. Then `makeSnapshot` prices the trades through the route and computes them with `src/portfolio.ts` and `src/market.ts`, the port of the CLI's money math.
 - `src/app.ts`: the shell and the hash router. Pages are in `src/views/`, charts in `src/chart.ts` (SVG, no library). The DOM is built with `src/dom.ts`, which only ever inserts text, so values from your sheets can't inject HTML.
 
 ## Testing

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import exampleTransactions from '../../examples/transactions.csv?raw';
 import golden from '../../tests/golden/exec/snapshot.json?raw';
 import { isGuide, isTrades } from '../src/app';
 import { MarketError, type Quote } from '../src/market';
 import { buildPortfolio, TradeError } from '../src/portfolio';
 import { PriceError } from '../src/prices';
 import { parseSnapshot, type Transaction } from '../src/snapshot';
-import { checkTrade, COLUMNS, loadKept, makeSnapshot, saveKept, snapshotFile, tradeFields, tradesCsv, type TradeFields } from '../src/trades';
+import { byDate, checkTrade, COLUMNS, loadKept, makeSnapshot, readTrades, saveKept, snapshotFile, tradeFields, tradesCsv, type TradeFields } from '../src/trades';
 import { TRADES_HREF } from '../src/views/trades';
 
 const TODAY = '2024-06-30';
@@ -122,6 +123,79 @@ describe('the trades as files', () => {
     expect(saveKept(storage, { currency: 'EUR', trades: [] })).toBe(true);
     expect(store.has('trkr.trades')).toBe(false);
     expect(saveKept({ setItem: () => { throw new Error('full'); }, removeItem: () => undefined }, { currency: 'USD', trades })).toBe(false);
+  });
+});
+
+describe('trades in bulk', () => {
+  const HEADER = COLUMNS.join(',');
+  const ROWS = ['buy,2024-01-08,10,1,105.20,EUR,VWCE.DE,XETRA,broker-a,1,0', 'sell,2024-03-04,2,1,175.10,usd,aapl,NASDAQ,"broker, b",1.08,2'];
+  const trades = [
+    fields(),
+    fields({ type: 'sell', date: '2024-03-04', quantity: '2', price: '175.10', currency: 'usd', symbol: 'aapl', exchange: 'NASDAQ', platform: 'broker, b', ex_rate: '1.08', ex_fees: '2' }),
+  ].map((typed) => checkTrade(typed, TODAY) as Transaction);
+
+  it('adds pasted or opened rows, with a header or without', () => {
+    for (const text of [ROWS.join('\n'), [HEADER, ...ROWS].join('\r\n') + '\r\n', `﻿${HEADER.toUpperCase()}\n${ROWS.join('\n')}`]) {
+      const bulk = readTrades(text, TODAY);
+      expect(bulk.bad).toEqual([]);
+      expect(bulk.good.map((row) => row.trade)).toEqual(trades);
+      expect(bulk.header).toBe(text.toLowerCase().includes('type,date'));
+    }
+    expect(readTrades([HEADER, ...ROWS].join('\n'), TODAY).good.map((row) => row.line)).toEqual([2, 3]);
+  });
+
+  it('reads rows copied from a spreadsheet, with its empty cells after the last column', () => {
+    const tabs = ['Type\tDate\tQty\tFees\tPrice\tCcy\tTicker\tExchange\tWallet\tFX\tFX fees\t\t', 'buy\t2024-01-08\t10\t1\t105.20\tEUR\tVWCE.DE\tXETRA\tbroker-a\t1\t0\t\t'].join('\n');
+    const bulk = readTrades(tabs, TODAY);
+    expect(bulk).toMatchObject({ header: true, bad: [] });
+    expect(bulk.good.map((row) => row.trade)).toEqual([trades[0]]);
+  });
+
+  it("reads back the trades page's own transactions.csv as the same trades", () => {
+    const tricky = checkTrade(fields({ quantity: '0.1', price: '1e-7', fees: '', exchange: 'say "x"', platform: 'a, b' }), TODAY) as Transaction;
+    const all = [...trades, tricky];
+    const bulk = readTrades(tradesCsv(all, TODAY).data as string, TODAY);
+    expect(bulk).toMatchObject({ header: true, bad: [] });
+    expect(bulk.good.map((row) => row.trade)).toEqual(byDate(all));
+  });
+
+  it("reads the CLI's example transactions, whose symbols the browser takes as tickers", () => {
+    const bulk = readTrades(exampleTransactions, '2026-11-25');
+    expect(bulk).toMatchObject({ header: true, bad: [] });
+    expect(bulk.good.map((row) => row.trade.symbol)).toEqual(['VWCE', 'AAPL', 'VWCE', 'AAPL', 'VWCE']);
+  });
+
+  it("lists each bad row with its line and reasons, and doesn't add it", () => {
+    const text = [
+      HEADER,
+      ROWS[0],
+      'dividend,2024-02-01,1,0,3,EUR,VWCE.DE,XETRA,broker-a,1,0',
+      '',
+      'buy,2024-07-01,0,1,10,EURO,VWCE.DE,,,1,0',
+      'buy,2024-01-08,10,1,105.20,EUR,VWCE.DE',
+      `${ROWS[0]},extra`,
+      `${ROWS[0]},,`,
+      'buy,"2024-01-08,10',
+    ].join('\n');
+    const bulk = readTrades(text, TODAY);
+    expect(bulk.good.map((row) => row.line)).toEqual([2, 8]);
+    expect(bulk.bad.map((row) => [row.line, row.problems])).toEqual([
+      [3, ['type should be buy or sell.']],
+      [5, ['date is after today, and a trade needs prices from its day on.', 'quantity should be more than 0.', 'currency should be a three-letter code, such as EUR or USD.']],
+      [6, [`it has 7 columns, and a trade has 11, in this order: ${COLUMNS.join(', ')}.`]],
+      [7, [`it has 12 columns, and a trade has 11, in this order: ${COLUMNS.join(', ')}.`]],
+      [9, ['a quote opens and never closes, so the rest of the text was read as one cell.']],
+    ]);
+    expect(bulk.bad[0]?.source).toBe('dividend,2024-02-01,1,0,3,EUR,VWCE.DE,XETRA,broker-a,1,0');
+  });
+
+  it('takes a first row as a header only when it reads as no trade', () => {
+    // A bad trade on a day is a row, not a header.
+    const first = readTrades('dividend,2024-02-01,1,0,3,EUR,VWCE.DE,XETRA,broker-a,1,0', TODAY);
+    expect(first).toMatchObject({ header: false, good: [] });
+    expect(first.bad).toHaveLength(1);
+    expect(readTrades(HEADER, TODAY)).toEqual({ header: true, good: [], bad: [] });
+    expect(readTrades(' \n', TODAY)).toEqual({ header: false, good: [], bad: [] });
   });
 });
 

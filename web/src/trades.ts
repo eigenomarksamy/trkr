@@ -1,8 +1,9 @@
-// Trades typed into the app, and the snapshot made from them (W11). Trades are checked as the
+// Trades typed or pasted into the app, and the snapshot made from them (W11). Trades are checked as the
 // CLI reads a transactions CSV (Transaction in src/transactions.py), kept in this browser's
 // storage, and download as a transactions CSV the CLI reads too. Pricing them sends only each
 // ticker and the first trade's day to the Worker's price route. No DOM here.
 
+import { readRows } from './csv';
 import { toCsv, type Download } from './download';
 import { pairsFor, TICKER, type Quote } from './market';
 import { buildPortfolio } from './portfolio';
@@ -104,6 +105,63 @@ export function checkTrade(fields: TradeFields, today: string): Transaction | Tr
 /** The form's text for a trade, to edit it. */
 export function tradeFields(trade: Transaction): TradeFields {
   return Object.fromEntries(COLUMNS.map((column) => [column, String(trade[column])])) as TradeFields;
+}
+
+/** A row of trades in bulk that reads as a trade, with the line it starts on. */
+export interface BulkTrade {
+  line: number;
+  trade: Transaction;
+}
+
+/** A row of trades in bulk that doesn't, and why. */
+export interface BulkProblem {
+  line: number;
+  source: string;
+  problems: string[];
+}
+
+export interface Bulk {
+  /** Whether the first row was a header, and so left out. */
+  header: boolean;
+  good: BulkTrade[];
+  bad: BulkProblem[];
+}
+
+// A header names its columns, so none of these three cells reads as a trade's. A first row
+// that is a bad trade, such as a dividend on a day, still reads as a row and is flagged.
+function isHeader(cells: string[]): boolean {
+  const cell = (column: Column) => (cells[COLUMNS.indexOf(column)] ?? '').trim();
+  return !/^(buy|sell)$/i.test(cell('type')) && !DAY.test(cell('date')) && !NUMBER.test(cell('quantity'));
+}
+
+/**
+ * Trades pasted or opened as a file (W11b): rows in trkr's column order, comma- or
+ * tab-separated, with a header or without. Each row is checked as the form checks a trade.
+ * Empty cells after the eleventh are allowed, as a spreadsheet adds them. The CLI ignores
+ * extra cells, but one with a value usually means the columns are in another order, so it's flagged.
+ */
+export function readTrades(text: string, today: string): Bulk {
+  const rows = readRows(text);
+  const header = rows[0] !== undefined && isHeader(rows[0].cells);
+  const bulk: Bulk = { header, good: [], bad: [] };
+  for (const row of header ? rows.slice(1) : rows) {
+    const flag = (problems: string[]) => bulk.bad.push({ line: row.line, source: row.source, problems });
+    if (!row.closed) {
+      flag(['a quote opens and never closes, so the rest of the text was read as one cell.']);
+      continue;
+    }
+    let width = row.cells.length;
+    while (width > COLUMNS.length && row.cells[width - 1]!.trim() === '') width -= 1;
+    if (width !== COLUMNS.length) {
+      flag([`it has ${width} ${width === 1 ? 'column' : 'columns'}, and a trade has ${COLUMNS.length}, in this order: ${COLUMNS.join(', ')}.`]);
+      continue;
+    }
+    const fields = Object.fromEntries(COLUMNS.map((column, index) => [column, row.cells[index]!])) as TradeFields;
+    const result = checkTrade(fields, today);
+    if (Array.isArray(result)) flag(result.map((problem) => problem.message));
+    else bulk.good.push({ line: row.line, trade: result });
+  }
+  return bulk;
 }
 
 /** Trades in date order. The sort is stable, so a day's trades keep the order they were added in. */
