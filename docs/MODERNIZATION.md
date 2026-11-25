@@ -42,6 +42,8 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-20: the owner asked for every app under eigenomar.com to share one tab icon, eigenomar.com's lambda with its colors swapped. W13 replaces the web app's chart line with it, and nothing is built yet.
 
+2026-11-25: X1's audit is done, not yet committed. Of the fifteen target capabilities, eight are covered, five in part, and dividends and deposits and withdrawals stay the owner's call. Its four gaps became items in W1, W3 and X2, and grouping holdings joins the owner's calls. One of them is new to this plan: Yahoo's prices are split-adjusted and the trades aren't.
+
 2026-11-24: W11's slices 2 and 3 are built and not yet committed: the Worker's price route, and "make a snapshot here", the first slice anyone can see. A push to `main` deploys them, and the first check after that deploy is whether Yahoo answers Cloudflare's servers (W11). 175 Python tests and 87 web tests pass.
 
 ## Status (2026-11-07)
@@ -352,6 +354,7 @@ Each feature of the CLI, and where it ends up in the app:
 - [x] Privacy check: `web/scripts/check-private.mjs` ends `npm run build`, which `wrangler dev` and `wrangler deploy` run first. It refuses a build whose inputs git doesn't know, whose output holds a sheet address from the local configs or the home directory, or that holds any snapshot other than the demo made from local files.
 - [x] Tests (`npm run check`, vitest): parsing the CLI's golden snapshot and the demo, the error messages, the Worker's headers and routes, and the projection port against the rows the CLI computed for the demo.
 - [ ] A symbol table that links sold positions too (only held ones have pages from Holdings today).
+- [ ] Realized profit and fees paid per symbol, sold positions included, and the fees paid in total (X1, gap 3). The snapshot lists only held positions, so a closed position's realized profit shows only in the total today.
 - [x] A page on how to make a `snapshot.json` (owner, 2026-11-13): `#/make-a-snapshot`, in `web/src/views/guide.ts`, linked under the landing's open button. It needs no snapshot, so the router shows it before anything else. Five steps: install, a transactions CSV, a minimal `config/cfg.yml` (Yahoo tickers, so no symbol map), run, open. That config was checked with a run on made-up trades, which wrote a snapshot. Checked at 390 px wide (no sideways scroll) and in light and dark mode. Committed in `382507c`.
 
 <a id="w2"></a>
@@ -368,7 +371,8 @@ A Worker can't start the CLI, so "Run now", run status and the run lock are drop
 ### W3: Interactive charts · m
 
 - [x] Hover and keyboard readout on every chart (W1).
-- [ ] Spending % and profit % per holding as charts (bars, ranked).
+- [ ] Spending % and profit % per holding as charts (bars, ranked), with each holding's share of the current value beside its share of the cost, in the Holdings table too (X1, gap 2).
+- [ ] The money put in less what sells took out, as a total on Overview and as a second line on "value at each month end", so the chart tells gains from new money (X1, gap 1). The snapshot's trades are enough to work it out.
 - [ ] Legend toggles and date-range zoom; price targets on symbol charts.
 - [ ] Imaginary portfolios overlaid on the real one's value.
 - [ ] Phase 4's interactive-report item could reuse these charts in the static report. Until the owner decides on that, the CLI report keeps its PNGs.
@@ -496,8 +500,33 @@ The done-whens below were written on 2026-11-13 from each ticket's own text, add
 
 ### X1: Audit against the target capabilities · s
 
-- [ ] List what the repo already does against the target capabilities, and record the gaps under this heading. Name the gaps only, and leave what is done to the rest of this plan. "Where they meet this plan" compares plan with plan, so this checks the code and the app themselves.
+- [x] List what the repo already does against the target capabilities, and record the gaps under this heading. Name the gaps only, and leave what is done to the rest of this plan. "Where they meet this plan" compares plan with plan, so this checks the code and the app themselves. Done 2026-11-25, from `src/` and `web/src/` as of `68ed062`: the table and the gaps below.
 - Done when: every target capability is listed here as covered (and where), planned (and by which item), or a gap, and each gap is an item in this plan or one of the owner's calls below.
+
+| Capability | State | Where |
+| --- | --- | --- |
+| Total value | Covered | `Portfolio.calculate`'s `total['value']`, at today's prices in the default currency: the report's Total and the Overview's value tile. |
+| Contributions | Covered in part, gap 1 | "Invested" is what the holdings still held cost (`total['spending']`), and each month's buys with their fees are `compute_spending_history` (Overview, "invested each month"). Nothing adds up the money put in over time, less what sells took out. |
+| Realized and unrealized gains | Covered, gap 3 | `profit_net` and `profit_percent` for what is held, `realized_profit` for what sells made, on average cost with fees (bug 1): Overview's tiles, Holdings and `portfolio.csv`. The snapshot lists only held positions, so a closed position's realized profit shows only in the total. |
+| Allocation | Covered in part, gap 2 | Each holding's share of the cost (`spending_percent`): Holdings' "weight" and the report's spending pie. Nothing shows each holding's share of the current value, or groups holdings. |
+| Performance timeline | Covered in part, gaps 1 and 4 | The holdings' value at each month end (`compute_historical_valuation`: the report's valuation chart and Overview's "value at each month end"), and each symbol's price history with its first buy. New money lifts the value line as much as gains do, and nothing beside it shows what was put in. The only return figure is the profit % spread evenly over the years (`avg_year_roi`). XIRR or time-weighted returns are Phase 4's. |
+| Positions | Covered, gap 4 | The Holdings table and a page per symbol, and the CLI's holdings snapshot and opening positions (`build_positions`, `merge_positions`). Planned: pages for sold positions (W1), editing positions rows (W7), and positions in the app's own snapshots (W11, slice 7). |
+| Transactions | Covered | The transactions CSV or sheet for the CLI, the Transactions page with its filters (W1), and the app's trades page (W11, slice 3). |
+| Dividends | Gap, owner's call | No transaction type records one. The CLI reads any `type` and skips every row that isn't `buy` or `sell` without a word, and the app's trade form refuses one. Phase 4 and the owner's call below. |
+| Fees | Covered, gap 3 | Each trade's `fees` and `ex_fees` are added to its cost or taken off its proceeds, and Transactions shows them. Nothing adds up the fees paid: `Portfolio.wallet_fees` is set and never used. |
+| Deposits and withdrawals | Gap, owner's call | trkr tracks investments, not cash, so there is no cash balance. `TransType.DEPOSIT` and `WITHDRAW` are unused (Phase 2's dead code), and the projection's `deposits-withdrawals` are planned amounts, not records. Phase 4 and the owner's call below. |
+| FX | Covered | Each currency with its own Yahoo pair, history at each date's rate, and minor units (bug 7: `convert_currencies`, and `web/src/market.ts`), and each trade's cost at its own `ex_rate`. A trade's `currency` column is read but no figure uses it, and nothing checks it against the currency Yahoo gives the ticker: X3's import validation. |
+| Manual entry | Covered | The sheet or CSV for the CLI. In the app, the trades page, one trade at a time with all eleven columns, checked as the CLI reads them (W11, slice 3). |
+| CSV import | Covered in part, planned | The CLI reads the transactions CSV or sheet, and the positions file by column name with its checks (400). The transactions reader goes by column order and drops the first row whatever it holds (Phase 2's `csv.DictReader` item), and it checks nothing: a mistyped `type` is skipped, and a bad number or date stops the run with a traceback (exit 1). Nothing detects duplicates. Planned: pasting or opening a CSV in the app with bad rows flagged (W11, slice 4), validation and duplicate detection (X3), and broker exports (broker import). |
+| Export | Covered | The CLI's files (`generated/`, `report.html`, `snapshot.json`), and in the app each page's tables and charts and the combined report (W12). |
+| Backups | Covered in part, planned | The CLI keeps every snapshot in `snapshots/`, and the sheet or CSV is the record. The app downloads `snapshot.json` and `transactions.csv` (W11, slice 3), and a snapshot opens again in the viewer. A downloaded `transactions.csv` can't be loaded back into the trades page yet: W11's slice 4 opens one, and slice 6 continues a snapshot in the browser. |
+
+The gaps, each now an item in this plan:
+
+1. **Contributions over time.** The money put in less what sells took out, as a total and as a line beside the value at each month end, so the timeline tells gains from new money. A W3 item.
+2. **Allocation by value.** Each holding's share of the current value, beside its share of the cost. Part of W3's ranked bars. Grouping holdings, by currency, platform or exchange, is the owner's call below: trkr has no asset classes.
+3. **Realized profit and fees per symbol.** Sold positions included, and the fees paid in total. A W1 item, beside its sold positions.
+4. **Splits and adjusted prices.** Yahoo's prices are split- and dividend-adjusted, as `yfinance` gives them by default and as the Worker's route asks for them, but each trade keeps its quantity and price as traded, and nothing records a split. A split after a buy values that holding at the old quantity times the new price, and a dividend payer's past month-end values read lower than they were. An X2 item, for the ledger and the performance parts.
 
 <a id="x2"></a>
 
@@ -505,6 +534,7 @@ The done-whens below were written on 2026-11-13 from each ticket's own text, add
 
 - [ ] Separate the ledger, positions, cost basis (with the method stated explicitly), performance and currency conversion.
 - [ ] Test each against independently checked reference examples.
+- [ ] Splits and adjusted prices (X1, gap 4): a split recorded in the ledger, or the trades' quantities and prices adjusted to match the prices, so a split after a buy changes neither the value nor the cost. State whether past values use adjusted or as-traded closes.
 - Done when: each of the five is its own part with its method written down, and each has tests against reference examples worked out independently of trkr (by hand or with another tool), passing in `pytest`.
 
 <a id="x3"></a>
@@ -533,6 +563,7 @@ Compared on 2026-11-04, with W11 (2026-11-13) added. trkr is a Python CLI that r
 ### Owner's call
 
 - [ ] Whether the demo should load by default.
+- [ ] Whether allocation groups holdings, by currency, platform or exchange, beyond each holding's own share (X1, gap 2).
 - [ ] Whether manual entry in the app, and dividends, deposits and withdrawals, stay target capabilities. W11's typed trades may answer the first. Drop from the target capabilities whatever doesn't stay.
 
 ## Ecosystem standards: DOC1 and SCM1 (owner, 2026-11-18)
