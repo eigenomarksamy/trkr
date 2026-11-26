@@ -48,6 +48,8 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-25: the owner split W11 so each part is picked on its own. Slices 1-3 are W11a, done, and slices 4-6 are W11b-W11d, each `m` and with its own issue, W11b on W11's. Slice 7's items stay under W11 without ids. W11c fills in a trade's price as traded, not adjusted (X1, gap 4).
 
+2026-11-26: renamed, since the ecosystem's lanes are numbered across its repositories: W19 from `W1`, W20 from `W2`, W21 from `W3`, W22 from `W4`, W23 from `W5`, X12 from `X2`, DOC3 from `DOC1` and SCM3 from `SCM1`. Their anchors, headings, references and issues changed with them, and the notes above keep the ids they were written with.
+
 ## Status (2026-11-07)
 
 | Area | State |
@@ -57,7 +59,7 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 | Holdings snapshot, bug 13, sheet tab links | Done and committed (`c45f7c3`). 106 tests pass. The demo run and a live run with a snapshot dated today both exit 0. |
 | Phase 1, bugs 1-14 | Done (`bb62641`..`8ff5e1c`; bug 13 in `c45f7c3`) and merged into `main` (`c7bc1fb`). |
 | Phases 2-4 | Not started. |
-| Web app | A Cloudflare Worker app in `web/`, committed (`d3b7cab`) and deployed by hand on 2026-11-02, with its custom domain attached. W0's snapshot (`1050c64`), W1's viewer and most of W4 are done. A push to `main` that changes `web/` deploys it through `.github/workflows/deploy-web.yml`. 175 Python tests and 18 web tests pass. |
+| Web app | A Cloudflare Worker app in `web/`, committed (`d3b7cab`) and deployed by hand on 2026-11-02, with its custom domain attached. W0's snapshot (`1050c64`), W19's viewer and most of W22 are done. A push to `main` that changes `web/` deploys it through `.github/workflows/deploy-web.yml`. 175 Python tests and 18 web tests pass. |
 | Broker import, sheet generator | Planned only. The importer waits on sample exports from the owner. |
 
 Waiting on the owner:
@@ -310,15 +312,15 @@ Each feature of the CLI, and where it ends up in the app:
 | Feature | Today | Web app | Milestone |
 | --- | --- | --- | --- |
 | Transactions from a local CSV or a public Google Sheet (or one of its tabs), symbol map, positions | YAML config, read by `run.py` | Unchanged: the CLI reads them; the app shows the result | none |
-| Totals: spending, value, profit, profit %, cash-out, holding period, average ROI | `report.html`, Total | Overview | W1, done |
-| Per-symbol table with price targets | `report.html`, Portfolio | Holdings (sortable), plus a page per symbol | W1, done |
-| Stats charts: spending %, profit %, spending per month, valuation % | `plots/gen_stats.png` | Overview: value at each month end and invested each month are done; spending % and profit % are in the Holdings table, not charted | W1, W3 |
-| Price history per ticker with entry points | `plots/stocks/*.png`, `figs_historical.html` | Symbol pages, with the break-even line | W1, done |
-| Transactions list | `transactions.html` | Transactions, filterable by symbol, type and platform | W1, done |
-| Symbol map, entry points, historical valuation | `misc_tables.html` | Data (symbol map); entry points on symbol charts; valuation as a table under its chart | W1, done |
+| Totals: spending, value, profit, profit %, cash-out, holding period, average ROI | `report.html`, Total | Overview | W19, done |
+| Per-symbol table with price targets | `report.html`, Portfolio | Holdings (sortable), plus a page per symbol | W19, done |
+| Stats charts: spending %, profit %, spending per month, valuation % | `plots/gen_stats.png` | Overview: value at each month end and invested each month are done; spending % and profit % are in the Holdings table, not charted | W19, W21 |
+| Price history per ticker with entry points | `plots/stocks/*.png`, `figs_historical.html` | Symbol pages, with the break-even line | W19, done |
+| Transactions list | `transactions.html` | Transactions, filterable by symbol, type and platform | W19, done |
+| Symbol map, entry points, historical valuation | `misc_tables.html` | Data (symbol map); entry points on symbol charts; valuation as a table under its chart | W19, done |
 | Generated files: `portfolio.csv`, `total.md`, `entries.md`, `projection.csv`, `projection.md` | `generated/` | The files stay on the PC; each page's tables download as CSV and its charts as SVG | W12 |
-| Imaginary portfolios and the comparison table | `imaginary/<name>/report.html`, main report | The same views per portfolio; the comparison on Overview | W1, done |
-| Net-worth projection | `report.html`, `projection.html` | Projection page with editable inputs | W4, done in part |
+| Imaginary portfolios and the comparison table | `imaginary/<name>/report.html`, main report | The same views per portfolio; the comparison on Overview | W19, done |
+| Net-worth projection | `report.html`, `projection.html` | Projection page with editable inputs | W22, done in part |
 | Scheduled run | `run_script.bat` | Unchanged; each run writes a snapshot to open | W0, done |
 | Logs and exit codes | `log/`, console | Not in the app | none |
 | Static HTML report | `report.html` | Still written by the CLI; the app downloads a self-contained combined report | W12 |
@@ -344,14 +346,14 @@ Each feature of the CLI, and where it ends up in the app:
 - [ ] The trades that positions replaced (`merge_positions` returns them), for W7.
 - [ ] Split computation from output: `process_portfolio` and `process_projection` return data only, and a separate `write_outputs(run, directories)` writes the files. No longer needed by the app; it would let a test build a snapshot without writing PNGs.
 
-<a id="w1"></a>
+<a id="w19"></a>
 
-### W1: Viewer on a Worker · s
+### W19: Viewer on a Worker · s
 
 - [x] `web/`: TypeScript with no framework, built by Vite into `dist/`, served by a Worker through the `ASSETS` binding with `run_worker_first`, so every response gets the headers: a CSP limiting the page to its own origin (`connect-src 'self'`, no inline script or style), `frame-ancestors 'none'`, `noindex`, `no-referrer`, HSTS. Hashed assets are cached as immutable. `/api/health` reports the snapshot version the app reads.
 - [x] Landing page: open `snapshot.json` (picker or drop), "Remember it on this device" (localStorage, off by default), and a made-up demo, also at `/?demo`. A file that is not a snapshot, or of another version, gets a message saying what to do.
 - [x] Layout: navigation, `Snapshot of <run time>`, a warning when the snapshot is more than a week old (that would have flagged the scheduled job's last run, 2025-11-04, long before 2026-10), a portfolio switcher for imaginary portfolios. Checked at 390 px wide (no sideways scroll) and in light and dark mode.
-- [x] Pages: Overview (tiles, value at each month end, invested each month, comparison table), Holdings (sortable, totals row), a page per symbol (price history with the first buy and break-even, price targets, its trades), Transactions (filters), Projection (W4), Data (snapshot facts, symbol map, forget the stored copy).
+- [x] Pages: Overview (tiles, value at each month end, invested each month, comparison table), Holdings (sortable, totals row), a page per symbol (price history with the first buy and break-even, price targets, its trades), Transactions (filters), Projection (W22), Data (snapshot facts, symbol map, forget the stored copy).
 - [x] Charts: SVG drawn in the browser, following the dataviz palette (blue, orange, aqua), with a crosshair readout on hover and from the keyboard, and a table view under each.
 - [x] Privacy check: `web/scripts/check-private.mjs` ends `npm run build`, which `wrangler dev` and `wrangler deploy` run first. It refuses a build whose inputs git doesn't know, whose output holds a sheet address from the local configs or the home directory, or that holds any snapshot other than the demo made from local files.
 - [x] Tests (`npm run check`, vitest): parsing the CLI's golden snapshot and the demo, the error messages, the Worker's headers and routes, and the projection port against the rows the CLI computed for the demo.
@@ -359,29 +361,29 @@ Each feature of the CLI, and where it ends up in the app:
 - [ ] Realized profit and fees paid per symbol, sold positions included, and the fees paid in total (X1, gap 3). The snapshot lists only held positions, so a closed position's realized profit shows only in the total today.
 - [x] A page on how to make a `snapshot.json` (owner, 2026-11-13): `#/make-a-snapshot`, in `web/src/views/guide.ts`, linked under the landing's open button. It needs no snapshot, so the router shows it before anything else. Five steps: install, a transactions CSV, a minimal `config/cfg.yml` (Yahoo tickers, so no symbol map), run, open. That config was checked with a run on made-up trades, which wrote a snapshot. Checked at 390 px wide (no sideways scroll) and in light and dark mode. Committed in `382507c`.
 
-<a id="w2"></a>
+<a id="w20"></a>
 
-### W2: Snapshot history (was: runs from the browser) · m
+### W20: Snapshot history (was: runs from the browser) · m
 
 A Worker can't start the CLI, so "Run now", run status and the run lock are dropped from the hosted app. The scheduled job and the CLI make the runs.
 
 - [ ] Open several snapshots from `snapshots/` at once and chart total value across them: a value-over-time series at each run's current prices.
 - [ ] Owner's call: get the latest snapshot to the app without the file (decisions table, "getting the snapshot to a hosted app").
 
-<a id="w3"></a>
+<a id="w21"></a>
 
-### W3: Interactive charts · m
+### W21: Interactive charts · m
 
-- [x] Hover and keyboard readout on every chart (W1).
+- [x] Hover and keyboard readout on every chart (W19).
 - [ ] Spending % and profit % per holding as charts (bars, ranked), with each holding's share of the current value beside its share of the cost, in the Holdings table too (X1, gap 2).
 - [ ] The money put in less what sells took out, as a total on Overview and as a second line on "value at each month end", so the chart tells gains from new money (X1, gap 1). The snapshot's trades are enough to work it out.
 - [ ] Legend toggles and date-range zoom; price targets on symbol charts.
 - [ ] Imaginary portfolios overlaid on the real one's value.
 - [ ] Phase 4's interactive-report item could reuse these charts in the static report. Until the owner decides on that, the CLI report keeps its PNGs.
 
-<a id="w4"></a>
+<a id="w22"></a>
 
-### W4: Projection playground · s
+### W22: Projection playground · s
 
 - [x] A form filled in from the snapshot's projection inputs, or blank when the config has none. `start-net-worth` is a choice between the real portfolio, each imaginary one and a fixed amount, with their current values. Deposits and withdrawals are "year: amount" lines.
 - [x] Each change is validated with the rules and messages of `parse_projection_cfg` and recomputed by `web/src/projection.ts`, a port of `project_net_worth` checked against the CLI's rows. An invalid input dims the last good result and shows the message.
@@ -389,14 +391,14 @@ A Worker can't start the CLI, so "Run now", run status and the run lock are drop
 - [ ] Inputs in the query string, so a what-if can be bookmarked.
 - [ ] When the Scenarios item (projection feature, "Later") lands, each scenario becomes its own set of inputs on a shared chart.
 
-### W5: What-if portfolios from the browser (owner's call)
+### W23: What-if portfolios from the browser (owner's call)
 
 Decided 2026-11-13: the second way, through W11. The owner wants every snapshot to be possible in the app, so the Worker fetches prices and the browser values the portfolio. A what-if portfolio is then a second trade list (W11's later items).
 
 Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) and the Worker would have to proxy. Two ways, both for the owner to choose:
 
 - [ ] The app writes a transactions CSV for download, to add to the config as an imaginary portfolio (the CLI prices it on its next run). Needs nothing new on the server.
-- [x] The Worker proxies Yahoo for the tickers asked, and the browser values the portfolio. Chosen 2026-11-13; the work is W11, so W5 has nothing left of its own. That puts portfolio math in TypeScript, a second copy of `Portfolio.calculate`, so it needs the same characterization tests.
+- [x] The Worker proxies Yahoo for the tickers asked, and the browser values the portfolio. Chosen 2026-11-13; the work is W11, so W23 has nothing left of its own. That puts portfolio math in TypeScript, a second copy of `Portfolio.calculate`, so it needs the same characterization tests.
 
 <a id="w6"></a>
 
@@ -427,7 +429,7 @@ Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) an
 
 ### W9: Setup wizard (owner's call) · tbd
 
-- [ ] The sheet generator's questions as a multi-step form that ends with the files and the YAML as downloads. Ticker search needs `yf.Search`, so the Worker would proxy Yahoo's search (see W5). Same rows as `trkr init`, checked by shared fixtures.
+- [ ] The sheet generator's questions as a multi-step form that ends with the files and the YAML as downloads. Ticker search needs `yf.Search`, so the Worker would proxy Yahoo's search (see W23). Same rows as `trkr init`, checked by shared fixtures.
 
 <a id="w10"></a>
 
@@ -482,7 +484,7 @@ Slices 1-3, done by 2026-11-24 and deployed in `0724797`.
 
 Later, with no id until each is scoped:
 
-- [ ] Holdings rows instead of a trade history (a port of `build_positions` and `merge_positions`, with W7, which can read a positions CSV with `web/src/csv.ts`), imaginary portfolios as further trade lists (W5), projection inputs, ticker search (W9), daily history.
+- [ ] Holdings rows instead of a trade history (a port of `build_positions` and `merge_positions`, with W7, which can read a positions CSV with `web/src/csv.ts`), imaginary portfolios as further trade lists (W23), projection inputs, ticker search (W9), daily history.
 
 <a id="w12"></a>
 
@@ -521,12 +523,12 @@ Every app under eigenomar.com shows the same tab icon: eigenomar.com's lambda wi
 - [ ] Dividends, deposits/withdrawals, transfers.
 - [ ] Money-weighted (XIRR) / time-weighted returns, replacing the linear `profit_percent / days * 365`.
 
-## Release gate: X1-X3 (owner)
+## Release gate: X1, X12 and X3 (owner)
 
-What trkr should cover, and the gate it passes before it counts as released. X1-X3 check trkr against both. They were written before this plan, for an app that holds the data itself, so much of them is done here already or planned another way: "Where they meet this plan" maps each part. Don't rebuild what already works. Planned here on 2026-11-13.
+What trkr should cover, and the gate it passes before it counts as released. X1, X12 and X3 check trkr against both. They were written before this plan, for an app that holds the data itself, so much of them is done here already or planned another way: "Where they meet this plan" maps each part. Don't rebuild what already works. Planned here on 2026-11-13.
 
 - **Target capabilities:** total value, contributions, realized and unrealized gains, allocation and a performance timeline; positions, transactions, dividends, fees, deposits and withdrawals, FX; manual entry, CSV import, export and backups.
-- **Release gate:** calculations are verified, imports are tested, there is no personal data in public builds, and exports work. It holds once X2 and X3 are done: X2 verifies the calculations, and X3 covers the imports, the builds and the exports.
+- **Release gate:** calculations are verified, imports are tested, there is no personal data in public builds, and exports work. It holds once X12 and X3 are done: X12 verifies the calculations, and X3 covers the imports, the builds and the exports.
 
 The done-whens below were written on 2026-11-13 from each ticket's own text, adding no work, and the owner approved them on 2026-11-14.
 
@@ -544,8 +546,8 @@ The done-whens below were written on 2026-11-13 from each ticket's own text, add
 | Realized and unrealized gains | Covered, gap 3 | `profit_net` and `profit_percent` for what is held, `realized_profit` for what sells made, on average cost with fees (bug 1): Overview's tiles, Holdings and `portfolio.csv`. The snapshot lists only held positions, so a closed position's realized profit shows only in the total. |
 | Allocation | Covered in part, gap 2 | Each holding's share of the cost (`spending_percent`): Holdings' "weight" and the report's spending pie. Nothing shows each holding's share of the current value, or groups holdings. |
 | Performance timeline | Covered in part, gaps 1 and 4 | The holdings' value at each month end (`compute_historical_valuation`: the report's valuation chart and Overview's "value at each month end"), and each symbol's price history with its first buy. New money lifts the value line as much as gains do, and nothing beside it shows what was put in. The only return figure is the profit % spread evenly over the years (`avg_year_roi`). XIRR or time-weighted returns are Phase 4's. |
-| Positions | Covered, gap 4 | The Holdings table and a page per symbol, and the CLI's holdings snapshot and opening positions (`build_positions`, `merge_positions`). Planned: pages for sold positions (W1), editing positions rows (W7), and positions in the app's own snapshots (W11's later items). |
-| Transactions | Covered | The transactions CSV or sheet for the CLI, the Transactions page with its filters (W1), and the app's trades page (W11a). |
+| Positions | Covered, gap 4 | The Holdings table and a page per symbol, and the CLI's holdings snapshot and opening positions (`build_positions`, `merge_positions`). Planned: pages for sold positions (W19), editing positions rows (W7), and positions in the app's own snapshots (W11's later items). |
+| Transactions | Covered | The transactions CSV or sheet for the CLI, the Transactions page with its filters (W19), and the app's trades page (W11a). |
 | Dividends | Gap, owner's call | No transaction type records one. The CLI reads any `type` and skips every row that isn't `buy` or `sell` without a word, and the app's trade form refuses one. Phase 4 and the owner's call below. |
 | Fees | Covered, gap 3 | Each trade's `fees` and `ex_fees` are added to its cost or taken off its proceeds, and Transactions shows them. Nothing adds up the fees paid: `Portfolio.wallet_fees` is set and never used. |
 | Deposits and withdrawals | Gap, owner's call | trkr tracks investments, not cash, so there is no cash balance. `TransType.DEPOSIT` and `WITHDRAW` are unused (Phase 2's dead code), and the projection's `deposits-withdrawals` are planned amounts, not records. Phase 4 and the owner's call below. |
@@ -557,14 +559,14 @@ The done-whens below were written on 2026-11-13 from each ticket's own text, add
 
 The gaps, each now an item in this plan:
 
-1. **Contributions over time.** The money put in less what sells took out, as a total and as a line beside the value at each month end, so the timeline tells gains from new money. A W3 item.
-2. **Allocation by value.** Each holding's share of the current value, beside its share of the cost. Part of W3's ranked bars. Grouping holdings, by currency, platform or exchange, is the owner's call below: trkr has no asset classes.
-3. **Realized profit and fees per symbol.** Sold positions included, and the fees paid in total. A W1 item, beside its sold positions.
-4. **Splits and adjusted prices.** Yahoo's prices are split- and dividend-adjusted, as `yfinance` gives them by default and as the Worker's route asks for them, but each trade keeps its quantity and price as traded, and nothing records a split. A split after a buy values that holding at the old quantity times the new price, and a dividend payer's past month-end values read lower than they were. An X2 item, for the ledger and the performance parts.
+1. **Contributions over time.** The money put in less what sells took out, as a total and as a line beside the value at each month end, so the timeline tells gains from new money. A W21 item.
+2. **Allocation by value.** Each holding's share of the current value, beside its share of the cost. Part of W21's ranked bars. Grouping holdings, by currency, platform or exchange, is the owner's call below: trkr has no asset classes.
+3. **Realized profit and fees per symbol.** Sold positions included, and the fees paid in total. A W19 item, beside its sold positions.
+4. **Splits and adjusted prices.** Yahoo's prices are split- and dividend-adjusted, as `yfinance` gives them by default and as the Worker's route asks for them, but each trade keeps its quantity and price as traded, and nothing records a split. A split after a buy values that holding at the old quantity times the new price, and a dividend payer's past month-end values read lower than they were. An X12 item, for the ledger and the performance parts.
 
-<a id="x2"></a>
+<a id="x12"></a>
 
-### X2: Tested calculation core (needs X1) · l
+### X12: Tested calculation core (needs X1) · l
 
 - [ ] Separate the ledger, positions, cost basis (with the method stated explicitly), performance and currency conversion.
 - [ ] Test each against independently checked reference examples.
@@ -573,7 +575,7 @@ The gaps, each now an item in this plan:
 
 <a id="x3"></a>
 
-### X3: Synthetic demo and privacy boundary (needs X2) · tbd
+### X3: Synthetic demo and privacy boundary (needs X12) · tbd
 
 - [ ] A synthetic demo portfolio that loads by default.
 - [ ] Real data stored locally only (local-first), and never shipped in a build.
@@ -585,9 +587,9 @@ The gaps, each now an item in this plan:
 
 Compared on 2026-11-04, with W11 (2026-11-13) added. trkr is a Python CLI that reads a Google Sheet or CSV, and its web app shows the `snapshot.json` each run writes; since W11 it can also make a snapshot from trades typed into it.
 
-- **X2** is Phases 0-2. Phase 0's tests and Phase 1's fixes are done, with average cost as the stated method ("Cost basis for sells" in the decisions table) and each currency converted with its own pair (bug 7). Phase 2's structure is not started.
-- **X3's demo** is at `/?demo` (W1), and the landing page asks for a snapshot first, so it doesn't load by default.
-- **X3's local-first storage:** an opened snapshot stays in the browser, on that device only when the owner asks (W1), and W11's trades are kept in the browser's storage on that device. The privacy check keeps everything but the made-up demo out of every build (W1).
+- **X12** is Phases 0-2. Phase 0's tests and Phase 1's fixes are done, with average cost as the stated method ("Cost basis for sells" in the decisions table) and each currency converted with its own pair (bug 7). Phase 2's structure is not started.
+- **X3's demo** is at `/?demo` (W19), and the landing page asks for a snapshot first, so it doesn't load by default.
+- **X3's local-first storage:** an opened snapshot stays in the browser, on that device only when the owner asks (W19), and W11's trades are kept in the browser's storage on that device. The privacy check keeps everything but the made-up demo out of every build (W19).
 - **X3's CSV import** is the CLI reading the sheet or file, and W11b adds pasting rows or opening a CSV in the app, with each bad row flagged. Duplicate detection is part of the planned broker import.
 - **X3's export and backup** are the files each run writes on the owner's PC, which this plan keeps out of the app. W11a downloads `snapshot.json` and `transactions.csv`, the backup that can be opened again. W12 downloads the reports, each page on its own or all of them combined.
 - **Manual entry:** the real transactions stay in the sheet ("Not planned": editing the real transactions). W11a adds trades typed into the app, for snapshots made there.
@@ -600,20 +602,20 @@ Compared on 2026-11-04, with W11 (2026-11-13) added. trkr is a Python CLI that r
 - [ ] Whether allocation groups holdings, by currency, platform or exchange, beyond each holding's own share (X1, gap 2).
 - [ ] Whether manual entry in the app, and dividends, deposits and withdrawals, stay target capabilities. W11's typed trades may answer the first. Drop from the target capabilities whatever doesn't stay.
 
-## Ecosystem standards: DOC1 and SCM1 (owner, 2026-11-18)
+## Ecosystem standards: DOC3 and SCM3 (owner, 2026-11-18)
 
-The ecosystem's contract, in `meta-eigenomar`, is adding two standards that every repository adopts: the documents each one keeps, and how each one manages its source and delivers it. DOC1 and SCM1 adopt them here, each once its standard is designed. Until then, their issues stay in the backlog. Both revisit what the onboarding kept as it was, at the owner's request.
+The ecosystem's contract, in `meta-eigenomar`, is adding two standards that every repository adopts: the documents each one keeps, and how each one manages its source and delivers it. DOC3 and SCM3 adopt them here, each once its standard is designed. Until then, their issues stay in the backlog. Both revisit what the onboarding kept as it was, at the owner's request.
 
-<a id="doc1"></a>
+<a id="doc3"></a>
 
-### DOC1: The product's documents (needs the ecosystem's document standard) · tbd
+### DOC3: The product's documents (needs the ecosystem's document standard) · tbd
 
-- [ ] Write or gather trkr's product vision, architecture, design, testing strategy, and verification and validation (V&V) documents, in the shape the ecosystem's document standard (`meta-eigenomar` ST1) sets. Where a file or section already covers one, name it rather than copy it. Today the architecture is `CLAUDE.md`'s pipeline, `web/README.md`'s "How it fits together" and "Feature: web app" above. The target capabilities and release gate (X1-X3) are the nearest thing to a vision and a V&V plan. The tests are pytest, with the golden and mirror snapshots, and the web app's Vitest suite, with its privacy check on every build.
+- [ ] Write or gather trkr's product vision, architecture, design, testing strategy, and verification and validation (V&V) documents, in the shape the ecosystem's document standard (`meta-eigenomar` ST1) sets. Where a file or section already covers one, name it rather than copy it. Today the architecture is `CLAUDE.md`'s pipeline, `web/README.md`'s "How it fits together" and "Feature: web app" above. The target capabilities and release gate (X1, X12 and X3) are the nearest thing to a vision and a V&V plan. The tests are pytest, with the golden and mirror snapshots, and the web app's Vitest suite, with its privacy check on every build.
 - Done when: each of the five documents exists, or names the file or section that holds it, and follows the standard's outline. `project.yaml` names them under the standard's keys, and the ecosystem's validator passes. Nothing in them is confidential, since this repo is public.
 
-<a id="scm1"></a>
+<a id="scm3"></a>
 
-### SCM1: The ecosystem's SCM strategy (needs the ecosystem's SCM strategy) · tbd
+### SCM3: The ecosystem's SCM strategy (needs the ecosystem's SCM strategy) · tbd
 
 - [ ] Adopt the ecosystem's SCM strategy (`meta-eigenomar` ST2) through its adoption checklist: CI, branching, protection of `main`, versioning and releases, the health report and dependency updates. Today `.github/workflows/deploy-web.yml` runs `npm run check` and deploys on pushes to `main` that change `web/`, nothing runs pytest or ruff in CI, work goes to `main` or a working branch, and there are no releases. Phase 3's GitHub Actions item, ruff and pytest on pushes and PRs, is done by this ticket if the strategy's CI covers it. The repo and its Actions logs are public, so no workflow writes the owner's domain or real data.
 - Done when: every item on the checklist is applied here, or recorded here as an exception the strategy allows, with its reason. `project.yaml`'s `delivery` and `CLAUDE.md` say what runs, every workflow passes on `main`, and the ecosystem's validator passes.
