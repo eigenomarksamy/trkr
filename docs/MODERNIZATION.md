@@ -50,6 +50,8 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-26: renamed, since the ecosystem's lanes are numbered across its repositories: W19 from `W1`, W20 from `W2`, W21 from `W3`, W22 from `W4`, W23 from `W5`, X12 from `X2`, DOC3 from `DOC1` and SCM3 from `SCM1`. Their anchors, headings, references and issues changed with them, and the notes above keep the ids they were written with.
 
+2026-11-27: the owner asked for trkr's tickets to move into their GitHub issues once the ecosystem's third standard, `meta-eigenomar` ST3, is built: its decisions were made that day. MIG3 ("Ecosystem standards") is the cutover, and nothing is built yet.
+
 ## Status (2026-11-07)
 
 | Area | State |
@@ -606,6 +608,8 @@ Compared on 2026-11-04, with W11 (2026-11-13) added. trkr is a Python CLI that r
 
 The ecosystem's contract, in `meta-eigenomar`, is adding two standards that every repository adopts: the documents each one keeps, and how each one manages its source and delivers it. DOC3 and SCM3 adopt them here, each once its standard is designed. Until then, their issues stay in the backlog. Both revisit what the onboarding kept as it was, at the owner's request.
 
+A third standard, `meta-eigenomar` ST3, makes GitHub's issues the home of every repository's backlog, and its decisions were made on 2026-11-27. MIG3 moves this plan's tickets there, once ST3 is built.
+
 <a id="doc3"></a>
 
 ### DOC3: The product's documents (needs the ecosystem's document standard) · tbd
@@ -619,6 +623,14 @@ The ecosystem's contract, in `meta-eigenomar`, is adding two standards that ever
 
 - [ ] Adopt the ecosystem's SCM strategy (`meta-eigenomar` ST2) through its adoption checklist: CI, branching, protection of `main`, versioning and releases, the health report and dependency updates. Today `.github/workflows/deploy-web.yml` runs `npm run check` and deploys on pushes to `main` that change `web/`, nothing runs pytest or ruff in CI, work goes to `main` or a working branch, and there are no releases. Phase 3's GitHub Actions item, ruff and pytest on pushes and PRs, is done by this ticket if the strategy's CI covers it. The repo and its Actions logs are public, so no workflow writes the owner's domain or real data.
 - Done when: every item on the checklist is applied here, or recorded here as an exception the strategy allows, with its reason. `project.yaml`'s `delivery` and `CLAUDE.md` say what runs, every workflow passes on `main`, and the ecosystem's validator passes.
+
+<a id="mig3"></a>
+
+### MIG3: The backlog moves into GitHub issues (needs GitHub as the home of the backlog) · m
+
+- [ ] Move this plan's planning to GitHub all at once, following the cutover steps of the ecosystem's standard `meta-eigenomar` ST3. Each open ticket's content moves into its issue's body, keeping its id and its issue's `<id>: <title>`. A work package's slices, such as W11's, become sub-issues where each is tracked on its own and checklists where it isn't. Ideas not yet tickets become draft items in the Project with status `idea`, hard needs are blocked-by links, and size, status and priority live only in the Project. Done, dropped and moved items stay here as a frozen archive, with the known-bug list, and each open ticket's anchor stays, linking its issue. The owner's calls and the release gate stay as files, or move into the documents DOC3 writes. A push to `main` that changes `web/` deploys, and this ticket changes nothing there.
+- Needs: GitHub as the home of the backlog (`meta-eigenomar` ST3), which includes the ecosystem's own cutover first and the backlog's backup. DOC3 is a planning need: the target capabilities move into the vision before this plan retires.
+- Done when: every open ticket's content is in its issue, and this file holds only the archive, the anchors and what stays a file. `project.yaml`'s `documents.plan` is `null` and `planning.source` names GitHub, the ecosystem's validator passes, nothing confidential is in any issue, since this repo is public, and the owner approved the cutover. Bringing tickets up to the ecosystem's ticket standard (`meta-eigenomar` ST4) isn't part of it: each ticket follows it when it is picked up.
 
 ## Ecosystem onboarding (2026-11-13)
 
