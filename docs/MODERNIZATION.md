@@ -52,7 +52,9 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-27: the owner asked for trkr's tickets to move into their GitHub issues once the ecosystem's third standard, `meta-eigenomar` ST3, is built: its decisions were made that day. MIG3 ("Ecosystem standards") is the cutover, and nothing is built yet.
 
-2026-11-27: W13 is built and not yet committed: the web app's tab icon is the ecosystem's, the lambda on a light-blue tile, in place of the chart line. Nothing else changed, the CSP included.
+2026-11-27: W13 is committed (`ce2c078`), not yet pushed: the web app's tab icon is the ecosystem's, the lambda on a light-blue tile, in place of the chart line. Nothing else changed, the CSP included.
+
+2026-11-27: W10 is built and not yet committed: a footer under every page with a button to eigenomar.com, opening a new tab. The CSP didn't change.
 
 ## Status (2026-11-07)
 
@@ -439,9 +441,10 @@ Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) an
 
 ### W10: Button to eigenomar.com (owner, 2026-11-04) · xs
 
-- [ ] A footer with a link to `https://eigenomar.com`, labelled `eigenomar.com` and styled with `.button`. The app has no footer yet: `shell()` in `web/src/app.ts` has a header and a main, and `landing()` in `web/src/views/landing.ts` stands in for them until a snapshot is open, so both need it.
-- [ ] It opens in a new tab (`target="_blank" rel="noopener"`). An open snapshot stays in the page unless the owner chose to remember it, so leaving in the same tab would drop it.
-- [ ] It stays a link, not a form, because the CSP has `form-action 'none'`. A link needs no change to the CSP in `web/src/worker.ts`.
+- [x] A footer with a link to `https://eigenomar.com`, labelled `eigenomar.com` and styled with `.button`. The app has no footer yet: `shell()` in `web/src/app.ts` has a header and a main, and `landing()` in `web/src/views/landing.ts` stands in for them until a snapshot is open, so both need it.
+- [x] It opens in a new tab (`target="_blank" rel="noopener"`). An open snapshot stays in the page unless the owner chose to remember it, so leaving in the same tab would drop it.
+- [x] It stays a link, not a form, because the CSP has `form-action 'none'`. A link needs no change to the CSP in `web/src/worker.ts`.
+- [x] Built on 2026-11-27: `siteFooter()` in `web/src/app.ts` is mounted after every page the router shows, so the guide and "make a snapshot here", added since this ticket was written, have it too. It is centered under the page and hidden in print. `npm run check` (98 tests) and `npm run build` pass. Checked with Playwright's Chromium against `npm run preview`, at 1280 and 375 px wide, light and dark, on the landing page, the demo's overview, the guide and the trades page: the button shows, Tab reaches it, Enter opens eigenomar.com (stubbed) in a new tab while the app's tab stays where it was, the console has no errors and no CSP violation, and print hides it. Not yet committed.
 
 <a id="w11"></a>
 
@@ -512,7 +515,7 @@ Every app under eigenomar.com shows the same tab icon: eigenomar.com's lambda wi
 
 - [x] Replace `web/public/favicon.svg`, the chart line, with it. `web/index.html` already links that file, so nothing else changes. The file is already tracked, so `check-private.mjs` lets the build through.
 - [x] The icon is served by the Worker like any other asset, so the CSP in `web/src/worker.ts` doesn't change.
-- [x] Checked on 2026-11-27: the file is SD5's icon byte for byte. `npm run check` (98 tests) and `npm run build` pass, and in headless Chrome against `npm run preview`, the app and `/?demo` each link one `image/svg+xml` icon, served under the unchanged CSP, which loads as an image with the file's bytes. The icon is a filled tile with no `prefers-color-scheme` rule, so it is the same in a light and a dark theme. Not yet committed, and the deployed app takes it with the next push to `main` that changes `web/`.
+- [x] Checked on 2026-11-27: the file is SD5's icon byte for byte. `npm run check` (98 tests) and `npm run build` pass, and in headless Chrome against `npm run preview`, the app and `/?demo` each link one `image/svg+xml` icon, served under the unchanged CSP, which loads as an image with the file's bytes. The icon is a filled tile with no `prefers-color-scheme` rule, so it is the same in a light and a dark theme. Committed in `ce2c078`, and the deployed app takes it with the next push to `main` that changes `web/`.
 - Done when: the deployed app's tab shows the icon in a light and a dark browser theme, the demo's too, and `npm run check` and `npm run build` pass.
 
 ### Not planned

@@ -86,18 +86,18 @@ export function start(root: HTMLElement): void {
     // The guide needs no snapshot, so it opens with or without one.
     if (isGuide(location.hash)) {
       document.title = 'how to make a snapshot.json · trkr';
-      mount(root, guide());
+      mount(root, guide(), siteFooter());
       return;
     }
     // So does making one from typed trades.
     if (isTrades(location.hash)) {
       document.title = 'make a snapshot here · trkr';
-      mount(root, tradesPage(reload));
+      mount(root, tradesPage(reload), siteFooter());
       return;
     }
     if (!loaded) {
       document.title = 'trkr';
-      mount(root, landing(reload));
+      mount(root, landing(reload), siteFooter());
       return;
     }
     let route = parseRoute(location.hash);
@@ -114,7 +114,7 @@ export function start(root: HTMLElement): void {
       currency: loaded.snapshot.config.default_currency,
       reload,
     };
-    mount(root, shell(context, route));
+    mount(root, shell(context, route), siteFooter());
   };
   window.addEventListener('hashchange', () => {
     render();
@@ -126,6 +126,19 @@ export function start(root: HTMLElement): void {
   if (!loaded && new URLSearchParams(location.search).has('demo')) {
     loadDemo().then(reload, () => undefined);
   }
+}
+
+/**
+ * The button back to eigenomar.com, under every page (W10). It opens a new tab,
+ * because a snapshot that isn't remembered lives only in this one. It stays a
+ * link: the CSP's form-action 'none' would stop a form.
+ */
+function siteFooter(): HTMLElement {
+  return h(
+    'footer',
+    { class: 'site-footer' },
+    h('a', { class: 'button', href: 'https://eigenomar.com', target: '_blank', rel: 'noopener' }, 'eigenomar.com'),
+  );
 }
 
 /** A printed page keeps each chart with its table: the folded tables open while printing. */
