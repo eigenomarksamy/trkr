@@ -52,6 +52,8 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-27: the owner asked for trkr's tickets to move into their GitHub issues once the ecosystem's third standard, `meta-eigenomar` ST3, is built: its decisions were made that day. MIG3 ("Ecosystem standards") is the cutover, and nothing is built yet.
 
+2026-11-27: W13 is built and not yet committed: the web app's tab icon is the ecosystem's, the lambda on a light-blue tile, in place of the chart line. Nothing else changed, the CSP included.
+
 ## Status (2026-11-07)
 
 | Area | State |
@@ -508,8 +510,9 @@ The app shows every report but can't hand one out. Today the only exports are th
 
 Every app under eigenomar.com shows the same tab icon: eigenomar.com's lambda with its two colors swapped, a light-blue tile and a near-black lambda (shared decision SD5).
 
-- [ ] Replace `web/public/favicon.svg`, the chart line, with it. `web/index.html` already links that file, so nothing else changes. The file is already tracked, so `check-private.mjs` lets the build through.
-- [ ] The icon is served by the Worker like any other asset, so the CSP in `web/src/worker.ts` doesn't change.
+- [x] Replace `web/public/favicon.svg`, the chart line, with it. `web/index.html` already links that file, so nothing else changes. The file is already tracked, so `check-private.mjs` lets the build through.
+- [x] The icon is served by the Worker like any other asset, so the CSP in `web/src/worker.ts` doesn't change.
+- [x] Checked on 2026-11-27: the file is SD5's icon byte for byte. `npm run check` (98 tests) and `npm run build` pass, and in headless Chrome against `npm run preview`, the app and `/?demo` each link one `image/svg+xml` icon, served under the unchanged CSP, which loads as an image with the file's bytes. The icon is a filled tile with no `prefers-color-scheme` rule, so it is the same in a light and a dark theme. Not yet committed, and the deployed app takes it with the next push to `main` that changes `web/`.
 - Done when: the deployed app's tab shows the icon in a light and a dark browser theme, the demo's too, and `npm run check` and `npm run build` pass.
 
 ### Not planned
