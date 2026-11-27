@@ -2,7 +2,7 @@
 
 A living checklist. Tick items as they land and note the commit hash. This repo is public, so confidential work never goes in this file; the ecosystem's shared rules, which `CLAUDE.md` imports, say where it goes. Order matters: Phase 0 builds the safety net that makes the later phases safe, because the portfolio math has only end-to-end golden coverage and has confirmed bugs.
 
-Each open ticket's heading ends in its size, the same value as its issue's `Size` in the ecosystem's GitHub Project, on the ecosystem's scale: xxs takes minutes, xs under an hour, s an hour or two, m about a session, l two or three, xl four to six and xxl more. tbd means an owner's call, a decision or work not yet planned decides it. A change to one is made to the other in the same session.
+Each open ticket's heading ends in its size, the same value as its issue's `Size` in the ecosystem's GitHub Project, on the ecosystem's scale: xxs takes minutes, xs under an hour, s an hour or two, m about a session, l two or three, xl four to six and xxl more. tbd means a choice of the owner's, a decision or work not yet planned decides it. A change to one is made to the other in the same session.
 
 State as of 2026-10-22: the last code change was 2025-03; the scheduled job ran successfully through 2025-11-04.
 
@@ -42,7 +42,7 @@ Later: `phase-1-bugs` was merged into `main` (`c7bc1fb`).
 
 2026-11-20: the owner asked for every app under eigenomar.com to share one tab icon, eigenomar.com's lambda with its colors swapped. W13 replaces the web app's chart line with it, and nothing is built yet.
 
-2026-11-25: X1's audit is done, not yet committed. Of the fifteen target capabilities, eight are covered, five in part, and dividends and deposits and withdrawals stay the owner's call. Its four gaps became items in W1, W3 and X2, and grouping holdings joins the owner's calls. One of them is new to this plan: Yahoo's prices are split-adjusted and the trades aren't.
+2026-11-25: X1's audit is done, not yet committed. Of the fifteen target capabilities, eight are covered, five in part, and dividends and deposits and withdrawals stay the owner's to decide. Its four gaps became items in W1, W3 and X2, and grouping holdings joins the decisions left to the owner. One of them is new to this plan: Yahoo's prices are split-adjusted and the trades aren't.
 
 2026-11-24: W11's slices 2 and 3 are built and not yet committed: the Worker's price route, and "make a snapshot here", the first slice anyone can see. A push to `main` deploys them, and the first check after that deploy is whether Yahoo answers Cloudflare's servers (W11). 175 Python tests and 87 web tests pass.
 
@@ -110,7 +110,7 @@ Claude assumes the defaults below unless told otherwise.
 | Snapshot cost | `cost` is the total paid in the default currency, as broker apps show it, so it needs no `ex_rate`. A row with `average_price` in another currency now requires `ex_rate`, which used to default to 1 without a warning. |
 | Web app: editing holdings | The hosted app can't write the local positions file. Edited rows are checked in the browser and downloaded as a positions CSV, to save over the file or paste into the sheet tab (W7). Transactions stay read-only, and the app never writes the config. |
 | Web app: private data | Nothing private is published. The deploy is built only from files git knows, and `web/scripts/check-private.mjs` refuses a build holding a local config's sheet address, the home directory, or any snapshot but the made-up demo. The CSP keeps the page from sending data anywhere; pages are `noindex`. The domain is passed at deploy time, not committed, since the repo is public. Wrangler metrics are off. |
-| Web app: getting the snapshot to a hosted app | Open the file, optionally kept in the browser's storage on that device (default). Owner's call, later: the scheduled job uploads each snapshot to R2 or KV behind Cloudflare Access, so a phone opens the latest one. That stores holdings at Cloudflare under the owner's account, and needs Access set up on the domain and an API token on the PC. |
+| Web app: getting the snapshot to a hosted app | Open the file, optionally kept in the browser's storage on that device (default). Later, if the owner chooses it: the scheduled job uploads each snapshot to R2 or KV behind Cloudflare Access, so a phone opens the latest one. That stores holdings at Cloudflare under the owner's account, and needs Access set up on the domain and an API token on the PC. |
 | Broker import: output | A CSV of new rows in the sheet's column order, to paste into the sheet or append to a local file. The importer never writes to Google. |
 | Sheet generator: Google Sheets | It writes one CSV per tab, to import into a new Google Sheet (File > Import), and the matching config blocks. Creating the sheet directly through the Google Sheets API needs a Google Cloud project, OAuth consent on the owner's account and a stored token, so it is a separate decision. |
 | Sheet generator: "prompts" | Questions the tool asks, in the terminal and in the web app. Turning free text into rows with an LLM is a different feature: it needs an API key and sends holdings to a third party. Not planned unless the owner asks. |
@@ -265,7 +265,7 @@ For holdings without a full trade history: one row per investment with a quantit
 - [x] A `cost` column (total paid, in the default currency) as an alternative to `average_price`, one or the other per row. The synthetic buy is priced at `cost / quantity`, with `ex_rate` 1. A row with `average_price` in another currency and no `ex_rate` is rejected. (`tests/test_positions.py`; `c45f7c3`)
 - [x] README, `examples/positions.csv` (one row with `cost`, same numbers) and CLAUDE.md. (`c45f7c3`)
 - [ ] Owner: add a holdings tab to the transactions sheet and a `positions:` block to `cfg.yml` and `cfg_bat.yml`. Keep transactions as the sheet's first tab, or link to that tab as well. Claude doesn't edit those configs without asking.
-- [ ] Later, owner's call: a symbol with no older trades has a price chart that starts at the snapshot. An optional `since` column (first-buy date) could start its history earlier without changing the cost.
+- [ ] Later, if the owner wants it: a symbol with no older trades has a price chart that starts at the snapshot. An optional `since` column (first-buy date) could start its history earlier without changing the cost.
 
 ## Feature: broker import (planned, owner 2026-10-28)
 
@@ -296,7 +296,7 @@ A setup tool that asks a few questions and writes every file trkr reads, so star
 - [ ] Google Sheets: instructions are printed with the files: create a sheet, import each CSV as its own tab, share it as "Anyone with the link", and paste each tab's link into the config. Links to a tab already work (`sheet_export_url`).
 - [ ] CLI: `trkr init` (`run.py init` until Phase 3), with plain `input()` prompts on top of pure functions (answers to rows) that the web wizard calls too.
 - [ ] Tests: answers to files for a made-up portfolio, with `yf.Search` stubbed. The generated files then feed an `exec` run on the offline fixture.
-- [ ] Owner's call: create the Google Sheet directly through the Sheets API (see the decisions table).
+- [ ] If the owner chooses it: create the Google Sheet directly through the Sheets API (see the decisions table).
 
 ## Feature: web app
 
@@ -331,8 +331,8 @@ Each feature of the CLI, and where it ends up in the app:
 | Logs and exit codes | `log/`, console | Not in the app | none |
 | Static HTML report | `report.html` | Still written by the CLI; the app downloads a self-contained combined report | W12 |
 | Holdings snapshot | `positions:` file or sheet tab | Positions are marked in Transactions; editing is W7 | W7 |
-| Broker import | `trkr import` (planned) | Upload page, owner's call | W8 |
-| Setup | `trkr init` (planned) | Wizard, owner's call | W9 |
+| Broker import | `trkr import` (planned) | Upload page, if the owner wants it | W8 |
+| Setup | `trkr init` (planned) | Wizard, if the owner wants it | W9 |
 
 <a id="w0"></a>
 
@@ -374,7 +374,15 @@ Each feature of the CLI, and where it ends up in the app:
 A Worker can't start the CLI, so "Run now", run status and the run lock are dropped from the hosted app. The scheduled job and the CLI make the runs.
 
 - [ ] Open several snapshots from `snapshots/` at once and chart total value across them: a value-over-time series at each run's current prices.
-- [ ] Owner's call: get the latest snapshot to the app without the file (decisions table, "getting the snapshot to a hosted app").
+- [ ] Get the latest snapshot to the app without the file, once [its decision](#w20-needs) is made.
+
+<a id="w20-needs"></a>
+
+#### needs: one decision
+
+1. **The latest snapshot without the file.** The scheduled job could upload each snapshot to R2 or KV behind Cloudflare Access, so a phone opens the latest one. That stores holdings at Cloudflare under the owner's account, and needs Access set up on the domain and an API token on the PC. Today the file is opened, as the decisions table's "getting the snapshot to a hosted app" says.
+
+   open
 
 <a id="w21"></a>
 
@@ -385,7 +393,18 @@ A Worker can't start the CLI, so "Run now", run status and the run lock are drop
 - [ ] The money put in less what sells took out, as a total on Overview and as a second line on "value at each month end", so the chart tells gains from new money (X1, gap 1). The snapshot's trades are enough to work it out.
 - [ ] Legend toggles and date-range zoom; price targets on symbol charts.
 - [ ] Imaginary portfolios overlaid on the real one's value.
-- [ ] Phase 4's interactive-report item could reuse these charts in the static report. Until the owner decides on that, the CLI report keeps its PNGs.
+- [ ] Phase 4's interactive-report item could reuse these charts in the static report. Until [its decision](#w21-needs) is made, the CLI report keeps its PNGs.
+
+<a id="w21-needs"></a>
+
+#### needs: two decisions
+
+1. **Grouping holdings in allocation.** Whether allocation groups holdings, by currency, platform or exchange, beyond each holding's own share (X1, gap 2). trkr has no asset classes.
+
+   open
+2. **These charts in the static report.** Whether the CLI's static report reuses these charts, Phase 4's interactive-report item, instead of its PNGs.
+
+   open
 
 <a id="w22"></a>
 
@@ -429,7 +448,15 @@ Pricing a typed portfolio needs Yahoo, which the browser can't call (no CORS) an
 
 ### W8: Broker import from the browser (owner's call) · tbd
 
-- [ ] The importer is Python (`src/importers/`). In the hosted app it would need a TypeScript copy of each parser, or a Worker running Python. Until the owner decides, the importer stays a CLI command.
+- [ ] The importer is Python (`src/importers/`). In the hosted app it would need a TypeScript copy of each parser, or a Worker running Python. Until [its decision](#w8-needs) is made, the importer stays a CLI command.
+
+<a id="w8-needs"></a>
+
+#### needs: one decision
+
+1. **The importer in the hosted app.** A TypeScript copy of each parser, or a Worker running Python.
+
+   open
 
 <a id="w9"></a>
 
@@ -545,7 +572,7 @@ The done-whens below were written on 2026-11-13 from each ticket's own text, add
 ### X1: Audit against the target capabilities · s
 
 - [x] List what the repo already does against the target capabilities, and record the gaps under this heading. Name the gaps only, and leave what is done to the rest of this plan. "Where they meet this plan" compares plan with plan, so this checks the code and the app themselves. Done 2026-11-25, from `src/` and `web/src/` as of `68ed062`: the table and the gaps below.
-- Done when: every target capability is listed here as covered (and where), planned (and by which item), or a gap, and each gap is an item in this plan or one of the owner's calls below.
+- Done when: every target capability is listed here as covered (and where), planned (and by which item), or a gap, and each gap is an item in this plan or one of the decisions left to the owner.
 
 | Capability | State | Where |
 | --- | --- | --- |
@@ -556,9 +583,9 @@ The done-whens below were written on 2026-11-13 from each ticket's own text, add
 | Performance timeline | Covered in part, gaps 1 and 4 | The holdings' value at each month end (`compute_historical_valuation`: the report's valuation chart and Overview's "value at each month end"), and each symbol's price history with its first buy. New money lifts the value line as much as gains do, and nothing beside it shows what was put in. The only return figure is the profit % spread evenly over the years (`avg_year_roi`). XIRR or time-weighted returns are Phase 4's. |
 | Positions | Covered, gap 4 | The Holdings table and a page per symbol, and the CLI's holdings snapshot and opening positions (`build_positions`, `merge_positions`). Planned: pages for sold positions (W19), editing positions rows (W7), and positions in the app's own snapshots (W11's later items). |
 | Transactions | Covered | The transactions CSV or sheet for the CLI, the Transactions page with its filters (W19), and the app's trades page (W11a). |
-| Dividends | Gap, owner's call | No transaction type records one. The CLI reads any `type` and skips every row that isn't `buy` or `sell` without a word, and the app's trade form refuses one. Phase 4 and the owner's call below. |
+| Dividends | Gap, the owner's to decide | No transaction type records one. The CLI reads any `type` and skips every row that isn't `buy` or `sell` without a word, and the app's trade form refuses one. Phase 4, and X3's decision 2. |
 | Fees | Covered, gap 3 | Each trade's `fees` and `ex_fees` are added to its cost or taken off its proceeds, and Transactions shows them. Nothing adds up the fees paid: `Portfolio.wallet_fees` is set and never used. |
-| Deposits and withdrawals | Gap, owner's call | trkr tracks investments, not cash, so there is no cash balance. `TransType.DEPOSIT` and `WITHDRAW` are unused (Phase 2's dead code), and the projection's `deposits-withdrawals` are planned amounts, not records. Phase 4 and the owner's call below. |
+| Deposits and withdrawals | Gap, the owner's to decide | trkr tracks investments, not cash, so there is no cash balance. `TransType.DEPOSIT` and `WITHDRAW` are unused (Phase 2's dead code), and the projection's `deposits-withdrawals` are planned amounts, not records. Phase 4, and X3's decision 2. |
 | FX | Covered | Each currency with its own Yahoo pair, history at each date's rate, and minor units (bug 7: `convert_currencies`, and `web/src/market.ts`), and each trade's cost at its own `ex_rate`. A trade's `currency` column is read but no figure uses it, and nothing checks it against the currency Yahoo gives the ticker: X3's import validation. |
 | Manual entry | Covered | The sheet or CSV for the CLI. In the app, the trades page, one trade at a time with all eleven columns, checked as the CLI reads them (W11a). |
 | CSV import | Covered in part, planned | The CLI reads the transactions CSV or sheet, and the positions file by column name with its checks (400). The transactions reader goes by column order and drops the first row whatever it holds (Phase 2's `csv.DictReader` item), and it checks nothing: a mistyped `type` is skipped, and a bad number or date stops the run with a traceback (exit 1). Nothing detects duplicates. Planned: pasting or opening a CSV in the app with bad rows flagged (W11b), validation and duplicate detection (X3), and broker exports (broker import). |
@@ -568,7 +595,7 @@ The done-whens below were written on 2026-11-13 from each ticket's own text, add
 The gaps, each now an item in this plan:
 
 1. **Contributions over time.** The money put in less what sells took out, as a total and as a line beside the value at each month end, so the timeline tells gains from new money. A W21 item.
-2. **Allocation by value.** Each holding's share of the current value, beside its share of the cost. Part of W21's ranked bars. Grouping holdings, by currency, platform or exchange, is the owner's call below: trkr has no asset classes.
+2. **Allocation by value.** Each holding's share of the current value, beside its share of the cost. Part of W21's ranked bars. Grouping holdings, by currency, platform or exchange, is W21's decision 1: trkr has no asset classes.
 3. **Realized profit and fees per symbol.** Sold positions included, and the fees paid in total. A W19 item, beside its sold positions.
 4. **Splits and adjusted prices.** Yahoo's prices are split- and dividend-adjusted, as `yfinance` gives them by default and as the Worker's route asks for them, but each trade keeps its quantity and price as traded, and nothing records a split. A split after a buy values that holding at the old quantity times the new price, and a dividend payer's past month-end values read lower than they were. An X12 item, for the ledger and the performance parts.
 
@@ -591,6 +618,17 @@ The gaps, each now an item in this plan:
 - [ ] Export and backup.
 - Done when: the demo opens without a snapshot (unless the owner drops that, below), real data stays on the device and the privacy check refuses a build that holds it, an import rejects bad rows and skips rows it already has, and an export can be opened again as a backup.
 
+<a id="x3-needs"></a>
+
+#### needs: two decisions
+
+1. **The demo by default.** Whether the synthetic demo loads by default.
+
+   open
+2. **Which target capabilities stay.** Whether manual entry in the app, and dividends, deposits and withdrawals, stay target capabilities. W11's typed trades may answer the first. Drop from the target capabilities whatever doesn't stay.
+
+   open
+
 ### Where they meet this plan
 
 Compared on 2026-11-04, with W11 (2026-11-13) added. trkr is a Python CLI that reads a Google Sheet or CSV, and its web app shows the `snapshot.json` each run writes; since W11 it can also make a snapshot from trades typed into it.
@@ -601,14 +639,8 @@ Compared on 2026-11-04, with W11 (2026-11-13) added. trkr is a Python CLI that r
 - **X3's CSV import** is the CLI reading the sheet or file, and W11b adds pasting rows or opening a CSV in the app, with each bad row flagged. Duplicate detection is part of the planned broker import.
 - **X3's export and backup** are the files each run writes on the owner's PC, which this plan keeps out of the app. W11a downloads `snapshot.json` and `transactions.csv`, the backup that can be opened again. W12 downloads the reports, each page on its own or all of them combined.
 - **Manual entry:** the real transactions stay in the sheet ("Not planned": editing the real transactions). W11a adds trades typed into the app, for snapshots made there.
-- **Dividends, deposits and withdrawals** are in Phase 4, optional and the owner's call, so nothing commits to them yet.
+- **Dividends, deposits and withdrawals** are in Phase 4, optional, and X3's decision 2 says whether they stay, so nothing commits to them yet.
 - **The release gate's imports**, for broker exports, wait on a sample export from each broker (broker import).
-
-### Owner's call
-
-- [ ] Whether the demo should load by default.
-- [ ] Whether allocation groups holdings, by currency, platform or exchange, beyond each holding's own share (X1, gap 2).
-- [ ] Whether manual entry in the app, and dividends, deposits and withdrawals, stay target capabilities. W11's typed trades may answer the first. Drop from the target capabilities whatever doesn't stay.
 
 ## Ecosystem standards: DOC3 and SCM3 (owner, 2026-11-18)
 
@@ -634,7 +666,7 @@ A third standard, `meta-eigenomar` ST3, makes GitHub's issues the home of every 
 
 ### MIG3: The backlog moves into GitHub issues (needs GitHub as the home of the backlog) · m
 
-- [ ] Move this plan's planning to GitHub all at once, following the cutover steps of the ecosystem's standard `meta-eigenomar` ST3. Each open ticket's content moves into its issue's body, keeping its id and its issue's `<id>: <title>`. A work package's slices, such as W11's, become sub-issues where each is tracked on its own and checklists where it isn't. Ideas not yet tickets become draft items in the Project with status `idea`, hard needs are blocked-by links, and size, status and priority live only in the Project. Done, dropped and moved items stay here as a frozen archive, with the known-bug list, and each open ticket's anchor stays, linking its issue. The owner's calls and the release gate stay as files, or move into the documents DOC3 writes. A push to `main` that changes `web/` deploys, and this ticket changes nothing there.
+- [ ] Move this plan's planning to GitHub all at once, following the cutover steps of the ecosystem's standard `meta-eigenomar` ST3. Each open ticket's content moves into its issue's body, keeping its id and its issue's `<id>: <title>`. A work package's slices, such as W11's, become sub-issues where each is tracked on its own and checklists where it isn't. Ideas not yet tickets become draft items in the Project with status `idea`, hard needs are blocked-by links, and size, status and priority live only in the Project. Done, dropped and moved items stay here as a frozen archive, with the known-bug list, and each open ticket's anchor stays, linking its issue. The decisions left to the owner and the release gate stay as files, or move into the documents DOC3 writes. A push to `main` that changes `web/` deploys, and this ticket changes nothing there.
 - Needs: GitHub as the home of the backlog (`meta-eigenomar` ST3), which includes the ecosystem's own cutover first and the backlog's backup. DOC3 is a planning need: the target capabilities move into the vision before this plan retires.
 - Done when: every open ticket's content is in its issue, and this file holds only the archive, the anchors and what stays a file. `project.yaml`'s `documents.plan` is `null` and `planning.source` names GitHub, the ecosystem's validator passes, nothing confidential is in any issue, since this repo is public, and the owner approved the cutover. Bringing tickets up to the ecosystem's ticket standard (`meta-eigenomar` ST4) isn't part of it: each ticket follows it when it is picked up.
 
